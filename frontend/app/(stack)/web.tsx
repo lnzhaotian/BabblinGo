@@ -54,11 +54,13 @@ export default function WebPage() {
 
   return (
     <View style={{ flex: 1 }}>
-      <SafeAreaView style={[styles.header, Platform.OS === "ios" ? styles.headerIos : null]}>
+      <SafeAreaView style={[styles.header, Platform.OS === "ios" ? styles.headerIos : null]} edges={['left', 'top', 'right']}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton} accessibilityLabel="Back">
-            <MaterialIcons name="arrow-back" size={24} color="#007aff" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton} accessibilityLabel="Back">
+              <MaterialIcons name="arrow-back" size={24} color="#007aff" />
+            </TouchableOpacity>
+          </View>
 
           <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
             {title ?? "Web"}
@@ -137,19 +139,19 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   headerIos: {
-    // give a slight translucent effect on iOS so the status area feels blended
-    backgroundColor: "rgba(255,255,255,0.6)",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "#eee",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingBottom: 0,
+    paddingHorizontal: 8,
+    paddingBottom: 8,
   },
   headerButton: {
-    paddingRight: 12,
+    paddingRight: 8,
   },
   headerTitle: {
     flex: 1,
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     paddingHorizontal: 8,
-    paddingVertical: 6,
+    paddingVertical: 0,
     justifyContent: "center",
     alignItems: "center",
   },

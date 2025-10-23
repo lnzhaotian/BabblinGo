@@ -25,8 +25,8 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: "BabblinGo", tabBarLabel: "BabblinGo" }} />
-      <Tabs.Screen name="tests" options={{ title: "Tests", tabBarLabel: "Tests" }} />
-      <Tabs.Screen name="settings" options={{ title: "Settings", tabBarLabel: "Settings" }} />
+      <Tabs.Screen name="tests" options={{ title: "测试", tabBarLabel: "测试" }} />
+      <Tabs.Screen name="settings" options={{ title: "设置", tabBarLabel: "设置" }} />
     </Tabs>
   );
 }
