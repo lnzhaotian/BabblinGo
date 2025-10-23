@@ -61,7 +61,7 @@ export default function Index() {
   return (
     // only apply safe-area padding at top here; we'll handle bottom padding on the list
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-      <View style={{ padding: 16, justifyContent: "center", alignItems: "center" }}>
+      <View style={{ padding: 16, justifyContent: "center", alignItems: "center", borderBottomWidth: 2, borderBottomColor: "#ddd" }}>
         <Text style={{ fontSize: 20, fontWeight: "700" }}>BabblinGo</Text>
       </View>
 

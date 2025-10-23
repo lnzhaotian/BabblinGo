@@ -17,7 +17,7 @@ export default function WebPage() {
   const router = useRouter();
   const [WebViewComponent, setWebViewComponent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [webLoadingProgress, setWebLoadingProgress] = useState<number>(0);
+  
   const webviewRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
 
@@ -69,19 +69,6 @@ export default function WebPage() {
               <MaterialIcons name="refresh" size={22} color="#007aff" />
             </TouchableOpacity>
           </View>
-
-        </View>
-
-        {/* small loading progress area */}
-        <View style={styles.progressRow}>
-          {loading ? (
-            <View style={styles.progressContainer}>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressBarInner, { width: `${Math.round((webLoadingProgress || 0) * 100)}%` }]} />
-              </View>
-              <Text style={{ marginLeft: 8 }}>{webLoadingProgress > 0 ? `${Math.round(webLoadingProgress * 100)}%` : "Loading..."}</Text>
-            </View>
-          ) : null}
         </View>
       </SafeAreaView>
 
@@ -120,9 +107,7 @@ export default function WebPage() {
                 style={{ flex: 1, marginBottom: insets.bottom }}
                 startInLoadingState
                 injectedJavaScriptBeforeContentLoaded={injected}
-                onLoadStart={() => setWebLoadingProgress(0)}
-                onLoadProgress={(e: any) => setWebLoadingProgress(e.nativeEvent.progress ?? 0)}
-                onLoadEnd={() => setWebLoadingProgress(1)}
+                
               />
             );
           })()
@@ -161,7 +146,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    paddingBottom: 8,
+    paddingBottom: 0,
   },
   headerButton: {
     paddingRight: 12,
@@ -185,23 +170,5 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  progressRow: {
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-  },
-  progressContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  progressBar: {
-    height: 6,
-    flex: 1,
-    backgroundColor: "#eee",
-    borderRadius: 4,
-    overflow: "hidden",
-  },
-  progressBarInner: {
-    height: "100%",
-    backgroundColor: "#007aff",
-  },
+  
 });
