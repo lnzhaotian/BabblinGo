@@ -13,9 +13,9 @@ export default function TabsLayout() {
             "home";
 
           if (route.name === "index") {
-            iconName = "home";
+            iconName = "language";
           } else if (route.name === "tests") {
-            iconName = "science";
+            iconName = "quiz";
           } else if (route.name === "settings") {
             iconName = "settings";
           }

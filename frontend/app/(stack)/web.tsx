@@ -6,10 +6,10 @@ import {
   ActivityIndicator,
   Platform,
   Linking,
-  SafeAreaView,
-  Share,
   StyleSheet,
 } from "react-native";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 
 export default function WebPage() {
@@ -17,7 +17,9 @@ export default function WebPage() {
   const router = useRouter();
   const [WebViewComponent, setWebViewComponent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [webLoadingProgress, setWebLoadingProgress] = useState<number>(0);
   const webviewRef = useRef<any>(null);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (Platform.OS === "web") {
@@ -48,20 +50,14 @@ export default function WebPage() {
     }
   };
 
-  const onShare = async () => {
-    try {
-      if (url) await Share.share({ message: String(url), url: String(url), title: title ?? "Link" });
-    } catch (e) {
-      console.warn("Share failed", e);
-    }
-  };
+  // share removed per request
 
   return (
     <View style={{ flex: 1 }}>
       <SafeAreaView style={[styles.header, Platform.OS === "ios" ? styles.headerIos : null]}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-            <Text style={{ color: "#007aff" }}>Back</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton} accessibilityLabel="Back">
+            <MaterialIcons name="arrow-back" size={24} color="#007aff" />
           </TouchableOpacity>
 
           <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
@@ -69,19 +65,67 @@ export default function WebPage() {
           </Text>
 
           <View style={styles.headerActions}>
-            <TouchableOpacity onPress={onReload} style={styles.headerActionButton}>
-              <Text style={{ color: "#007aff" }}>Reload</Text>
-            </TouchableOpacity>
-            <TouchableOpacity onPress={onShare} style={styles.headerActionButton}>
-              <Text style={{ color: "#007aff" }}>Share</Text>
+            <TouchableOpacity onPress={onReload} style={styles.iconButton} accessibilityLabel="Reload">
+              <MaterialIcons name="refresh" size={22} color="#007aff" />
             </TouchableOpacity>
           </View>
+
+        </View>
+
+        {/* small loading progress area */}
+        <View style={styles.progressRow}>
+          {loading ? (
+            <View style={styles.progressContainer}>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressBarInner, { width: `${Math.round((webLoadingProgress || 0) * 100)}%` }]} />
+              </View>
+              <Text style={{ marginLeft: 8 }}>{webLoadingProgress > 0 ? `${Math.round(webLoadingProgress * 100)}%` : "Loading..."}</Text>
+            </View>
+          ) : null}
         </View>
       </SafeAreaView>
 
       <View style={{ flex: 1 }}>
         {WebViewComponent ? (
-          <WebViewComponent ref={webviewRef} source={{ uri: String(url ?? "") }} style={{ flex: 1 }} startInLoadingState />
+          (() => {
+            const injected = `
+              (function() {
+                try {
+                  // ensure viewport fits safe area on iOS
+                  var meta = document.querySelector('meta[name=viewport]');
+                  if (!meta) {
+                    meta = document.createElement('meta');
+                    meta.name = 'viewport';
+                    meta.content = 'width=device-width, initial-scale=1, viewport-fit=cover';
+                    document.head.appendChild(meta);
+                  } else if (meta.content.indexOf('viewport-fit') === -1) {
+                    meta.content = meta.content + ', viewport-fit=cover';
+                  }
+
+                  // add safe-area padding and prevent _blank from opening external bars
+                  var style = document.createElement('style');
+                  style.innerHTML = 'html,body{height:100%;margin:0;padding-bottom:env(safe-area-inset-bottom);box-sizing:border-box;}-webkit-touch-callout:none;';
+                  document.head.appendChild(style);
+
+                  // override window.open to avoid opening new browser UI
+                  window.open = function(url) { window.location.href = url; };
+                } catch (e) {}
+              })(); true;
+            `;
+
+            return (
+              <WebViewComponent
+                ref={webviewRef}
+                source={{ uri: String(url ?? "") }}
+                style={{ flex: 1, marginBottom: insets.bottom }}
+                startInLoadingState
+                injectedJavaScriptBeforeContentLoaded={injected}
+                onLoadStart={() => setWebLoadingProgress(0)}
+                onLoadProgress={(e: any) => setWebLoadingProgress(e.nativeEvent.progress ?? 0)}
+                onLoadEnd={() => setWebLoadingProgress(1)}
+              />
+            );
+          })()
         ) : loading ? (
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
             <ActivityIndicator size="large" />
@@ -134,5 +178,30 @@ const styles = StyleSheet.create({
   },
   headerActionButton: {
     marginLeft: 8,
+  },
+  iconButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  progressRow: {
+    paddingHorizontal: 12,
+    paddingBottom: 8,
+  },
+  progressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  progressBar: {
+    height: 6,
+    flex: 1,
+    backgroundColor: "#eee",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressBarInner: {
+    height: "100%",
+    backgroundColor: "#007aff",
   },
 });
