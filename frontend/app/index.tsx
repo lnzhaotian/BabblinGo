@@ -1,7 +1,7 @@
 import { Text, View } from "react-native";
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { config } from './config';
+import { config } from '../lib/config';
 
 export default function Index() {
   const [data, setData] = useState<string | null>(null);
