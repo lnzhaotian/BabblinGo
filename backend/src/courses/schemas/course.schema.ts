@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 
 export type CourseDocument = Course & Document;
 
@@ -28,3 +28,46 @@ export class Course {
 }
 
 export const CourseSchema = SchemaFactory.createForClass(Course);
+// Normalize mongoose output: map _id to id, remove __v, keep timestamps
+type CourseRaw = Course & { _id?: Types.ObjectId; __v?: number; id?: string };
+
+CourseSchema.set('toJSON', {
+  virtuals: true,
+  versionKey: false,
+  transform: (_doc: Document, ret: CourseRaw) => {
+    if (
+      ret &&
+      typeof ret === 'object' &&
+      Object.prototype.hasOwnProperty.call(ret, '_id')
+    ) {
+      const idVal = ret._id;
+      if (idVal != null) {
+        // Types.ObjectId has a toString method
+        // assign id string and remove _id
+        ret.id = idVal.toString();
+        Reflect.deleteProperty(ret, '_id');
+      }
+    }
+    // createdAt/updatedAt are Dates -> JSON will convert to ISO strings automatically
+    return ret;
+  },
+});
+
+CourseSchema.set('toObject', {
+  virtuals: true,
+  versionKey: false,
+  transform: (_doc: Document, ret: CourseRaw) => {
+    if (
+      ret &&
+      typeof ret === 'object' &&
+      Object.prototype.hasOwnProperty.call(ret, '_id')
+    ) {
+      const idVal = ret._id;
+      if (idVal != null) {
+        ret.id = idVal.toString();
+        Reflect.deleteProperty(ret, '_id');
+      }
+    }
+    return ret;
+  },
+});

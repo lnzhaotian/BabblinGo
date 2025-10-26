@@ -22,7 +22,12 @@ import {
   ApiParam,
   ApiBody,
   ApiCreatedResponse,
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
+  ApiNotFoundResponse,
 } from '@nestjs/swagger';
+import { CourseResponseDto } from './dto/course-response.dto';
+import { PaginatedCoursesDto } from './dto/paginated-courses.dto';
 
 @ApiTags('courses')
 @Controller('api/courses')
@@ -34,9 +39,23 @@ export class CoursesController {
   @ApiOperation({ summary: 'Create a new course' })
   @ApiCreatedResponse({
     description: 'The course has been created.',
-    type: CreateCourseDto,
+    type: CourseResponseDto,
   })
   @ApiBody({ type: CreateCourseDto })
+  @ApiBadRequestResponse({
+    description: 'Invalid request data',
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['title must be a string'],
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Missing or invalid JWT',
+    schema: { example: { statusCode: 401, message: 'Unauthorized' } },
+  })
   @Post()
   create(@Body() dto: CreateCourseDto) {
     return this.service.create(dto);
@@ -60,6 +79,12 @@ export class CoursesController {
     name: 'q',
     required: false,
     description: 'Search query',
+    type: String,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Paginated list',
+    type: PaginatedCoursesDto,
   })
   findAll(
     @Query('page') page?: string,
@@ -79,7 +104,11 @@ export class CoursesController {
   @ApiResponse({
     status: 200,
     description: 'Course found.',
-    type: CreateCourseDto,
+    type: CourseResponseDto,
+  })
+  @ApiNotFoundResponse({
+    description: 'Course not found',
+    schema: { example: { statusCode: 404, message: 'Course not found' } },
   })
   findOne(@Param('id') id: string) {
     return this.service.findOne(id);
@@ -93,7 +122,22 @@ export class CoursesController {
   @ApiResponse({
     status: 200,
     description: 'Course updated',
-    type: CreateCourseDto,
+    type: CourseResponseDto,
+  })
+  @ApiBadRequestResponse({
+    schema: {
+      example: {
+        statusCode: 400,
+        message: ['slug must be a string'],
+        error: 'Bad Request',
+      },
+    },
+  })
+  @ApiUnauthorizedResponse({
+    schema: { example: { statusCode: 401, message: 'Unauthorized' } },
+  })
+  @ApiNotFoundResponse({
+    schema: { example: { statusCode: 404, message: 'Course not found' } },
   })
   @Patch(':id')
   update(@Param('id') id: string, @Body() dto: UpdateCourseDto) {
@@ -105,6 +149,12 @@ export class CoursesController {
   @ApiOperation({ summary: 'Delete a course' })
   @ApiParam({ name: 'id', description: 'Course Mongo ID' })
   @ApiResponse({ status: 200, description: 'Course deleted' })
+  @ApiUnauthorizedResponse({
+    schema: { example: { statusCode: 401, message: 'Unauthorized' } },
+  })
+  @ApiNotFoundResponse({
+    schema: { example: { statusCode: 404, message: 'Course not found' } },
+  })
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.service.remove(id);
