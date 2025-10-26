@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, TouchableOpacity, FlatList } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 
@@ -55,8 +55,6 @@ export default function Index() {
       <MaterialIcons name="chevron-right" size={28} color="#999" />
     </TouchableOpacity>
   );
-
-  const insets = useSafeAreaInsets();
 
   return (
     // only apply safe-area padding at top here; we'll handle bottom padding on the list
