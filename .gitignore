@@ -1,0 +1,31 @@
+# macOS
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Payload CMS build artifacts
+BabblinGoAdmin/.next/
+BabblinGoAdmin/node_modules/
+BabblinGoAdmin/.pnpm-store/
+BabblinGoAdmin/playwright-report/
+BabblinGoAdmin/test-results/
+BabblinGoAdmin/blob-report/
+BabblinGoAdmin/playwright/.cache/
+
+# Payload CMS environment secrets
+BabblinGoAdmin/.env
+BabblinGoAdmin/.env.local
+BabblinGoAdmin/.env.*.local
+
+# Expo build output
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+
+# Expo native bundles
+frontend/android/
+frontend/ios/
