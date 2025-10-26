@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { MongoMemoryServer } from 'mongodb-memory-server';
+import mongoose from 'mongoose';
 import { AppModule } from '../src/app.module';
 
 jest.setTimeout(60_000);
@@ -25,6 +26,12 @@ describe('Courses e2e (smoke)', () => {
 
   afterAll(async () => {
     if (app) await app.close();
+    // ensure mongoose connections are fully closed to let Jest exit cleanly
+    try {
+      await mongoose.disconnect();
+    } catch {
+      // ignore
+    }
     if (mongod) await mongod.stop();
   });
 
@@ -38,11 +45,12 @@ describe('Courses e2e (smoke)', () => {
     expect(loginRes.body).toHaveProperty('access_token');
     const token = loginRes.body.access_token;
 
-    // Create course
+    // Create course (use unique slug to avoid collisions across test runs)
+    const uniqueSlug = `e2e-course-${Date.now()}`;
     const createRes = await request(app.getHttpServer())
       .post('/api/courses')
       .set('Authorization', `Bearer ${token}`)
-      .send({ title: 'E2E Course', slug: 'e2e-course', description: 'desc' })
+      .send({ title: 'E2E Course', slug: uniqueSlug, description: 'desc' })
       .expect(201);
 
     expect(createRes.body).toHaveProperty('id');

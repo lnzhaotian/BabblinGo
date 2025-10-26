@@ -3,6 +3,11 @@ import { AppModule } from './app.module';
 import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Reflector } from '@nestjs/core';
+// AdminJS imports are loaded dynamically below inside a try/catch because
+// some AdminJS packages have export/compatibility issues in certain Node
+// environments. Loading them dynamically prevents startup crashes when the
+// packages aren't available or are incompatible.
+// AdminModule will initialize AdminJS; no direct AdminJS imports here.
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
@@ -18,6 +23,8 @@ async function bootstrap() {
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document);
+
+  // AdminJS is initialized by the AdminModule during bootstrap.
 
   await app.listen(process.env.PORT ?? 3000);
 }
