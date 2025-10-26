@@ -4,6 +4,68 @@ import { Document, Types } from 'mongoose';
 
 export type CourseDocument = Course & Document;
 
+// Nested content model
+export type ModuleType = 'text' | 'image' | 'audio' | 'video';
+
+@Schema({ _id: true, timestamps: false })
+export class ModuleItem {
+  @Prop({ required: true, enum: ['text', 'image', 'audio', 'video'] })
+  type: ModuleType;
+
+  @Prop()
+  title?: string;
+
+  // For text modules
+  @Prop()
+  textContent?: string;
+
+  // For media modules
+  @Prop()
+  mediaUrl?: string; // served URL (e.g., /uploads/media/filename.ext)
+
+  @Prop()
+  mediaMimeType?: string;
+
+  @Prop()
+  mediaSize?: number;
+
+  @Prop({ default: 0 })
+  order?: number;
+}
+
+export const ModuleItemSchema = SchemaFactory.createForClass(ModuleItem);
+
+@Schema({ _id: true, timestamps: false })
+export class LessonItem {
+  @Prop({ required: true })
+  title: string;
+
+  @Prop()
+  description?: string;
+
+  @Prop({ default: 0 })
+  order?: number;
+
+  @Prop({ type: [ModuleItemSchema], default: [] })
+  modules?: ModuleItem[];
+}
+
+export const LessonItemSchema = SchemaFactory.createForClass(LessonItem);
+
+@Schema({ _id: true, timestamps: false })
+export class LevelItem {
+  @Prop({ required: true })
+  name: string;
+
+  @Prop({ default: 0 })
+  order?: number;
+
+  @Prop({ type: [LessonItemSchema], default: [] })
+  lessons?: LessonItem[];
+}
+
+export const LevelItemSchema = SchemaFactory.createForClass(LevelItem);
+
 @Schema({ timestamps: true })
 export class Course {
   @Prop({ required: true, index: true })
@@ -15,11 +77,9 @@ export class Course {
   @Prop()
   description?: string;
 
-  @Prop({ default: 'beginner' })
-  level?: string;
-
-  @Prop({ type: [{ title: String, url: String, duration: Number }] })
-  lessons?: Array<{ title: string; url: string; duration?: number }>;
+  // Hierarchical content structure
+  @Prop({ type: [LevelItemSchema], default: [] })
+  levels?: LevelItem[];
 
   @Prop({ type: [String], default: [] })
   tags?: string[];

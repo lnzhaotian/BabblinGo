@@ -1,29 +1,7 @@
-import {
-  IsString,
-  IsOptional,
-  IsArray,
-  IsBoolean,
-  ValidateNested,
-} from 'class-validator';
+import { IsString, IsOptional, IsArray, IsBoolean } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-export class LessonDto {
-  @ApiProperty({ example: 'Lesson 1', description: 'Lesson title' })
-  @IsString()
-  title: string;
-
-  @ApiProperty({ example: 'https://...', description: 'URL to lesson content' })
-  @IsString()
-  url: string;
-
-  @ApiPropertyOptional({
-    example: 120,
-    description: 'Duration in seconds (optional)',
-  })
-  @IsOptional()
-  duration?: number;
-}
+import { CreateLevelDto } from './level.dto';
 
 export class CreateCourseDto {
   @ApiProperty({
@@ -49,19 +27,13 @@ export class CreateCourseDto {
   description?: string;
 
   @ApiPropertyOptional({
-    example: 'beginner',
-    description: 'Course difficulty level',
+    type: [CreateLevelDto],
+    description: 'List of levels (hierarchical content)',
   })
   @IsOptional()
-  @IsString()
-  level?: string;
-
-  @ApiPropertyOptional({ type: [LessonDto], description: 'List of lessons' })
-  @IsOptional()
   @IsArray()
-  @ValidateNested({ each: true })
-  @Type(() => LessonDto)
-  lessons?: LessonDto[];
+  @Type(() => CreateLevelDto)
+  levels?: CreateLevelDto[];
 
   @ApiPropertyOptional({ type: [String], example: ['l0', 'conversation'] })
   @IsOptional()

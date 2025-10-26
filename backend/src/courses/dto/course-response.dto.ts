@@ -1,18 +1,66 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Expose } from 'class-transformer';
 
+export class ModuleResponseDto {
+  @Expose()
+  @ApiProperty({ enum: ['text', 'image', 'audio', 'video'] })
+  type: 'text' | 'image' | 'audio' | 'video';
+
+  @Expose()
+  @ApiPropertyOptional()
+  title?: string;
+
+  @Expose()
+  @ApiPropertyOptional()
+  textContent?: string;
+
+  @Expose()
+  @ApiPropertyOptional({ example: '/uploads/media/file.png' })
+  mediaUrl?: string;
+
+  @Expose()
+  @ApiPropertyOptional({ example: 'image/png' })
+  mediaMimeType?: string;
+
+  @Expose()
+  @ApiPropertyOptional({ example: 102400 })
+  mediaSize?: number;
+
+  @Expose()
+  @ApiPropertyOptional({ example: 0 })
+  order?: number;
+}
+
 export class LessonResponseDto {
   @Expose()
   @ApiProperty({ example: 'Lesson 1' })
   title: string;
 
   @Expose()
-  @ApiProperty({ example: 'https://...' })
-  url: string;
+  @ApiPropertyOptional({ example: 'Intro to greetings' })
+  description?: string;
 
   @Expose()
-  @ApiPropertyOptional({ example: 120 })
-  duration?: number;
+  @ApiPropertyOptional({ example: 0 })
+  order?: number;
+
+  @Expose()
+  @ApiPropertyOptional({ type: [ModuleResponseDto] })
+  modules?: ModuleResponseDto[];
+}
+
+export class LevelResponseDto {
+  @Expose()
+  @ApiProperty({ example: 'Level 1' })
+  name: string;
+
+  @Expose()
+  @ApiPropertyOptional({ example: 0 })
+  order?: number;
+
+  @Expose()
+  @ApiPropertyOptional({ type: [LessonResponseDto] })
+  lessons?: LessonResponseDto[];
 }
 
 export class CourseResponseDto {
@@ -36,12 +84,8 @@ export class CourseResponseDto {
   description?: string;
 
   @Expose()
-  @ApiPropertyOptional({ example: 'beginner' })
-  level?: string;
-
-  @Expose()
-  @ApiPropertyOptional({ type: [LessonResponseDto] })
-  lessons?: LessonResponseDto[];
+  @ApiPropertyOptional({ type: [LevelResponseDto] })
+  levels?: LevelResponseDto[];
 
   @Expose()
   @ApiPropertyOptional({ type: [String] })

@@ -4,6 +4,7 @@ import { ValidationPipe, ClassSerializerInterceptor } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { Reflector } from '@nestjs/core';
 import type { Express } from 'express';
+import { join } from 'node:path';
 // AdminJS imports are loaded dynamically below inside a try/catch because
 // some AdminJS packages have export/compatibility issues in certain Node
 // environments. Loading them dynamically prevents startup crashes when the
@@ -28,6 +29,12 @@ async function bootstrap() {
   expressInstance.use('/api', expressApp.json());
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
   expressInstance.use('/api', expressApp.urlencoded({ extended: true }));
+  // Serve uploaded media statically
+  expressInstance.use(
+    '/uploads',
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument
+    expressApp.static(join(process.cwd(), 'uploads')),
+  );
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   // Use Nest's ClassSerializerInterceptor to honor class-transformer decorators on DTOs
   app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
