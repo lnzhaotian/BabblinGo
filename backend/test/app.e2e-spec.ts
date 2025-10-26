@@ -16,10 +16,14 @@ describe('AppController (e2e)', () => {
     await app.init();
   });
 
+  afterEach(async () => {
+    if (app) await app.close();
+  });
+
   it('/ (GET)', () => {
     return request(app.getHttpServer())
-      .get('/')
+      .get('/api')
       .expect(200)
-      .expect('Hello World!');
+      .expect('BabblinGo API is running!');
   });
 });

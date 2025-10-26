@@ -21,8 +21,9 @@ export class AuthService {
     if (!user) {
       return null;
     }
-
+    // remove debug logging in validateUser
     const match = await compare(pass, user.passwordHash);
+    // password comparison result determined
     if (!match) {
       return null;
     }
