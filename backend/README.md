@@ -31,6 +31,151 @@
 $ npm install
 ```
 
+## Development setup (MongoDB)
+
+This project uses MongoDB via Mongoose. The quickest way to run a local MongoDB for development is with Docker. The steps below include recommended package installs, a Docker command (or docker-compose), environment variables, and a simple seed/run workflow.
+
+1) Install recommended backend packages (if not already installed):
+
+```bash
+cd backend
+# validation & serialization
+npm install class-validator class-transformer
+
+# auth & passport
+npm install @nestjs/jwt passport passport-jwt @nestjs/passport
+
+# config and swagger
+npm install @nestjs/config @nestjs/swagger swagger-ui-express
+
+# helper types (optional for dev)
+npm install --save-dev @types/passport-jwt
+```
+
+2) Start MongoDB via Docker (quick):
+
+```bash
+# run a local mongo on default 27017
+docker run --name babblingo-mongo -p 27017:27017 -d mongo:6
+```
+
+Or use docker-compose (create a small `docker-compose.yml` in the repo root):
+
+```yaml
+version: '3.8'
+services:
+  mongo:
+    image: mongo:6
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+volumes:
+  mongo-data:
+```
+
+Run it with:
+
+```bash
+docker compose up -d
+```
+
+3) Environment variables
+
+Copy `.env.example` (if present) or create a `.env` at `backend/.env` with at least these values for local dev:
+
+```
+MONGODB_URI=mongodb://localhost:27017/babblingo
+JWT_SECRET=dev_jwt_secret_change_me
+JWT_EXPIRES_IN=3600s
+```
+
+4) Seed data (simple):
+
+The backend currently includes a minimal `UsersService` that seeds a dev user when running in development. If you want to insert example courses, you can use a small Node script or call the API endpoints.
+
+Example quick seeding script (create `backend/scripts/seed.js`):
+
+```js
+// simple example using mongoose
+const mongoose = require('mongoose');
+// adjust the path below if you compile TS before running the script
+const CourseSchema = require('../dist/courses/schemas/course.schema').Course;
+
+async function run() {
+  await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/babblingo');
+  const CourseModel = mongoose.model('Course');
+  await CourseModel.create({ title: 'Hello', slug: 'hello', description: 'Demo', level: 'beginner', lessons: [] });
+  console.log('seeded');
+  process.exit(0);
+}
+
+run().catch((e) => { console.error(e); process.exit(1); });
+```
+
+Run the seed script (build first if using TypeScript output paths):
+
+```bash
+cd backend
+# if using ts-node you can run directly (install ts-node first)
+npx ts-node scripts/seed.ts
+```
+
+5) Run the backend in development
+
+```bash
+cd backend
+npm run start:dev
+```
+
+6) Verify
+
+- Visit Swagger UI at: http://localhost:3000/api/docs
+- Use `/api/auth/login` to get a dev token (seed user exists for development). Then call protected endpoints.
+
+Notes on migrations and schema changes
+
+- MongoDB with Mongoose is schemaless on the server side; typical "migrations" are either:
+  - writing idempotent scripts that update documents (preferred), or
+  - using a migration tool like `migrate-mongo` for structured migration files.
+- If you want migration files, add `migrate-mongo` to dev dependencies and create a `migrations/` folder. I can add an example migration if you'd like.
+
+## Tests and smoke scripts
+
+We include a small suite of developer-friendly tests and a smoke script to quickly verify the API.
+
+- E2E tests (Jest + Supertest)
+  - Location: `backend/test/*.spec.ts` (example: `test/courses.e2e-spec.ts`).
+  - These tests use `mongodb-memory-server`, so they run an ephemeral in-memory MongoDB instance and do not require a running external MongoDB.
+  - Run a single e2e test file:
+
+  ```bash
+  cd backend
+  npm run test:e2e -- test/courses.e2e-spec.ts --runInBand
+  ```
+
+  - Run the full test suite (unit + e2e):
+
+  ```bash
+  npm test
+  ```
+
+- Smoke script (quick manual check)
+  - Location: `backend/scripts/smoke.js`.
+  - What it does: builds the backend, runs the compiled app against an in-memory MongoDB, performs login, create, list, get, and cleanup (delete) steps and prints responses.
+  - NPM script: `npm run smoke` (builds and executes the script).
+  - Run it:
+
+  ```bash
+  cd backend
+  npm run smoke
+  ```
+
+- Notes
+  - The smoke script requires the project to be buildable (`npm run build`); `npm run smoke` handles that automatically.
+  - Tests and smoke runs are intended for development and CI. The e2e tests are self-contained and safe to run in CI because they use an in-memory MongoDB.
+  - If you want me to add a GitHub Actions workflow to run the e2e test on push, I can add a small YAML file under `.github/workflows/`.
+
 ## Compile and run the project
 
 ```bash
