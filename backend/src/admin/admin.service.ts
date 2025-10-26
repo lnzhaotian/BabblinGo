@@ -7,6 +7,7 @@ import { JwtService } from '@nestjs/jwt';
 import type { Request, Response } from 'express';
 import { Course, CourseDocument } from '../courses/schemas/course.schema';
 import { initAdmin } from './adminjs-wrapper';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AdminService implements OnModuleInit {
@@ -32,10 +33,13 @@ export class AdminService implements OnModuleInit {
         return;
       }
 
+      const usersService = this.moduleRef.get(UsersService, { strict: false });
+
       await initAdmin(
         this.httpAdapterHost.httpAdapter.getInstance(),
         this.courseModel,
         jwtService,
+        usersService,
         '/admin',
       );
     } catch (e) {
