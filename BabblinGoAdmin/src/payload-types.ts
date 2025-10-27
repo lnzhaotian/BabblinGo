@@ -69,6 +69,9 @@ export interface Config {
   collections: {
     users: User;
     media: Media;
+    levels: Level;
+    lessons: Lesson;
+    modules: Module;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -77,6 +80,9 @@ export interface Config {
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    levels: LevelsSelect<false> | LevelsSelect<true>;
+    lessons: LessonsSelect<false> | LessonsSelect<true>;
+    modules: ModulesSelect<false> | ModulesSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -157,6 +163,102 @@ export interface Media {
   focalY?: number | null;
 }
 /**
+ * Levels group lessons within the BabblinGo curriculum.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "levels".
+ */
+export interface Level {
+  id: string;
+  title: string;
+  slug: string;
+  /**
+   * Optional numeric position used to sort levels.
+   */
+  order?: number | null;
+  summary?: string | null;
+  /**
+   * Link lessons that belong to this level in the desired order.
+   */
+  lessons?: (string | Lesson)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Lessons sit within levels and contain multiple modules.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons".
+ */
+export interface Lesson {
+  id: string;
+  title: string;
+  slug: string;
+  /**
+   * Optional numeric position used to sort lessons within a level.
+   */
+  order?: number | null;
+  summary?: string | null;
+  level: string | Level;
+  /**
+   * Link modules to this lesson in playback order.
+   */
+  modules?: (string | Module)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Modules are the lowest level of content and can include media and transcripts.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "modules".
+ */
+export interface Module {
+  id: string;
+  title: string;
+  slug: string;
+  /**
+   * Optional numeric position used to order modules within a lesson.
+   */
+  order?: number | null;
+  lesson: string | Lesson;
+  /**
+   * Primary visual used when presenting this module.
+   */
+  image?: (string | null) | Media;
+  /**
+   * Narration or audio file associated with this module.
+   */
+  audio?: (string | null) | Media;
+  body: {
+    root: {
+      type: string;
+      children: {
+        type: any;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  };
+  /**
+   * Optional supporting links or downloads for the module.
+   */
+  resources?:
+    | {
+        label: string;
+        url: string;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
@@ -170,6 +272,18 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'levels';
+        value: string | Level;
+      } | null)
+    | ({
+        relationTo: 'lessons';
+        value: string | Lesson;
+      } | null)
+    | ({
+        relationTo: 'modules';
+        value: string | Module;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -252,6 +366,55 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "levels_select".
+ */
+export interface LevelsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  order?: T;
+  summary?: T;
+  lessons?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "lessons_select".
+ */
+export interface LessonsSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  order?: T;
+  summary?: T;
+  level?: T;
+  modules?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "modules_select".
+ */
+export interface ModulesSelect<T extends boolean = true> {
+  title?: T;
+  slug?: T;
+  order?: T;
+  lesson?: T;
+  image?: T;
+  audio?: T;
+  body?: T;
+  resources?:
+    | T
+    | {
+        label?: T;
+        url?: T;
+        id?: T;
+      };
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
