@@ -6,5 +6,5 @@ const expoExtra = (Constants.expoConfig && Constants.expoConfig.extra) || {};
 
 export const config = {
   apiUrl:
-    expoExtra.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
+    expoExtra.NEXT_PUBLIC_API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000',
 };

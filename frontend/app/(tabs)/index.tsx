@@ -1,76 +1,151 @@
-import React from "react";
-import { View, Text, TouchableOpacity, FlatList } from "react-native";
+import React, { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
-type LessonItem = {
-  id: number;
-  title: string;
-  subtitle: string;
-  url: string;
-};
+import { extractModules, fetchLessonsByLevelSlug, LessonDoc } from "@/lib/payload";
+import type { ModuleDoc } from "@/lib/payload";
+
+const NOVICE_LEVEL_SLUG = "novice";
 
 export default function Index() {
   const router = useRouter();
+  const [lessons, setLessons] = useState<LessonDoc[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const lessons: LessonItem[] = Array.from({ length: 14 }, (_, i) => {
-    const idx = i + 1;
-    const padded = String(idx).padStart(2, "0");
-    const code = `l0s1l${padded}`;
-    const url = `https://babblinguide.cn/babblingo/${code}/tutorial.html`;
-    return {
-      id: idx,
-      title: `Lesson ${padded}`,
-      subtitle: `第${idx}课`,
-      url,
-    };
-  });
+  const loadLessons = useCallback(
+    async (skipLoading = false) => {
+      if (!skipLoading) {
+        setLoading(true);
+      }
 
-  const openLesson = (item: LessonItem) => {
-    router.push({ pathname: "/(stack)/web", params: { url: item.url, title: item.title } });
-  };
-
-  const renderItem = ({ item }: { item: LessonItem }) => (
-    <TouchableOpacity
-      onPress={() => openLesson(item)}
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        paddingVertical: 12,
-        paddingHorizontal: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: "#eee",
-      }}
-    >
-      <View style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center", marginRight: 12 }}>
-        <MaterialIcons name="menu-book" size={24} color="#333" />
-      </View>
-
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 16, fontWeight: "600" }}>{item.title}</Text>
-        <Text style={{ marginTop: 4, color: "#666" }}>{item.subtitle}</Text>
-      </View>
-
-      <MaterialIcons name="chevron-right" size={28} color="#999" />
-    </TouchableOpacity>
+      try {
+        const data = await fetchLessonsByLevelSlug(NOVICE_LEVEL_SLUG);
+        setLessons(data);
+        setError(data.length === 0 ? "No lessons found for the Novice level." : null);
+      } catch (err) {
+        console.error("Failed to load lessons", err);
+        setError("Unable to load lessons. Pull to refresh and try again.");
+      } finally {
+        if (!skipLoading) {
+          setLoading(false);
+        }
+      }
+    },
+    []
   );
 
+  useEffect(() => {
+    loadLessons();
+  }, [loadLessons]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadLessons(true);
+    setRefreshing(false);
+  }, [loadLessons]);
+
+  const handlePress = (lesson: LessonDoc, modules: ModuleDoc[]) => {
+    if (modules.length === 0) {
+      return;
+    }
+
+    const target = {
+      pathname: "/lesson/[lessonId]",
+      params: { lessonId: lesson.id, title: lesson.title },
+    } as const;
+
+    router.push(target as never);
+  };
+
+  const renderItem = ({ item, index }: { item: LessonDoc; index: number }) => {
+    const position = typeof item.order === "number" ? item.order : index + 1;
+    const padded = String(position).padStart(2, "0");
+    const summary = item.summary?.trim();
+    const modules = extractModules(item);
+    const hasModules = modules.length > 0;
+
+    return (
+      <Pressable
+        onPress={() => handlePress(item, modules)}
+        android_ripple={{ color: "#f0f0f0" }}
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          paddingVertical: 12,
+          paddingHorizontal: 8,
+          borderBottomWidth: 1,
+          borderBottomColor: "#eee",
+          opacity: hasModules ? 1 : 0.6,
+        }}
+      >
+        <View
+          style={{
+            width: 48,
+            height: 48,
+            borderRadius: 8,
+            backgroundColor: "#f0f0f0",
+            justifyContent: "center",
+            alignItems: "center",
+            marginRight: 12,
+          }}
+        >
+          <MaterialIcons name="menu-book" size={24} color="#333" />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: "600" }}>{`Lesson ${padded}`}</Text>
+          {summary ? <Text style={{ marginTop: 4, color: "#666" }}>{summary}</Text> : null}
+        </View>
+
+        {hasModules ? (
+          <MaterialIcons name="chevron-right" size={28} color="#999" />
+        ) : null}
+      </Pressable>
+    );
+  };
+
+  if (loading && !refreshing) {
+    return (
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" />
+      </SafeAreaView>
+    );
+  }
+
   return (
-    // only apply safe-area padding at top here; we'll handle bottom padding on the list
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <View style={{ padding: 8, justifyContent: "center", alignItems: "center" }}>
         <Text style={{ fontSize: 20, fontWeight: "700" }}>BabblinGo</Text>
       </View>
 
+      {error ? (
+        <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+          <Text style={{ color: "#b71c1c", textAlign: "center" }}>{error}</Text>
+        </View>
+      ) : null}
+
       <FlatList
         data={lessons}
-        keyExtractor={(i) => String(i.id)}
+        keyExtractor={(item) => item.id}
         renderItem={renderItem}
-        contentContainerStyle={{backgroundColor: "#fff" }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+        contentContainerStyle={{
+          backgroundColor: "#fff",
+          flexGrow: lessons.length === 0 ? 1 : undefined,
+        }}
         style={{ flex: 1, backgroundColor: "transparent", paddingVertical: 8 }}
+        ListEmptyComponent={
+          !error ? (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+              <Text style={{ color: "#666" }}>No lessons to display.</Text>
+            </View>
+          ) : null
+        }
       />
-
     </SafeAreaView>
   );
 }

@@ -178,7 +178,7 @@ export interface Level {
   order?: number | null;
   summary?: string | null;
   /**
-   * Link lessons that belong to this level in the desired order.
+   * This list auto-populates when lessons are assigned to this level.
    */
   lessons?: (string | Lesson)[] | null;
   updatedAt: string;
@@ -201,7 +201,7 @@ export interface Lesson {
   summary?: string | null;
   level: string | Level;
   /**
-   * Link modules to this lesson in playback order.
+   * Modules linked to this lesson sync automatically based on each module configuration.
    */
   modules?: (string | Module)[] | null;
   updatedAt: string;
