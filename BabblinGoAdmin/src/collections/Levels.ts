@@ -10,6 +10,9 @@ export const Levels: CollectionConfig = {
     defaultColumns: ['title', 'order'],
     description: 'Levels group lessons within the BabblinGo curriculum.',
   },
+  access: {
+    read: () => true,
+  },
   fields: [
     {
       name: 'title',
@@ -35,7 +38,8 @@ export const Levels: CollectionConfig = {
       relationTo: 'lessons' as unknown as CollectionSlug,
       hasMany: true,
       admin: {
-        description: 'Link lessons that belong to this level in the desired order.',
+        description: 'This list auto-populates when lessons are assigned to this level.',
+        readOnly: true,
       },
     },
   ],
