@@ -104,6 +104,12 @@ const LessonDetail = () => {
     if (showAudioPlayer && trackIndexToModuleIndex.length > 0) {
       const trackIndex = trackIndexToModuleIndex.findIndex((mIndex) => mIndex === index)
       if (trackIndex >= 0) {
+        const currentTrack = playerRef.current?.getCurrentIndex()
+        if (typeof currentTrack === "number" && currentTrack === trackIndex) {
+          // Avoid redundant loads caused by programmatic scroll syncing
+          // console.log(`[LessonDetail] Slide synced to current track ${trackIndex}, skipping goToTrack`)
+          return
+        }
         playerRef.current?.goToTrack(trackIndex, true)
       }
     }
@@ -151,6 +157,17 @@ const LessonDetail = () => {
       }
     },
     [trackIndexToModuleIndex]
+  )
+
+  // When track ends, also scroll to next slide
+  const DEBUG_AUDIO = false
+  const handlePlayerTrackEnd = useCallback(
+    (trackIdx: number) => {
+      if (DEBUG_AUDIO) console.log(`[LessonDetail] Track ${trackIdx} ended`)
+      // Track end is handled by the player's auto-advance, 
+      // which will trigger onTrackChange for the next track
+    },
+    [DEBUG_AUDIO]
   )
 
   if (loading) {
@@ -270,6 +287,7 @@ const LessonDetail = () => {
               autoPlay={true}
               loop={true}
               onTrackChange={handlePlayerTrackChange}
+              onTrackEnd={handlePlayerTrackEnd}
             />
           ) : null}
         </View>
