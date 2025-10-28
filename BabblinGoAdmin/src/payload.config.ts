@@ -2,6 +2,7 @@
 import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { s3Storage } from '@payloadcms/storage-s3'
 import path from 'path'
 import { buildConfig } from 'payload'
 import { fileURLToPath } from 'url'
@@ -36,5 +37,25 @@ export default buildConfig({
   plugins: [
     payloadCloudPlugin(),
     // storage-adapter-placeholder
+    s3Storage({
+      collections: {
+        media: {
+          generateFileURL: ({ filename }: { filename: string }) => {
+            return `${process.env.OSS_PUBLIC_URL}/${filename}`
+          },
+        },
+      },
+      bucket: process.env.OSS_BUCKET!,
+      config: {
+        endpoint: process.env.OSS_ENDPOINT,
+        region: process.env.OSS_REGION || 'oss-cn-beijing',
+        credentials: {
+          accessKeyId: process.env.OSS_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.OSS_ACCESS_KEY_SECRET!,
+        },
+        forcePathStyle: false, // Use virtual-hosted-style URLs for OSS
+      },
+      acl: 'public-read', // or 'private' if using signed URLs
+    }),
   ],
 })
