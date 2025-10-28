@@ -1,0 +1,39 @@
+services:
+  payload:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: babblingoadmin-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    depends_on:
+      - mongo
+    volumes:
+      - ./media:/app/media
+    networks:
+      - babblingoadmin
+
+  mongo:
+    image: mongo:latest
+    container_name: babblingoadmin-mongo
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"  # Bind to localhost only
+    command:
+      - --storageEngine=wiredTiger
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - babblingoadmin
+
+networks:
+  babblingoadmin:
+    driver: bridge
+
+volumes:
+  mongo_data:
