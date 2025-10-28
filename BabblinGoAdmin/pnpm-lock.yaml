@@ -53,9 +53,6 @@ importers:
       react-dom:
         specifier: 19.1.0
         version: 19.1.0(react@19.1.0)
-      s3:
-        specifier: link:@payloadcms/plugin-cloud-storage/s3
-        version: link:@payloadcms/plugin-cloud-storage/s3
       sharp:
         specifier: 0.34.2
         version: 0.34.2

@@ -139,7 +139,84 @@ const nextConfig = {
 export default withPayload(nextConfig, { devBundleServerPackages: false })
 ```
 
-#### 4. Create Production docker-compose.yml
+#### 4. Create .dockerignore
+
+Create a `.dockerignore` file to optimize build context and speed:
+
+```
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+coverage
+
+# Next.js
+.next/
+out/
+build
+
+# Production
+dist
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local env files
+.env
+.env*.local
+.env.production
+
+# Vercel
+.vercel
+
+# Typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile*
+docker-compose*
+
+# IDE
+.vscode
+.idea
+
+# Uploads
+uploads/
+
+# Package manager locks (we use pnpm)
+package-lock.json
+yarn.lock
+
+# Cache directories
+.cache
+.turbo
+```
+
+This reduces the Docker build context from gigabytes to megabytes, significantly speeding up builds.
+
+#### 5. Ensure public Directory Exists
+
+Docker build expects a `public` directory. Create it if it doesn't exist:
+
+```bash
+mkdir -p public
+```
+
+#### 6. Create Production docker-compose.yml
 
 Create `docker-compose.prod.yml`:
 
@@ -185,7 +262,7 @@ volumes:
   mongo_data:
 ```
 
-#### 5. Build and Run
+#### 7. Build and Run
 
 ```bash
 # Build the Docker image
@@ -200,7 +277,15 @@ docker compose -f docker-compose.prod.yml logs -f payload
 # Visit http://your-server-ip:3000/admin to create admin user
 ```
 
-#### 6. Setup Nginx Reverse Proxy
+**Important Notes:**
+- The `.dockerignore` file significantly reduces build time by excluding unnecessary files
+- The `public` directory must exist (can be empty)
+- After adding plugins with client components, run `pnpm payload generate:importmap` before building
+- The `output: 'standalone'` setting in `next.config.mjs` is required for Docker
+
+#### 8. Setup Reverse Proxy
+
+##### Option A: Nginx (Recommended)
 
 Install and configure Nginx:
 
@@ -249,10 +334,76 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-#### 7. Setup SSL with Let's Encrypt
+##### Option B: Apache
+
+Install and configure Apache:
 
 ```bash
-# Install Certbot
+sudo apt install apache2 -y
+
+# Enable required modules
+sudo a2enmod proxy proxy_http proxy_wstunnel rewrite ssl headers
+
+# Create Apache configuration
+sudo nano /etc/apache2/sites-available/babblingoadmin.conf
+```
+
+Add this configuration:
+
+```apache
+<VirtualHost *:80>
+    ServerName admin.yourdomain.com
+    
+    # Increase upload limit
+    LimitRequestBody 104857600
+    
+    # Proxy settings
+    ProxyPreserveHost On
+    ProxyRequests Off
+    
+    # WebSocket support
+    RewriteEngine On
+    RewriteCond %{HTTP:Upgrade} =websocket [NC]
+    RewriteRule /(.*)           ws://localhost:3000/$1 [P,L]
+    RewriteCond %{HTTP:Upgrade} !=websocket [NC]
+    RewriteRule /(.*)           http://localhost:3000/$1 [P,L]
+    
+    # Proxy pass
+    ProxyPass / http://localhost:3000/
+    ProxyPassReverse / http://localhost:3000/
+    
+    # Headers
+    RequestHeader set X-Forwarded-Proto "http"
+    RequestHeader set X-Forwarded-Port "80"
+    
+    # Timeout settings
+    ProxyTimeout 300
+    
+    # Logs
+    ErrorLog ${APACHE_LOG_DIR}/babblingoadmin-error.log
+    CustomLog ${APACHE_LOG_DIR}/babblingoadmin-access.log combined
+</VirtualHost>
+```
+
+Enable the site:
+
+```bash
+# Enable site
+sudo a2ensite babblingoadmin.conf
+
+# Test configuration
+sudo apache2ctl configtest
+
+# Restart Apache
+sudo systemctl restart apache2
+```
+
+#### 9. Setup SSL with Let's Encrypt
+
+##### For Nginx:
+
+```bash
+# Install Certbot for Nginx
 sudo apt install certbot python3-certbot-nginx -y
 
 # Obtain and install certificate
@@ -262,7 +413,22 @@ sudo certbot --nginx -d admin.yourdomain.com
 sudo certbot renew --dry-run
 ```
 
-#### 8. Maintenance Commands
+##### For Apache:
+
+```bash
+# Install Certbot for Apache
+sudo apt install certbot python3-certbot-apache -y
+
+# Obtain and install certificate
+sudo certbot --apache -d admin.yourdomain.com
+
+# Auto-renewal is configured by default; test it with:
+sudo certbot renew --dry-run
+```
+
+After SSL is configured, your Apache config will be automatically updated to include HTTPS on port 443.
+
+#### 10. Maintenance Commands
 
 ```bash
 # View logs
@@ -406,13 +572,13 @@ pm2 status
 pm2 logs babblingoadmin
 ```
 
-#### 4. Setup Nginx (Same as Docker Option)
+#### 4. Setup Reverse Proxy (Same as Docker Option)
 
-Follow step 6 from the Docker deployment section above.
+Follow step 8 from the Docker deployment section above. You can choose either Nginx (Option A) or Apache (Option B).
 
 #### 5. Setup SSL (Same as Docker Option)
 
-Follow step 7 from the Docker deployment section above.
+Follow step 9 from the Docker deployment section above (choose Nginx or Apache based on your reverse proxy choice).
 
 #### 6. Maintenance Commands
 
@@ -451,6 +617,7 @@ mongorestore --db BabblinGoAdmin ~/backups/mongo-20250101/BabblinGoAdmin
 - `pnpm run lint` – Lint the project with ESLint
 - `pnpm run test` – Execute unit and end-to-end tests
 - `pnpm run generate:types` – Regenerate Payload TypeScript definitions
+- `pnpm run generate:importmap` – Generate importMap for client components (required after adding plugins)
 
 ---
 
