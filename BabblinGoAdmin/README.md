@@ -481,7 +481,7 @@ Alibaba Cloud OSS is S3-compatible and widely used in China. Here's how to integ
 
 ```bash
 cd /var/www/babblingoadmin/BabblinGoAdmin  # Or your project path
-pnpm add @payloadcms/plugin-cloud-storage @payloadcms/plugin-cloud-storage/s3
+pnpm add @payloadcms/storage-s3
 pnpm add @aws-sdk/client-s3 @aws-sdk/lib-storage
 ```
 
@@ -561,36 +561,31 @@ Edit `src/payload.config.ts`:
 import { buildConfig } from 'payload'
 import { mongooseAdapter } from '@payloadcms/db-mongodb'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
-import { s3Storage } from '@payloadcms/plugin-cloud-storage/s3'
-import { cloudStorage } from '@payloadcms/plugin-cloud-storage'
+import { s3Storage } from '@payloadcms/storage-s3'
 
 export default buildConfig({
   // ... your existing config
 
   plugins: [
-    cloudStorage({
+    s3Storage({
       collections: {
-        // Configure which collections use cloud storage
-        'media': {
-          adapter: s3Storage({
-            config: {
-              endpoint: process.env.OSS_ENDPOINT,
-              region: process.env.OSS_REGION || 'oss-cn-hangzhou',
-              credentials: {
-                accessKeyId: process.env.OSS_ACCESS_KEY_ID!,
-                secretAccessKey: process.env.OSS_ACCESS_KEY_SECRET!,
-              },
-              forcePathStyle: false, // Use virtual-hosted-style URLs
-            },
-            bucket: process.env.OSS_BUCKET!,
-            acl: 'public-read', // or 'private' if using signed URLs
-          }),
-          // Use custom domain for public URLs
-          generateFileURL: ({ filename }) => {
+        media: {
+          generateFileURL: ({ filename }: { filename: string }) => {
             return `${process.env.OSS_PUBLIC_URL}/${filename}`
           },
         },
       },
+      bucket: process.env.OSS_BUCKET!,
+      config: {
+        endpoint: process.env.OSS_ENDPOINT,
+        region: process.env.OSS_REGION || 'oss-cn-hangzhou',
+        credentials: {
+          accessKeyId: process.env.OSS_ACCESS_KEY_ID!,
+          secretAccessKey: process.env.OSS_ACCESS_KEY_SECRET!,
+        },
+        forcePathStyle: false, // Use virtual-hosted-style URLs for OSS
+      },
+      acl: 'public-read', // or 'private' if using signed URLs
     }),
   ],
 
@@ -598,7 +593,22 @@ export default buildConfig({
 })
 ```
 
-##### 5. Alternative: Using OSS SDK Directly
+##### 5. Generate ImportMap
+
+After adding the storage plugin, generate the importMap for client components:
+
+```bash
+pnpm payload generate:importmap
+```
+
+This creates `src/app/(payload)/admin/importMap.js` which maps client-side components from the storage plugin. This step is required for the S3 storage adapter to work properly.
+
+**Important**: 
+- Run this command whenever you add/remove plugins with client components
+- Commit the generated `importMap.js` file to your repository
+- If using Docker, restart the container after generating: `docker compose restart payload`
+
+##### 6. Alternative: Using OSS SDK Directly
 
 If you need more control or want to use native Aliyun OSS SDK:
 
@@ -647,7 +657,7 @@ export const ossAdapter = {
 }
 ```
 
-##### 6. CDN Configuration (Optional but Recommended)
+##### 7. CDN Configuration (Optional but Recommended)
 
 For better performance, especially for global users:
 
@@ -666,7 +676,7 @@ For better performance, especially for global users:
    OSS_PUBLIC_URL=https://cdn.yourdomain.com
    ```
 
-##### 7. Migration from Local to OSS
+##### 8. Migration from Local to OSS
 
 If you have existing local media files:
 
@@ -714,7 +724,7 @@ console.log(`Updated ${result.modifiedCount} media documents`)
 await client.close()
 ```
 
-##### 8. Testing OSS Integration
+##### 9. Testing OSS Integration
 
 ```bash
 # Rebuild and restart
@@ -732,7 +742,7 @@ pm2 restart babblingoadmin
 # Upload a test file and verify it appears in OSS console
 ```
 
-##### 9. OSS Backup Strategy
+##### 10. OSS Backup Strategy
 
 ```bash
 #!/bin/bash
@@ -759,7 +769,7 @@ sudo crontab -e
 # Add: 0 3 * * 0 /usr/local/bin/backup-oss.sh  # Weekly on Sunday at 3 AM
 ```
 
-##### 10. Cost Optimization Tips
+##### 11. Cost Optimization Tips
 
 - **Enable lifecycle rules**: Auto-delete old/unused files
 - **Use infrequent access storage**: For files accessed < 1 time/month
@@ -770,7 +780,7 @@ sudo crontab -e
 - **Monitor usage**: Set billing alerts in Aliyun console
 - **CDN caching**: Reduce OSS requests and egress costs
 
-##### Troubleshooting OSS
+##### 12. Troubleshooting OSS
 
 **Upload fails with "Access Denied"**:
 - Check RAM user permissions

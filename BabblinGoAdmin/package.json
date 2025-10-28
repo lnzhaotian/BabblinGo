@@ -18,10 +18,13 @@
     "test:int": "cross-env NODE_OPTIONS=--no-deprecation vitest run --config ./vitest.config.mts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.918.0",
+    "@aws-sdk/lib-storage": "^3.918.0",
     "@payloadcms/db-mongodb": "3.61.1",
     "@payloadcms/next": "3.61.1",
     "@payloadcms/payload-cloud": "3.61.1",
     "@payloadcms/richtext-lexical": "3.61.1",
+    "@payloadcms/storage-s3": "^3.61.1",
     "@payloadcms/ui": "3.61.1",
     "cross-env": "^7.0.3",
     "dotenv": "16.4.7",
@@ -30,6 +33,7 @@
     "payload": "3.61.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "s3": "link:@payloadcms/plugin-cloud-storage/s3",
     "sharp": "0.34.2"
   },
   "devDependencies": {
