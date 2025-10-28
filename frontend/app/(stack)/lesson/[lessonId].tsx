@@ -80,6 +80,11 @@ const LessonDetail = () => {
 
   const modulesWithContent = modules
   
+  // Auto-advance behavior for slides without audio
+  // If a slide has no associated audio track, we'll advance to the next slide
+  // after a short dwell time to keep the slideshow flowing.
+  const SILENT_SLIDE_DWELL_MS = 2500
+  
   // Build player tracks and mapping to module indices
   const { tracks, trackIndexToModuleIndex } = useMemo(() => {
     const t: PlayerTrack[] = []
@@ -159,6 +164,27 @@ const LessonDetail = () => {
     [trackIndexToModuleIndex]
   )
 
+  // Auto-advance slides that have no audio after a short dwell
+  useEffect(() => {
+    if (modulesWithContent.length === 0) return
+    // Build a quick set of module indices that have audio
+    const audioModuleSet = new Set<number>(trackIndexToModuleIndex)
+    // If current slide has audio, do nothing—audio player will drive advancement
+    if (audioModuleSet.has(currentSlideIndex)) return
+
+    // Otherwise, schedule a timed advance to the next slide
+    const nextIndex = currentSlideIndex + 1
+    if (nextIndex >= modulesWithContent.length) return
+
+    const timer = setTimeout(() => {
+      // Scroll to next slide; onSlideScroll will update state
+      flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true })
+      setCurrentSlideIndex(nextIndex)
+    }, SILENT_SLIDE_DWELL_MS)
+
+    return () => clearTimeout(timer)
+  }, [currentSlideIndex, modulesWithContent.length, trackIndexToModuleIndex])
+
   // When track ends, also scroll to next slide
   const DEBUG_AUDIO = false
   const handlePlayerTrackEnd = useCallback(
@@ -218,7 +244,7 @@ const LessonDetail = () => {
           <Text style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700" }} numberOfLines={1}>
             {lesson.title || routeTitle || "Lesson"}
           </Text>
-          <View style={{ width: 30 }} />
+          {/* Diagnostics toggle removed for production commit */}
         </View>
 
         <View style={{ flex: 1 }}>
