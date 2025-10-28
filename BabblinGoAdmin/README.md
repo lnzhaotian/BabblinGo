@@ -469,9 +469,328 @@ mongorestore --db BabblinGoAdmin ~/backups/mongo-20250101/BabblinGoAdmin
 - For Docker: volume mount ensures persistence
 
 **Cloud Storage (Recommended for Production)**:
-- Configure S3, Google Cloud Storage, or similar
+- Configure S3-compatible storage (AWS S3, Alibaba Cloud OSS, Google Cloud Storage, etc.)
 - Update Payload config to use cloud storage adapter
 - Benefits: scalability, redundancy, CDN integration
+
+#### Setting up Alibaba Cloud OSS (Aliyun)
+
+Alibaba Cloud OSS is S3-compatible and widely used in China. Here's how to integrate it:
+
+##### 1. Install Required Packages
+
+```bash
+cd /var/www/babblingoadmin/BabblinGoAdmin  # Or your project path
+pnpm add @payloadcms/plugin-cloud-storage @payloadcms/plugin-cloud-storage/s3
+pnpm add @aws-sdk/client-s3 @aws-sdk/lib-storage
+```
+
+##### 2. Setup Aliyun OSS
+
+1. **Create OSS Bucket**:
+   - Log into [Aliyun Console](https://oss.console.aliyun.com/)
+   - Create a new bucket (e.g., `babblingoadmin-media`)
+   - Set ACL to "Private" or "Public Read" depending on your needs
+   - Enable Cross-Origin Resource Sharing (CORS) if needed:
+     ```json
+     {
+       "allowedOrigins": ["https://yourdomain.com"],
+       "allowedMethods": ["GET", "POST", "PUT", "DELETE", "HEAD"],
+       "allowedHeaders": ["*"],
+       "exposeHeaders": [],
+       "maxAgeSeconds": 3600
+     }
+     ```
+
+2. **Create RAM User** (recommended for security):
+   - Go to RAM console → Users → Create User
+   - Enable "Programmatic Access"
+   - Save the AccessKey ID and AccessKey Secret
+   - Attach policy with OSS permissions:
+     ```json
+     {
+       "Version": "1",
+       "Statement": [
+         {
+           "Effect": "Allow",
+           "Action": [
+             "oss:PutObject",
+             "oss:GetObject",
+             "oss:DeleteObject",
+             "oss:ListObjects"
+           ],
+           "Resource": [
+             "acs:oss:*:*:babblingoadmin-media",
+             "acs:oss:*:*:babblingoadmin-media/*"
+           ]
+         }
+       ]
+     }
+     ```
+
+3. **Get OSS Endpoint**:
+   - Find your bucket endpoint in the OSS console (e.g., `oss-cn-hangzhou.aliyuncs.com`)
+   - For public endpoint: `https://babblingoadmin-media.oss-cn-hangzhou.aliyuncs.com`
+   - For internal endpoint (if app on Aliyun ECS): `https://babblingoadmin-media.oss-cn-hangzhou-internal.aliyuncs.com`
+
+##### 3. Update Environment Variables
+
+Add to your `.env`:
+
+```bash
+# Alibaba Cloud OSS Configuration
+OSS_ACCESS_KEY_ID=your_access_key_id
+OSS_ACCESS_KEY_SECRET=your_access_key_secret
+OSS_BUCKET=babblingoadmin-media
+OSS_REGION=oss-cn-hangzhou
+OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com
+# Public URL for accessing files
+OSS_PUBLIC_URL=https://babblingoadmin-media.oss-cn-hangzhou.aliyuncs.com
+# Or use CDN domain if configured
+# OSS_PUBLIC_URL=https://cdn.yourdomain.com
+
+# Optional: For custom domain with CDN
+# OSS_CUSTOM_DOMAIN=cdn.yourdomain.com
+```
+
+##### 4. Update Payload Configuration
+
+Edit `src/payload.config.ts`:
+
+```typescript
+import { buildConfig } from 'payload'
+import { mongooseAdapter } from '@payloadcms/db-mongodb'
+import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { s3Storage } from '@payloadcms/plugin-cloud-storage/s3'
+import { cloudStorage } from '@payloadcms/plugin-cloud-storage'
+
+export default buildConfig({
+  // ... your existing config
+
+  plugins: [
+    cloudStorage({
+      collections: {
+        // Configure which collections use cloud storage
+        'media': {
+          adapter: s3Storage({
+            config: {
+              endpoint: process.env.OSS_ENDPOINT,
+              region: process.env.OSS_REGION || 'oss-cn-hangzhou',
+              credentials: {
+                accessKeyId: process.env.OSS_ACCESS_KEY_ID!,
+                secretAccessKey: process.env.OSS_ACCESS_KEY_SECRET!,
+              },
+              forcePathStyle: false, // Use virtual-hosted-style URLs
+            },
+            bucket: process.env.OSS_BUCKET!,
+            acl: 'public-read', // or 'private' if using signed URLs
+          }),
+          // Use custom domain for public URLs
+          generateFileURL: ({ filename }) => {
+            return `${process.env.OSS_PUBLIC_URL}/${filename}`
+          },
+        },
+      },
+    }),
+  ],
+
+  // ... rest of your config
+})
+```
+
+##### 5. Alternative: Using OSS SDK Directly
+
+If you need more control or want to use native Aliyun OSS SDK:
+
+```bash
+pnpm add ali-oss
+```
+
+Create custom adapter in `src/lib/oss-adapter.ts`:
+
+```typescript
+import OSS from 'ali-oss'
+
+const client = new OSS({
+  region: process.env.OSS_REGION!,
+  accessKeyId: process.env.OSS_ACCESS_KEY_ID!,
+  accessKeySecret: process.env.OSS_ACCESS_KEY_SECRET!,
+  bucket: process.env.OSS_BUCKET!,
+})
+
+export const ossAdapter = {
+  async handleUpload({ file, filename }) {
+    try {
+      const result = await client.put(filename, file.buffer)
+      return {
+        filename,
+        url: result.url,
+        mimeType: file.mimetype,
+        filesize: file.size,
+      }
+    } catch (error) {
+      console.error('OSS upload error:', error)
+      throw error
+    }
+  },
+
+  async handleDelete({ filename }) {
+    try {
+      await client.delete(filename)
+    } catch (error) {
+      console.error('OSS delete error:', error)
+      throw error
+    }
+  },
+
+  staticURL: process.env.OSS_PUBLIC_URL,
+}
+```
+
+##### 6. CDN Configuration (Optional but Recommended)
+
+For better performance, especially for global users:
+
+1. **Enable Aliyun CDN**:
+   - Go to CDN console
+   - Add domain name (e.g., `cdn.yourdomain.com`)
+   - Set origin to your OSS bucket
+   - Configure cache rules (recommended: cache images for 7-30 days)
+   - Enable compression
+
+2. **Update DNS**:
+   - Add CNAME record: `cdn.yourdomain.com` → your CDN CNAME
+
+3. **Update `.env`**:
+   ```bash
+   OSS_PUBLIC_URL=https://cdn.yourdomain.com
+   ```
+
+##### 7. Migration from Local to OSS
+
+If you have existing local media files:
+
+```bash
+# Install ossutil (Aliyun's CLI tool)
+wget http://gosspublic.alicdn.com/ossutil/1.7.15/ossutil64
+chmod 755 ossutil64
+sudo mv ossutil64 /usr/local/bin/ossutil
+
+# Configure ossutil
+ossutil config
+
+# Sync local media to OSS
+ossutil cp -r ./media/ oss://babblingoadmin-media/ --update
+
+# Verify upload
+ossutil ls oss://babblingoadmin-media/
+```
+
+Then update your database to point to new URLs:
+
+```javascript
+// migrate-media-urls.js
+import { MongoClient } from 'mongodb'
+
+const client = await MongoClient.connect(process.env.DATABASE_URI)
+const db = client.db()
+const mediaCollection = db.collection('media')
+
+const ossPublicUrl = process.env.OSS_PUBLIC_URL
+
+// Update all media documents
+const result = await mediaCollection.updateMany(
+  {},
+  {
+    $set: {
+      url: {
+        $concat: [ossPublicUrl, '/', '$filename']
+      }
+    }
+  }
+)
+
+console.log(`Updated ${result.modifiedCount} media documents`)
+await client.close()
+```
+
+##### 8. Testing OSS Integration
+
+```bash
+# Rebuild and restart
+pnpm run build
+
+# For Docker
+docker compose -f docker-compose.prod.yml build
+docker compose -f docker-compose.prod.yml up -d
+
+# For PM2
+pm2 restart babblingoadmin
+
+# Test upload via admin panel
+# Go to http://yourdomain.com/admin/collections/media
+# Upload a test file and verify it appears in OSS console
+```
+
+##### 9. OSS Backup Strategy
+
+```bash
+#!/bin/bash
+# /usr/local/bin/backup-oss.sh
+
+BACKUP_DIR="/backup/oss"
+DATE=$(date +%Y%m%d)
+BUCKET="babblingoadmin-media"
+
+mkdir -p $BACKUP_DIR
+
+# Download all files from OSS
+ossutil cp -r oss://$BUCKET/ $BACKUP_DIR/backup-$DATE/ --update
+
+# Keep only last 30 days
+find $BACKUP_DIR -type d -mtime +30 -exec rm -rf {} \;
+
+echo "OSS backup completed: $BACKUP_DIR/backup-$DATE"
+```
+
+Add to crontab:
+```bash
+sudo crontab -e
+# Add: 0 3 * * 0 /usr/local/bin/backup-oss.sh  # Weekly on Sunday at 3 AM
+```
+
+##### 10. Cost Optimization Tips
+
+- **Enable lifecycle rules**: Auto-delete old/unused files
+- **Use infrequent access storage**: For files accessed < 1 time/month
+- **Enable image processing**: Resize images on-the-fly to save bandwidth
+  ```
+  https://yourbucket.oss-cn-hangzhou.aliyuncs.com/image.jpg?x-oss-process=image/resize,w_800
+  ```
+- **Monitor usage**: Set billing alerts in Aliyun console
+- **CDN caching**: Reduce OSS requests and egress costs
+
+##### Troubleshooting OSS
+
+**Upload fails with "Access Denied"**:
+- Check RAM user permissions
+- Verify AccessKey ID and Secret
+- Ensure bucket ACL allows writes
+
+**Files not accessible publicly**:
+- Check bucket ACL (should be "Public Read" for public files)
+- Or use signed URLs if bucket is private:
+  ```typescript
+  const signedUrl = client.signatureUrl('filename.jpg', { expires: 3600 })
+  ```
+
+**Slow uploads from outside China**:
+- Use OSS Transfer Acceleration (extra cost)
+- Or deploy app server in same region as OSS
+
+**CORS errors in browser**:
+- Configure CORS in OSS console
+- Add your domain to allowed origins
 
 ### Database Backups
 
