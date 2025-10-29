@@ -18,6 +18,7 @@ export const Levels: CollectionConfig = {
       name: 'title',
       type: 'text',
       required: true,
+      localized: true,
     },
     createSlugField('title'),
     {
