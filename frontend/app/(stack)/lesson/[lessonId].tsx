@@ -7,6 +7,33 @@ import { useLocalSearchParams, useRouter } from "expo-router"
 import { extractModules, fetchLessonById, LessonDoc, MediaDoc, resolveMediaUrl } from "@/lib/payload"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
 
+/**
+ * Lesson detail screen – Audio + Slides architecture
+ *
+ * Key design choices (keep these in sync if you refactor):
+ * 1) Parent-controlled state (single source of truth):
+ *    - loopEnabled and playerSpeed live here in the lesson screen.
+ *    - The audio player is a dumb view that receives these as props and emits events.
+ *
+ * 2) Remount-per-slide audio:
+ *    - For each slide we render a SingleTrackPlayer keyed by the slide id.
+ *    - Changing slides changes the React key, which destroys the old player and mounts a new one.
+ *    - This eliminates race conditions when swiping quickly (no stale loads to cancel).
+ *
+ * 3) Unidirectional data flow:
+ *    - Player emits onNavigate('prev'|'next') and onFinish(); parent decides target slide.
+ *    - Speed changes are reported via onSpeedChange(speed) back to the parent.
+ *
+ * 4) Programmatic scroll guard:
+ *    - When we advance slides due to audio finish or button navigation, we set a flag
+ *      (programmaticScrollRef). The onSlideScroll handler clears it and avoids feeding
+ *      the event back into navigation, preventing feedback loops.
+ *
+ * 5) Silent slides auto-advance:
+ *    - If a slide has no audio, we automatically advance after a small dwell time
+ *      to keep the flow consistent.
+ */
+
 const extractParagraphs = (body: unknown): string[] => {
   if (!body) {
     return []
@@ -102,6 +129,10 @@ const LessonDetail = () => {
   const slideAudio = useMemo(() => modules.map(m => ({ id: m.id, title: m.title, audioUrl: resolveMediaUrl(m.audio) })), [modules])
   const showAudioPlayer = modules.length > 0
 
+  // Keep the slide index in sync with user scrolls, but avoid triggering
+  // another navigation when the scroll originated from our own programmatic
+  // action (e.g., auto-advance on finish). The flag is toggled around
+  // scrollToIndex calls.
   const onSlideScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x
     const index = Math.round(offsetX / screenWidth)
@@ -146,7 +177,9 @@ const LessonDetail = () => {
     )
   }, [screenWidth])
 
-  // When player track changes, scroll slides accordingly
+  // When player asks to navigate, we compute the target slide here.
+  // Buttons are enabled in the player if "neighbor exists OR loop is on".
+  // Parent is authoritative about loop and boundaries.
   const handleNavigate = useCallback((action: 'prev' | 'next') => {
     const lastIndex = modules.length - 1
     let target = currentSlideIndex
@@ -164,6 +197,9 @@ const LessonDetail = () => {
     }
   }, [currentSlideIndex, modules.length, loopEnabled])
 
+  // When the current track finishes, advance to the next slide (or wrap if loop).
+  // If loop is off and we're on the last slide, do nothing—player remains mounted
+  // and the user can press Play to replay (player seeks to 0 on play click).
   const handleTrackFinish = useCallback(() => {
     const lastIndex = modules.length - 1
     let next = currentSlideIndex
@@ -315,7 +351,11 @@ const LessonDetail = () => {
             paddingBottom: 16,
           }}
         >
-          {/* Single-track player per slide */}
+          {/* Single-track player per slide
+              - The key={slideId} forces a fresh mount when slide changes.
+              - We pass parent-controlled "speed" and "loop".
+              - onSpeedChange bubbles user speed choice up for persistence across slides.
+          */}
           {slideAudio[currentSlideIndex]?.audioUrl ? (
             (() => {
               const trk = slideAudio[currentSlideIndex]
