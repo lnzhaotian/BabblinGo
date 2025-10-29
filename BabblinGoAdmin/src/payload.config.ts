@@ -5,6 +5,8 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical'
 import { s3Storage } from '@payloadcms/storage-s3'
 import path from 'path'
 import { buildConfig } from 'payload'
+import { en } from '@payloadcms/translations/languages/en'
+import { zh } from '@payloadcms/translations/languages/zh'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 
@@ -23,10 +25,27 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
+    meta: {
+      titleSuffix: '- BabblinGo Admin',
+    },
+    components: {
+      views: {
+        dashboard: {
+          Component: '/admin/components/Dashboard#default',
+        },
+      },
+    },
   },
   collections: [Users, Media, Levels, Lessons, Modules],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
+  i18n: {
+    fallbackLanguage: 'en',
+    supportedLanguages: {
+      en,
+      zh,
+    },
+  },
   typescript: {
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
@@ -34,7 +53,22 @@ export default buildConfig({
     url: process.env.DATABASE_URI || '',
   }),
   localization: {
-    locales: ['en', 'zh'],
+    locales: [
+      {
+        code: 'en',
+        label: {
+          en: 'English Content',
+          zh: '英文内容',
+        },
+      },
+      {
+        code: 'zh',
+        label: {
+          en: 'Chinese Content',
+          zh: '中文内容',
+        },
+      },
+    ],
     defaultLocale: 'en',
     fallback: true,
   },
