@@ -95,6 +95,10 @@ const LessonDetail = () => {
   const [selectedSecondIndex, setSelectedSecondIndex] = useState<number>(0)
   const [resumeOnModalClose, setResumeOnModalClose] = useState<boolean>(false)
   const [playerResetCounter, setPlayerResetCounter] = useState<number>(0)
+  // Track last emitted center indices for continuous haptics while scrolling
+  const minuteHapticRef = useRef<number>(0)
+  const secondHapticRef = useRef<number>(0)
+  const [timerPaused, setTimerPaused] = useState<boolean>(false)
   const [timerActive, setTimerActive] = useState(false)
   const [remainingSeconds, setRemainingSeconds] = useState<number>(0)
   const sessionEndAtRef = useRef<number | null>(null)
@@ -206,7 +210,7 @@ const LessonDetail = () => {
 
   // Timer tick
   useEffect(() => {
-    if (!timerActive || !sessionEndAtRef.current) return
+    if (!timerActive || timerPaused || !sessionEndAtRef.current) return
     const tick = () => {
       const now = Date.now()
       const remainMs = sessionEndAtRef.current! - now
@@ -232,7 +236,27 @@ const LessonDetail = () => {
     const iv = setInterval(tick, 1000)
     tick()
     return () => clearInterval(iv)
-  }, [timerActive, lesson?.id, lesson?.title, lessonId, routeTitle, playerSpeed, saveLearningSession])
+  }, [timerActive, timerPaused, lesson?.id, lesson?.title, lessonId, routeTitle, playerSpeed, saveLearningSession])
+
+  const pauseTimer = useCallback(() => {
+    if (!timerActive || timerPaused) return
+    // Freeze remaining seconds
+    if (sessionEndAtRef.current) {
+      const now = Date.now()
+      const remainMs = sessionEndAtRef.current - now
+      const remainSec = Math.max(0, Math.ceil(remainMs / 1000))
+      setRemainingSeconds(remainSec)
+    }
+    sessionEndAtRef.current = null
+    setTimerPaused(true)
+  }, [timerActive, timerPaused])
+
+  const resumeTimer = useCallback(() => {
+    if (!timerActive || !timerPaused) return
+    const now = Date.now()
+    sessionEndAtRef.current = now + remainingSeconds * 1000
+    setTimerPaused(false)
+  }, [timerActive, timerPaused, remainingSeconds])
 
   
 
@@ -435,9 +459,12 @@ const LessonDetail = () => {
           {/* Timer button + countdown */}
           <Pressable
             onPress={() => {
-              // Pause current playback while user sets timer
+              // Pause playback and (if running) pause the timer while user sets timer
               setPlayerSuspended(true)
               setResumeOnModalClose(true)
+              if (timerActive && !timerPaused) {
+                pauseTimer()
+              }
               setTimerModalVisible(true)
             }}
             accessibilityLabel="Set session timer"
@@ -557,7 +584,13 @@ const LessonDetail = () => {
         onRequestClose={() => {
           // Close without starting: resume playback if requested
           setTimerModalVisible(false)
-          if (resumeOnModalClose && !timerActive) {
+          if (timerActive && timerPaused) {
+            // Resume the timer and playback
+            resumeTimer()
+            setPlayerSuspended(false)
+            setPlayerPlaySignal((x) => x + 1)
+          } else if (resumeOnModalClose && !timerActive) {
+            // No active timer; simply resume playback
             setPlayerSuspended(false)
             setPlayerPlaySignal((x) => x + 1)
           }
@@ -636,6 +669,17 @@ const LessonDetail = () => {
                         snapToInterval={ITEM_HEIGHT}
                         decelerationRate="fast"
                         contentContainerStyle={{ paddingVertical: PAD }}
+                        scrollEventThrottle={16}
+                        onScroll={(e) => {
+                          const y = e.nativeEvent.contentOffset.y
+                          const idx = Math.round(y / ITEM_HEIGHT)
+                          const val = ((idx % 60) + 60) % 60
+                          if (val !== minuteHapticRef.current) {
+                            minuteHapticRef.current = val
+                            setSelectedMinuteIndex(val)
+                            Haptics.selectionAsync().catch(() => {})
+                          }
+                        }}
                         onMomentumScrollEnd={(e) => {
                           const y = e.nativeEvent.contentOffset.y
                           const idx = Math.round(y / ITEM_HEIGHT)
@@ -683,6 +727,17 @@ const LessonDetail = () => {
                         snapToInterval={ITEM_HEIGHT}
                         decelerationRate="fast"
                         contentContainerStyle={{ paddingVertical: PAD }}
+                        scrollEventThrottle={16}
+                        onScroll={(e) => {
+                          const y = e.nativeEvent.contentOffset.y
+                          const idx = Math.round(y / ITEM_HEIGHT)
+                          const val = ((idx % 60) + 60) % 60
+                          if (val !== secondHapticRef.current) {
+                            secondHapticRef.current = val
+                            setSelectedSecondIndex(val)
+                            Haptics.selectionAsync().catch(() => {})
+                          }
+                        }}
                         onMomentumScrollEnd={(e) => {
                           const y = e.nativeEvent.contentOffset.y
                           const idx = Math.round(y / ITEM_HEIGHT)
@@ -707,9 +762,13 @@ const LessonDetail = () => {
             <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 8 }}>
               <Pressable
                 onPress={() => {
-                  // Close without starting: resume playback if requested
+                  // Close without starting: resume playback (and timer if paused)
                   setTimerModalVisible(false)
-                  if (resumeOnModalClose && !timerActive) {
+                  if (timerActive && timerPaused) {
+                    resumeTimer()
+                    setPlayerSuspended(false)
+                    setPlayerPlaySignal((x) => x + 1)
+                  } else if (resumeOnModalClose && !timerActive) {
                     setPlayerSuspended(false)
                     setPlayerPlaySignal((x) => x + 1)
                   }
@@ -728,6 +787,7 @@ const LessonDetail = () => {
                 onPress={() => {
                   // Starting a session: reset player to start and play
                   setResumeOnModalClose(false)
+                  setTimerPaused(false)
                   setPlayerResetCounter((c) => c + 1)
                   startTimer()
                 }}
