@@ -10,6 +10,10 @@ try {
 
 module.exports = ({ config }) => ({
   ...config,
+  plugins: [
+    ...(config.plugins || []),
+    'expo-localization',
+  ],
   extra: {
     ...(config.extra || {}),
     // Mirror the NEXT_PUBLIC_API_URL from .env into expo's extra config

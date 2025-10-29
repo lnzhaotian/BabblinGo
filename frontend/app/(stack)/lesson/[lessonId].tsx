@@ -9,6 +9,7 @@ import { extractModules, fetchLessonById, LessonDoc, MediaDoc, resolveMediaUrl }
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
+import { useTranslation } from "react-i18next"
 
 /**
  * Lesson detail screen – Audio + Slides architecture
@@ -68,6 +69,7 @@ const isMediaDoc = (value: MediaDoc | string | null | undefined): value is Media
   Boolean(value && typeof value === "object")
 
 const LessonDetail = () => {
+  const { t } = useTranslation()
   const router = useRouter()
   const { lessonId, title: routeTitle } = useLocalSearchParams<{
     lessonId?: string
@@ -412,6 +414,7 @@ const LessonDetail = () => {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
         <ActivityIndicator size="large" />
+        <Text style={{ marginTop: 12 }}>{t("lesson.loading")}</Text>
       </SafeAreaView>
     )
   }
@@ -419,7 +422,7 @@ const LessonDetail = () => {
   if (error) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-        <Text style={{ textAlign: "center", color: "#b71c1c" }}>{error}</Text>
+        <Text style={{ textAlign: "center", color: "#b71c1c" }}>{error || t("lesson.error")}</Text>
       </SafeAreaView>
     )
   }
@@ -427,7 +430,7 @@ const LessonDetail = () => {
   if (!lesson) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-        <Text style={{ textAlign: "center" }}>Lesson not found.</Text>
+        <Text style={{ textAlign: "center" }}>{t("lesson.notFound")}</Text>
       </SafeAreaView>
     )
   }
@@ -489,7 +492,7 @@ const LessonDetail = () => {
         <View style={{ flex: 1 }}>
           {modulesWithContent.length === 0 ? (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-              <Text style={{ textAlign: "center", color: "#666" }}>No modules available for this lesson.</Text>
+              <Text style={{ textAlign: "center", color: "#666" }}>{t("lesson.noModules")}</Text>
             </View>
           ) : (
             <>
@@ -599,7 +602,7 @@ const LessonDetail = () => {
       >
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
           <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>Set session timer</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>{t("timer.set")}</Text>
             {/* Inputs for quick manual edit */}
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
               <View style={{ alignItems: "center" }}>
@@ -613,7 +616,7 @@ const LessonDetail = () => {
                   style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, textAlign: "center" }}
                   placeholder="MM"
                 />
-                <Text style={{ color: "#6b7280", marginTop: 4 }}>minutes</Text>
+                <Text style={{ color: "#6b7280", marginTop: 4 }}>{t("timer.minutes")}</Text>
               </View>
               <Text style={{ fontSize: 16, fontWeight: "700" }}>:</Text>
               <View style={{ alignItems: "center" }}>
@@ -627,7 +630,7 @@ const LessonDetail = () => {
                   style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, textAlign: "center" }}
                   placeholder="SS"
                 />
-                <Text style={{ color: "#6b7280", marginTop: 4 }}>seconds</Text>
+                <Text style={{ color: "#6b7280", marginTop: 4 }}>{t("timer.seconds")}</Text>
               </View>
             </View>
 
@@ -776,11 +779,11 @@ const LessonDetail = () => {
                 }}
                 style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#e5e7eb" }}
               >
-                <Text style={{ fontWeight: "600", color: "#374151" }}>Close</Text>
+                <Text style={{ fontWeight: "600", color: "#374151" }}>{t("timer.close")}</Text>
               </Pressable>
               {timerActive ? (
                 <Pressable onPress={cancelTimer} style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#ef4444" }}>
-                  <Text style={{ fontWeight: "700", color: "#fff" }}>Cancel timer</Text>
+                  <Text style={{ fontWeight: "700", color: "#fff" }}>{t("timer.cancel")}</Text>
                 </Pressable>
               ) : null}
               <Pressable
@@ -793,7 +796,7 @@ const LessonDetail = () => {
                 }}
                 style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#6366f1" }}
               >
-                <Text style={{ fontWeight: "700", color: "#fff" }}>{timerActive ? "Restart" : "Start"}</Text>
+                <Text style={{ fontWeight: "700", color: "#fff" }}>{timerActive ? t("timer.restart") : t("timer.start")}</Text>
               </Pressable>
             </View>
           </View>
@@ -804,8 +807,8 @@ const LessonDetail = () => {
       <Modal visible={timeUpModalVisible} transparent animationType="fade" onRequestClose={() => setTimeUpModalVisible(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
           <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>Time&apos;s up</Text>
-            <Text style={{ textAlign: "center", color: "#6b7280" }}>Would you like to set a new timer and continue, or end this session?</Text>
+            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>{t("timer.timeUp")}</Text>
+            <Text style={{ textAlign: "center", color: "#6b7280" }}>{t("timer.timeUpMessage")}</Text>
             <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 8 }}>
               <Pressable
                 onPress={() => {
@@ -814,7 +817,7 @@ const LessonDetail = () => {
                 }}
                 style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#6366f1" }}
               >
-                <Text style={{ fontWeight: "700", color: "#fff" }}>Set new timer</Text>
+                <Text style={{ fontWeight: "700", color: "#fff" }}>{t("timer.setNew")}</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
@@ -824,7 +827,7 @@ const LessonDetail = () => {
                 }}
                 style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#ef4444" }}
               >
-                <Text style={{ fontWeight: "700", color: "#fff" }}>End session</Text>
+                <Text style={{ fontWeight: "700", color: "#fff" }}>{t("timer.endSession")}</Text>
               </Pressable>
             </View>
           </View>

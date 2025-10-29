@@ -1,8 +1,11 @@
 import React from "react";
 import { Tabs } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
 
 export default function TabsLayout() {
+  const { t } = useTranslation();
+  
   return (
     <Tabs
       initialRouteName="index"
@@ -23,13 +26,13 @@ export default function TabsLayout() {
           }
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
-        },
-      })}
+        }}
+      )}
     >
-      <Tabs.Screen name="index" options={{ title: "BabblinGo", tabBarLabel: "BabblinGo" }} />
-      <Tabs.Screen name="tests" options={{ title: "测试", tabBarLabel: "测试" }} />
-  <Tabs.Screen name="progress" options={{ title: "Progress", tabBarLabel: "Progress" }} />
-  <Tabs.Screen name="settings" options={{ title: "设置", tabBarLabel: "设置" }} />
+      <Tabs.Screen name="index" options={{ title: t("tabs.home"), tabBarLabel: t("tabs.home") }} />
+      <Tabs.Screen name="tests" options={{ title: t("tabs.tests"), tabBarLabel: t("tabs.tests") }} />
+      <Tabs.Screen name="progress" options={{ title: t("tabs.progress"), tabBarLabel: t("tabs.progress") }} />
+      <Tabs.Screen name="settings" options={{ title: t("tabs.settings"), tabBarLabel: t("tabs.settings") }} />
     </Tabs>
   );
 }
