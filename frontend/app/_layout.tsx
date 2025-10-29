@@ -12,6 +12,10 @@ export default function RootLayout() {
         {/* Stack-only routes */}
         <Stack.Screen name="(stack)/web" options={{ headerShown: false }} />
         <Stack.Screen name="(stack)/lesson/[lessonId]" options={{ headerShown: false }} />
+        {/* Settings detail pages */}
+        <Stack.Screen name="settings/language" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/cache" options={{ headerShown: false }} />
+        <Stack.Screen name="settings/about" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaProvider>
   );
