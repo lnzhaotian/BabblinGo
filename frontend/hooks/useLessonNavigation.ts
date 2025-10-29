@@ -87,6 +87,12 @@ export function useLessonNavigation({ totalSlides, hasAudio, loopEnabled, dwellM
     setCurrentSlideIndex(next)
   }, [currentSlideIndex, totalSlides, loopEnabled])
 
+  const resetToFirstSlide = useCallback(() => {
+    setCurrentSlideIndex(0)
+    programmaticScrollRef.current = true
+    flatListRef.current?.scrollToIndex({ index: 0, animated: false })
+  }, [])
+
   return {
     currentSlideIndex,
     setCurrentSlideIndex,
@@ -95,5 +101,6 @@ export function useLessonNavigation({ totalSlides, hasAudio, loopEnabled, dwellM
     onSlideScroll,
     handleNavigate,
     handleTrackFinish,
+    resetToFirstSlide,
   }
 }
