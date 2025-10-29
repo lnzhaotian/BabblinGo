@@ -39,9 +39,12 @@ export type SingleTrackPlayerProps = {
   onSpeedChange?: (speed: PlaybackSpeed) => void
   onFinish?: () => void
   onNavigate?: (action: 'prev' | 'next') => void
+  // Optional external controls
+  suspend?: boolean  // when true, pause playback
+  playSignal?: number // incrementing number triggers a play() if not suspended
 }
 
-export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate }: SingleTrackPlayerProps) {
+export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate, suspend = false, playSignal }: SingleTrackPlayerProps) {
   const DEBUG = !!debug
   const player = useAudioPlayer(undefined, { updateInterval: 250, downloadFirst: true })
   const status = useAudioPlayerStatus(player)
@@ -80,7 +83,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         try { await player.seekTo(0) } catch {}
         if (cancelled || !mountedRef.current) return
 
-        if (autoPlay) {
+        if (autoPlay && !suspend) {
           try {
             await player.play()
             hasStartedRef.current = true
@@ -112,6 +115,32 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       } catch {}
     })()
   }, [player, speed, isPlaying])
+
+  // Respond to suspend changes
+  useEffect(() => {
+    (async () => {
+      try {
+        if (suspend && player.playing) {
+          await player.pause()
+          setIsPlaying(false)
+        }
+      } catch {}
+    })()
+  }, [suspend, player])
+
+  // External play trigger
+  useEffect(() => {
+    (async () => {
+      try {
+        if (playSignal != null && !suspend) {
+          await player.setPlaybackRate(speed)
+          await player.play()
+          setIsPlaying(true)
+        }
+      } catch {}
+    })()
+    // playSignal is a number that increments to trigger; include it directly
+  }, [playSignal, suspend, player, speed])
 
   // Keep UI in sync and detect finish
   // We guard onFinish with hasCalledFinishRef to avoid duplicate signals
