@@ -54,6 +54,9 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const hasStartedRef = useRef(false)
   const hasCalledFinishRef = useRef(false)
   const lastProgressLogAt = useRef<number>(0)
+  // Track the intended play state (avoids relying on laggy status.playing during rate changes)
+  const shouldBePlayingRef = useRef(false)
+  const ensurePlayingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Configure audio mode (iOS silent switch) so audio plays even if the device
   // is in silent mode. Do this once per mount.
@@ -88,7 +91,25 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             await player.play()
             hasStartedRef.current = true
             setIsPlaying(true)
+            shouldBePlayingRef.current = true
             if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Started`)
+            // Post-start guard: re-assert playing shortly after start to catch
+            // platforms that momentarily pause on initialization.
+            if (ensurePlayingTimeoutRef.current) clearTimeout(ensurePlayingTimeoutRef.current)
+            ensurePlayingTimeoutRef.current = setTimeout(async () => {
+              try {
+                const nearEnd = status && status.duration > 0 && (status.duration - status.currentTime) <= 1.0
+                if (!suspend && shouldBePlayingRef.current && !nearEnd) {
+                  // If status reports paused shortly after start, try to resume
+                  if (!player.playing) {
+                    if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Post-start ensure play`)
+                    await player.setPlaybackRate(speed)
+                    await player.play()
+                    setIsPlaying(true)
+                  }
+                }
+              } catch {}
+            }, 250)
           } catch (err) {
             console.error(`[SingleTrack#${sessionIdRef.current}] play() failed`, err)
           }
@@ -105,16 +126,25 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   }, [])
 
   // Apply rate changes on the fly
-  // When parent updates speed, we set the playback rate and ensure playback
-  // resumes if it was already playing (some platforms pause on rate change).
+  // When parent updates speed, set the playback rate and, if we intend to be playing,
+  // explicitly resume. This avoids relying on status.playing, which can lag and cause
+  // a missed resume on some platforms.
   useEffect(() => {
     ;(async () => {
       try {
+        const before = shouldBePlayingRef.current && !suspend
+        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] setPlaybackRate(${speed}) (intendsPlaying=${before})`)
         await player.setPlaybackRate(speed)
-        if (isPlaying) await player.play()
+        // Some platforms pause on rate change; resume if we intend to be playing.
+        if (before) {
+          try {
+            await player.play()
+            if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Resume after rate change`)
+          } catch {}
+        }
       } catch {}
     })()
-  }, [player, speed, isPlaying])
+  }, [player, speed, suspend, DEBUG])
 
   // Respond to suspend changes
   useEffect(() => {
@@ -123,6 +153,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         if (suspend && player.playing) {
           await player.pause()
           setIsPlaying(false)
+          shouldBePlayingRef.current = false
         }
       } catch {}
     })()
@@ -136,6 +167,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           await player.setPlaybackRate(speed)
           await player.play()
           setIsPlaying(true)
+          shouldBePlayingRef.current = true
         }
       } catch {}
     })()
@@ -174,12 +206,27 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           onFinish?.()
         }
       }
+      // If we unexpectedly paused not near the end and we intend to be playing, try to recover.
+      if (!status.playing && timeRemaining > 1.0 && shouldBePlayingRef.current && !suspend) {
+        (async () => {
+          try {
+            if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Unexpected pause mid-track; attempting resume`)
+            await player.setPlaybackRate(speed)
+            await player.play()
+            setIsPlaying(true)
+          } catch {}
+        })()
+      }
     }
-  }, [status, DEBUG, onFinish])
+  }, [status, DEBUG, onFinish, player, speed, suspend])
 
   useEffect(() => {
     return () => {
       mountedRef.current = false
+      if (ensurePlayingTimeoutRef.current) {
+        clearTimeout(ensurePlayingTimeoutRef.current)
+        ensurePlayingTimeoutRef.current = null
+      }
       try { if (player.playing) player.pause() } catch {}
     }
   }, [player])
@@ -192,6 +239,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       if (player.playing) {
         await player.pause()
         setIsPlaying(false)
+        shouldBePlayingRef.current = false
       } else {
         // If at end, seek to start before playing
         if (status && status.duration > 0 && status.currentTime >= status.duration - 0.5) {
@@ -201,6 +249,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         try { await player.setPlaybackRate(speed) } catch {}
         await player.play()
         setIsPlaying(true)
+        shouldBePlayingRef.current = true
       }
     } catch (e) {
       console.error(`[SingleTrack#${sessionIdRef.current}] Play/Pause error`, e)

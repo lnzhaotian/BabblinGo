@@ -31,24 +31,31 @@ export function useLessonNavigation({ totalSlides, hasAudio, loopEnabled, dwellM
     if (dwellTimerRef.current) {
       clearTimeout(dwellTimerRef.current)
       dwellTimerRef.current = null
+      if (__DEV__) console.log(`[useLessonNavigation] Cleared dwell timer`)
     }
 
     // If current slide has audio, do nothing
-    if (hasAudio[currentSlideIndex]) return
+    if (hasAudio[currentSlideIndex]) {
+      if (__DEV__) console.log(`[useLessonNavigation] Slide ${currentSlideIndex} has audio – no auto-advance`)
+      return
+    }
 
     const nextIndex = currentSlideIndex + 1
     if (nextIndex >= totalSlides) return
 
+    if (__DEV__) console.log(`[useLessonNavigation] Scheduling auto-advance from ${currentSlideIndex} -> ${nextIndex} in ${dwellMs}ms`)
     dwellTimerRef.current = setTimeout(() => {
       programmaticScrollRef.current = true
       flatListRef.current?.scrollToIndex({ index: nextIndex, animated: true })
       setCurrentSlideIndex(nextIndex)
+      if (__DEV__) console.log(`[useLessonNavigation] Auto-advanced to ${nextIndex}`)
     }, dwellMs)
 
     return () => {
       if (dwellTimerRef.current) {
         clearTimeout(dwellTimerRef.current)
         dwellTimerRef.current = null
+        if (__DEV__) console.log(`[useLessonNavigation] Cleanup: cleared dwell timer`)
       }
     }
   }, [currentSlideIndex, totalSlides, hasAudio, dwellMs])

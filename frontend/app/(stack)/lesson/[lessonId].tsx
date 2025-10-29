@@ -22,11 +22,11 @@ import { LessonHeaderControls } from "@/components/LessonHeaderControls"
  *
  * Key design choices (keep these in sync if you refactor):
  * 1) Parent-controlled state (single source of truth):
- *    - loopEnabled and playerSpeed live here in the lesson screen.
+ *    - loopEnabled and playerSpeed are controlled by this screen (via useLessonPreferences).
  *    - The audio player is a dumb view that receives these as props and emits events.
  *
  * 2) Remount-per-slide audio:
- *    - For each slide we render a SingleTrackPlayer keyed by the slide id.
+ *    - SingleTrackPlayer is wrapped by LessonAudioPlayer and rendered with key={slideId}.
  *    - Changing slides changes the React key, which destroys the old player and mounts a new one.
  *    - This eliminates race conditions when swiping quickly (no stale loads to cancel).
  *
@@ -34,14 +34,12 @@ import { LessonHeaderControls } from "@/components/LessonHeaderControls"
  *    - Player emits onNavigate('prev'|'next') and onFinish(); parent decides target slide.
  *    - Speed changes are reported via onSpeedChange(speed) back to the parent.
  *
- * 4) Programmatic scroll guard:
- *    - When we advance slides due to audio finish or button navigation, we set a flag
- *      (programmaticScrollRef). The onSlideScroll handler clears it and avoids feeding
- *      the event back into navigation, preventing feedback loops.
+ * 4) Programmatic scroll guard (encapsulated in useLessonNavigation):
+ *    - When we advance slides due to audio finish or button navigation, a guard flag prevents
+ *      the onSlideScroll handler from feeding the event back into navigation (no feedback loops).
  *
- * 5) Silent slides auto-advance:
- *    - If a slide has no audio, we automatically advance after a small dwell time
- *      to keep the flow consistent.
+ * 5) Silent slides auto-advance (encapsulated in useLessonNavigation):
+ *    - If a slide has no audio, the hook auto-advances after a short dwell to keep the flow.
  */
 
 const LessonDetail = () => {
