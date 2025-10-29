@@ -18,6 +18,8 @@ export default function TabsLayout() {
             iconName = "quiz";
           } else if (route.name === "settings") {
             iconName = "settings";
+          } else if (route.name === "progress") {
+            iconName = "insights";
           }
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
@@ -26,7 +28,8 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="index" options={{ title: "BabblinGo", tabBarLabel: "BabblinGo" }} />
       <Tabs.Screen name="tests" options={{ title: "测试", tabBarLabel: "测试" }} />
-      <Tabs.Screen name="settings" options={{ title: "设置", tabBarLabel: "设置" }} />
+  <Tabs.Screen name="progress" options={{ title: "Progress", tabBarLabel: "Progress" }} />
+  <Tabs.Screen name="settings" options={{ title: "设置", tabBarLabel: "设置" }} />
     </Tabs>
   );
 }
