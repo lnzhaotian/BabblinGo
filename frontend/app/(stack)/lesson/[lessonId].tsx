@@ -10,6 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import { useTranslation } from "react-i18next"
+import { getOrDownloadFile } from "@/lib/cache-manager"
 
 /**
  * Lesson detail screen – Audio + Slides architecture
@@ -89,6 +90,11 @@ const LessonDetail = () => {
   // Prevent writing default prefs over saved ones before initial load completes
   const prefsLoadedRef = useRef(false)
 
+  // Cache state
+  const [cachedMedia, setCachedMedia] = useState<Record<string, string>>({}) // URL -> local path
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({}) // URL -> progress (0-1)
+  const [cachingInProgress, setCachingInProgress] = useState(false)
+
   // Session timer state
   const [timerModalVisible, setTimerModalVisible] = useState(false)
   const [timeUpModalVisible, setTimeUpModalVisible] = useState(false)
@@ -130,9 +136,65 @@ const LessonDetail = () => {
     }
   }, [lessonId, i18n])
 
+  // Cache media files (images and audio) for offline access
+  const cacheMediaFiles = useCallback(async (lessonData: LessonDoc) => {
+    if (!lessonData.updatedAt) return
+
+    setCachingInProgress(true)
+    const version = lessonData.updatedAt
+    const modulesList = extractModules(lessonData)
+    const cached: Record<string, string> = {}
+
+    // Collect all media URLs
+    const mediaUrls: { url: string; type: 'image' | 'audio' }[] = []
+    
+    for (const module of modulesList) {
+      const imageUrl = resolveMediaUrl(module.image)
+      const audioUrl = resolveMediaUrl(module.audio)
+      
+      if (imageUrl) mediaUrls.push({ url: imageUrl, type: 'image' })
+      if (audioUrl) mediaUrls.push({ url: audioUrl, type: 'audio' })
+    }
+
+    // Download all files in parallel
+    await Promise.all(
+      mediaUrls.map(async ({ url }) => {
+        try {
+          const localPath = await getOrDownloadFile(
+            url,
+            version,
+            false, // Don't force download if cached
+            (progress) => {
+              setDownloadProgress((prev) => ({ ...prev, [url]: progress }))
+            }
+          )
+          cached[url] = localPath
+          // Clear progress indicator once complete
+          setDownloadProgress((prev) => {
+            const next = { ...prev }
+            delete next[url]
+            return next
+          })
+        } catch (error) {
+          console.error(`Failed to cache ${url}:`, error)
+        }
+      })
+    )
+
+    setCachedMedia(cached)
+    setCachingInProgress(false)
+  }, [])
+
   useEffect(() => {
     loadLesson()
   }, [loadLesson])
+
+  // Cache media after lesson loads
+  useEffect(() => {
+    if (lesson) {
+      cacheMediaFiles(lesson)
+    }
+  }, [lesson, cacheMediaFiles])
 
   useEffect(() => {
     return () => {
@@ -302,7 +364,12 @@ const LessonDetail = () => {
   const SILENT_SLIDE_DWELL_MS = 2500
   
   // Pre-resolve audio per slide for quick lookup
-  const slideAudio = useMemo(() => modules.map(m => ({ id: m.id, title: m.title, audioUrl: resolveMediaUrl(m.audio) })), [modules])
+  const slideAudio = useMemo(() => modules.map(m => {
+    const audioUrl = resolveMediaUrl(m.audio)
+    // Use cached audio if available
+    const displayAudioUrl = audioUrl && cachedMedia[audioUrl] ? cachedMedia[audioUrl] : audioUrl
+    return { id: m.id, title: m.title, audioUrl: displayAudioUrl }
+  }), [modules, cachedMedia])
   const showAudioPlayer = modules.length > 0
 
   // Keep the slide index in sync with user scrolls, but avoid triggering
@@ -327,16 +394,44 @@ const LessonDetail = () => {
     const imageUrl = resolveMediaUrl(item.image)
     const imageAlt = isMediaDoc(item.image) ? item.image?.filename ?? item.title : item.title
 
+    // Use cached image if available, otherwise use remote URL
+    const displayImageUrl = imageUrl && cachedMedia[imageUrl] ? cachedMedia[imageUrl] : imageUrl
+    const isDownloading = imageUrl && downloadProgress[imageUrl] !== undefined && downloadProgress[imageUrl] < 1
+
     return (
       <View style={{ width: screenWidth, paddingHorizontal: 16, justifyContent: "center", alignItems: "center" }}>
         <View style={{ gap: 12, width: "100%", maxWidth: 600 }}>
-          {imageUrl ? (
-            <Image
-              source={{ uri: imageUrl }}
-              accessibilityLabel={imageAlt || `Module ${displayOrder}`}
-              style={{ width: "100%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#f5f5f5" }}
-              resizeMode="cover"
-            />
+          {displayImageUrl ? (
+            <View style={{ position: 'relative' }}>
+              <Image
+                source={{ uri: displayImageUrl }}
+                accessibilityLabel={imageAlt || `Module ${displayOrder}`}
+                style={{ width: "100%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#f5f5f5" }}
+                resizeMode="cover"
+              />
+              {/* Show downloading indicator */}
+              {isDownloading && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    bottom: 8,
+                    right: 8,
+                    backgroundColor: 'rgba(0,0,0,0.7)',
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 6,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
+                    {t("lesson.downloading") || "Downloading..."}
+                  </Text>
+                </View>
+              )}
+            </View>
           ) : null}
 
           {paragraphs.length > 0 ? (
@@ -351,7 +446,7 @@ const LessonDetail = () => {
         </View>
       </View>
     )
-  }, [screenWidth])
+  }, [screenWidth, cachedMedia, downloadProgress, t])
 
   // When player asks to navigate, we compute the target slide here.
   // Buttons are enabled in the player if "neighbor exists OR loop is on".
@@ -460,6 +555,12 @@ const LessonDetail = () => {
           <Text style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700" }} numberOfLines={1}>
             {lesson.title || routeTitle || "Lesson"}
           </Text>
+          {/* Cache indicator */}
+          {cachingInProgress && (
+            <View style={{ marginLeft: 8 }}>
+              <ActivityIndicator size="small" color="#007aff" />
+            </View>
+          )}
           {/* Timer button + countdown */}
           <Pressable
             onPress={() => {

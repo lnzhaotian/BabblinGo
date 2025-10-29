@@ -44,6 +44,7 @@ export type LessonDoc = {
   order?: number | null
   level: string | LevelDoc
   modules?: ModuleRelation[] | null
+  updatedAt?: string // Payload timestamp for version tracking
 }
 
 const buildUrl = (path: string): string => {
