@@ -1,16 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, TextInput, View } from "react-native"
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, TextInput, View } from "react-native"
 import * as Haptics from "expo-haptics"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { MaterialIcons } from "@expo/vector-icons"
 import { useLocalSearchParams, useRouter } from "expo-router"
 
-import { extractModules, fetchLessonById, LessonDoc, MediaDoc, resolveMediaUrl } from "@/lib/payload"
+import { extractModules, fetchLessonById, LessonDoc, resolveMediaUrl } from "@/lib/payload"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import { useTranslation } from "react-i18next"
 import { getOrDownloadFile, getLessonCacheStatus, clearLessonCache, redownloadLessonMedia, LessonCacheStatus } from "@/lib/cache-manager"
+
+import { LessonSlide } from "@/components/LessonSlide"
+import { LessonHeader } from "@/components/LessonHeader"
+import { TimeUpModal } from "@/components/TimeUpModal"
+import { CacheMenuModal } from "@/components/CacheMenuModal"
+import { PaginationDots } from "@/components/PaginationDots"
 
 /**
  * Lesson detail screen – Audio + Slides architecture
@@ -38,36 +43,6 @@ import { getOrDownloadFile, getLessonCacheStatus, clearLessonCache, redownloadLe
  *    - If a slide has no audio, we automatically advance after a small dwell time
  *      to keep the flow consistent.
  */
-
-const extractParagraphs = (body: unknown): string[] => {
-  if (!body) {
-    return []
-  }
-
-  const root = (body as { root?: { children?: unknown[] } })?.root
-
-  if (!root || !Array.isArray(root.children)) {
-    return []
-  }
-
-  return root.children
-    .map((node: any) => {
-      const children = Array.isArray(node?.children) ? node.children : []
-      return children
-        .map((child: any) => (typeof child?.text === "string" ? child.text : ""))
-        .join("")
-        .trim()
-    })
-    .filter(Boolean)
-}
-
-const formatOrder = (order: number | null | undefined, index: number) => {
-  const value = typeof order === "number" ? order : index + 1
-  return String(value).padStart(2, "0")
-}
-
-const isMediaDoc = (value: MediaDoc | string | null | undefined): value is MediaDoc =>
-  Boolean(value && typeof value === "object")
 
 const LessonDetail = () => {
   const { t, i18n } = useTranslation()
@@ -500,65 +475,19 @@ const LessonDetail = () => {
     // No direct player sync; remounting by key will take effect
   }, [screenWidth])
 
-  const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0]; index: number }) => {
-    const displayOrder = formatOrder(item.order, index)
-    const paragraphs = extractParagraphs(item.body)
-    const imageUrl = resolveMediaUrl(item.image)
-    const imageAlt = isMediaDoc(item.image) ? item.image?.filename ?? item.title : item.title
-
-    // Use cached image if available, otherwise use remote URL
-    const displayImageUrl = imageUrl && cachedMedia[imageUrl] ? cachedMedia[imageUrl] : imageUrl
-    const isDownloading = imageUrl && downloadProgress[imageUrl] !== undefined && downloadProgress[imageUrl] < 1
-
+const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0]; index: number }) => {
+  const imageUrl = resolveMediaUrl(item.image)
     return (
-      <View style={{ width: screenWidth, paddingHorizontal: 16, justifyContent: "center", alignItems: "center" }}>
-        <View style={{ gap: 12, width: "100%", maxWidth: 600 }}>
-          {displayImageUrl ? (
-            <View style={{ position: 'relative' }}>
-              <Image
-                source={{ uri: displayImageUrl }}
-                accessibilityLabel={imageAlt || `Module ${displayOrder}`}
-                style={{ width: "100%", aspectRatio: 1, borderRadius: 12, backgroundColor: "#f5f5f5" }}
-                resizeMode="cover"
-              />
-              {/* Show downloading indicator */}
-              {isDownloading && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    bottom: 8,
-                    right: 8,
-                    backgroundColor: 'rgba(0,0,0,0.7)',
-                    paddingHorizontal: 10,
-                    paddingVertical: 6,
-                    borderRadius: 6,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 6,
-                  }}
-                >
-                  <ActivityIndicator size="small" color="#fff" />
-                  <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
-                    {t("lesson.downloading") || "Downloading..."}
-                  </Text>
-                </View>
-              )}
-            </View>
-          ) : null}
-
-          {paragraphs.length > 0 ? (
-            <View style={{ gap: 12 }}>
-              {paragraphs.map((paragraph, paragraphIndex) => (
-                <Text key={paragraphIndex} style={{ fontSize: 24, lineHeight: 30, fontWeight: "700", textAlign: "center", color: "#333" }}>
-                  {paragraph}
-                </Text>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      </View>
+      <LessonSlide
+        item={item}
+        index={index}
+        screenWidth={screenWidth}
+        imageUrl={imageUrl}
+        cachedMedia={cachedMedia}
+        downloadProgress={downloadProgress}
+      />
     )
-  }, [screenWidth, cachedMedia, downloadProgress, t])
+}, [screenWidth, cachedMedia, downloadProgress])
 
   // When player asks to navigate, we compute the target slide here.
   // Buttons are enabled in the player if "neighbor exists OR loop is on".
@@ -646,75 +575,27 @@ const LessonDetail = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["top", "bottom"]}>
       <View style={{ flex: 1 }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: "#eee",
+        <LessonHeader
+          title={lesson.title || routeTitle || "Lesson"}
+          onBack={() => router.back()}
+          cachingInProgress={cachingInProgress}
+          timerActive={timerActive}
+          timerPaused={timerPaused}
+          remainingSeconds={remainingSeconds}
+          onTimerPress={() => {
+            setPlayerSuspended(true)
+            setResumeOnModalClose(true)
+            if (timerActive && !timerPaused) {
+              pauseTimer()
+            }
+            setTimerModalVisible(true)
           }}
-        >
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityLabel="Back"
-            style={{ padding: 4, marginRight: 8 }}
-            hitSlop={8}
-          >
-            <MaterialIcons name="arrow-back" size={26} color="#007aff" />
-          </Pressable>
-          <Text style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700" }} numberOfLines={1}>
-            {lesson.title || routeTitle || "Lesson"}
-          </Text>
-          {/* Cache indicator */}
-          {cachingInProgress && (
-            <View style={{ marginLeft: 8 }}>
-              <ActivityIndicator size="small" color="#007aff" />
-            </View>
-          )}
-          {/* Timer button + countdown */}
-          <Pressable
-            onPress={() => {
-              // Pause playback and (if running) pause the timer while user sets timer
-              setPlayerSuspended(true)
-              setResumeOnModalClose(true)
-              if (timerActive && !timerPaused) {
-                pauseTimer()
-              }
-              setTimerModalVisible(true)
-            }}
-            accessibilityLabel="Set session timer"
-            hitSlop={8}
-            style={{ padding: 4, marginLeft: 8, flexDirection: "row", alignItems: "center", gap: 6 }}
-          >
-            <MaterialIcons name="timer" size={22} color={timerActive ? "#16a34a" : "#9ca3af"} />
-            {timerActive ? (
-              <Text style={{ fontSize: 14, color: "#16a34a", fontWeight: "700" }}>{formatCountdown(remainingSeconds)}</Text>
-            ) : null}
-          </Pressable>
-          <Pressable
-            onPress={() => setLoopEnabled(!loopEnabled)}
-            accessibilityLabel="Toggle loop"
-            hitSlop={8}
-            style={{ padding: 4, marginLeft: 8 }}
-          >
-            <MaterialIcons name="repeat" size={22} color={loopEnabled ? "#6366f1" : "#9ca3af"} />
-          </Pressable>
-          {/* Cache status button */}
-          <Pressable
-            onPress={() => setCacheMenuVisible(true)}
-            accessibilityLabel="Cache options"
-            hitSlop={8}
-            style={{ padding: 4, marginLeft: 8 }}
-          >
-            <MaterialIcons 
-              name={lessonCacheStatus === 'full' ? 'cloud-done' : lessonCacheStatus === 'partial' ? 'cloud-download' : 'cloud-queue'} 
-              size={22} 
-              color={lessonCacheStatus === 'full' ? '#10b981' : lessonCacheStatus === 'partial' ? '#f59e0b' : '#9ca3af'} 
-            />
-          </Pressable>
-        </View>
+          formatCountdown={formatCountdown}
+          loopEnabled={loopEnabled}
+          onToggleLoop={() => setLoopEnabled(!loopEnabled)}
+          lessonCacheStatus={lessonCacheStatus}
+          onCachePress={() => setCacheMenuVisible(true)}
+        />
 
         <View style={{ flex: 1 }}>
           {modulesWithContent.length === 0 ? (
@@ -740,19 +621,10 @@ const LessonDetail = () => {
                 })}
               />
 
-              <View style={{ flexDirection: "row", justifyContent: "center", paddingVertical: 12, gap: 8 }}>
-                {modulesWithContent.map((_, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      width: 8,
-                      height: 8,
-                      borderRadius: 4,
-                      backgroundColor: currentSlideIndex === index ? "#007aff" : "#d1d1d6",
-                    }}
-                  />
-                ))}
-              </View>
+              <PaginationDots
+                total={modulesWithContent.length}
+                currentIndex={currentSlideIndex}
+              />
             </>
           )}
         </View>
@@ -1029,123 +901,27 @@ const LessonDetail = () => {
       </Modal>
 
       {/* Time up modal */}
-      <Modal visible={timeUpModalVisible} transparent animationType="fade" onRequestClose={() => setTimeUpModalVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
-          <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>{t("timer.timeUp")}</Text>
-            <Text style={{ textAlign: "center", color: "#6b7280" }}>{t("timer.timeUpMessage")}</Text>
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 8 }}>
-              <Pressable
-                onPress={() => {
-                  setTimeUpModalVisible(false)
-                  setTimerModalVisible(true)
-                }}
-                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#6366f1" }}
-              >
-                <Text style={{ fontWeight: "700", color: "#fff" }}>{t("timer.setNew")}</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  setTimeUpModalVisible(false)
-                  // Return to previous screen without duplicating routes
-                  router.back()
-                }}
-                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#ef4444" }}
-              >
-                <Text style={{ fontWeight: "700", color: "#fff" }}>{t("timer.endSession")}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <TimeUpModal
+        visible={timeUpModalVisible}
+        onClose={() => setTimeUpModalVisible(false)}
+        onSetNew={() => {
+          setTimeUpModalVisible(false)
+          setTimerModalVisible(true)
+        }}
+        onEndSession={() => {
+          setTimeUpModalVisible(false)
+          router.back()
+        }}
+      />
 
       {/* Cache management modal */}
-      <Modal visible={cacheMenuVisible} transparent animationType="fade" onRequestClose={() => setCacheMenuVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
-          <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>
-              {t("lesson.cache.title") || "Cache Management"}
-            </Text>
-            
-            {/* Cache status display */}
-            <View style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: "#f3f4f6", borderRadius: 8, gap: 8 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={{ color: "#6b7280", fontWeight: "600" }}>
-                  {t("lesson.cache.status") || "Status"}
-                </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <MaterialIcons 
-                    name={lessonCacheStatus === 'full' ? 'check-circle' : lessonCacheStatus === 'partial' ? 'cloud-download' : 'cloud-queue'} 
-                    size={18} 
-                    color={lessonCacheStatus === 'full' ? '#10b981' : lessonCacheStatus === 'partial' ? '#f59e0b' : '#9ca3af'} 
-                  />
-                  <Text style={{ color: "#374151", fontWeight: "600" }}>
-                    {lessonCacheStatus === 'full' ? (t("lesson.cache.statusFull") || "Fully Cached") :
-                     lessonCacheStatus === 'partial' ? (t("lesson.cache.statusPartial") || "Partially Cached") :
-                     (t("lesson.cache.statusNone") || "Not Cached")}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Actions */}
-            <View style={{ gap: 8, marginTop: 8 }}>
-              <Pressable
-                onPress={handleRedownload}
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  backgroundColor: "#3b82f6",
-                  alignItems: "center",
-                }}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <MaterialIcons name="refresh" size={20} color="#fff" />
-                  <Text style={{ fontWeight: "700", color: "#fff" }}>
-                    {t("lesson.cache.redownload") || "Re-download All"}
-                  </Text>
-                </View>
-              </Pressable>
-
-              {lessonCacheStatus !== 'none' && (
-                <Pressable
-                  onPress={handleClearCache}
-                  style={{
-                    paddingVertical: 12,
-                    paddingHorizontal: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#ef4444",
-                    alignItems: "center",
-                  }}
-                >
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                    <MaterialIcons name="delete" size={20} color="#fff" />
-                    <Text style={{ fontWeight: "700", color: "#fff" }}>
-                      {t("common.clear") || "Clear Cache"}
-                    </Text>
-                  </View>
-                </Pressable>
-              )}
-
-              <Pressable
-                onPress={() => setCacheMenuVisible(false)}
-                style={{
-                  paddingVertical: 12,
-                  paddingHorizontal: 16,
-                  borderRadius: 8,
-                  backgroundColor: "#e5e7eb",
-                  alignItems: "center",
-                }}
-              >
-                <Text style={{ fontWeight: "600", color: "#374151" }}>
-                  {t("common.cancel") || "Cancel"}
-                </Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <CacheMenuModal
+        visible={cacheMenuVisible}
+        onClose={() => setCacheMenuVisible(false)}
+        cacheStatus={lessonCacheStatus}
+        onRedownload={handleRedownload}
+        onClear={handleClearCache}
+      />
     </SafeAreaView>
   )
 }
