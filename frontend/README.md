@@ -78,25 +78,34 @@ Where to look
 
 ## Testing
 
-This project includes a small unit test setup using Vitest for pure helper logic related to lessons.
+This project includes a focused unit test setup using Vitest for pure helper logic related to lessons. We intentionally avoid importing React Native or Expo code in unit tests.
 
 - Test runner: Vitest
 - Config: `frontend/vitest.config.ts`
-- Tests location: `frontend/tests/**/*.test.ts`
+- Tests: `frontend/tests/**/*.test.ts`
 
-Run tests:
+Run tests
 
 ```bash
 npm run test
 ```
 
-What’s covered:
+Common coverage
 - Navigation helpers: prev/next computation, finish behavior, and loop wrapping.
-- Slide audio helpers: mapping audio URLs with cached substitutions.
+- Slide audio helpers: audio URL resolution and cache substitution.
 
-Notes:
-- Tests avoid importing React Native or Expo modules by targeting pure helpers only.
-- The `@` path alias resolves to the frontend root in Vitest config.
+Troubleshooting: module alias “@”
+- If you see errors like `Cannot find module '@/...'` when running tests:
+   - Check `vitest.config.ts` has `resolve.alias = { '@': fileURLToPath(new URL('./', import.meta.url)) }`.
+   - Ensure `tsconfig.json` has `baseUrl: '.'` and a matching `paths` entry if you use TS path mapping.
+   - Delete any stray Jest config that might conflict, then rerun `npm run test`.
+
+Quick QA checklist (manual)
+- Start/Stop: Track starts automatically on slide with audio; Play/Pause toggles correctly.
+- Rate change: Changing speed while playing continues playback (no pause).
+- Slide transitions: Auto-advance on finish; no accidental jumps during playback.
+- Loop: With loop on, finishing the last slide wraps to the first; with loop off, it stops at the last.
+- Stress: Rapid swipes and toggles don’t break playback.
 
 Extension ideas
 - Persist `loopEnabled` and `playerSpeed` to AsyncStorage so preferences survive app restarts.

@@ -49,7 +49,7 @@ export function LessonAudioPlayer({
         loop={loopEnabled}
         hasPrev={hasPrev}
         hasNext={hasNext}
-        debug={false}
+        debug={__DEV__}
         onSpeedChange={onSpeedChange}
         onNavigate={onNavigate}
         onFinish={onFinish}

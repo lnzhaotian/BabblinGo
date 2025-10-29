@@ -41,4 +41,34 @@ describe("useSlideAudio helpers", () => {
     expect(computeHasAudio(modules, resolver)).toEqual([])
     expect(computeSlideAudio(modules, cachedMedia, resolver)).toEqual([])
   })
+
+  it("supports string audio paths and filename-based media", () => {
+    const modules = [
+      { id: "1", title: "A", audio: "https://cdn/a.mp3" },
+      { id: "2", title: "B", audio: { filename: "/media/b.mp3" } },
+      { id: "3", /* no title */ audio: null },
+    ] as any
+
+    const resolver = (media: any) => {
+      if (!media) return null
+      if (typeof media === 'string') return media
+      if (media.url) return media.url
+      if (media.filename) return media.filename
+      return null
+    }
+
+    const hasAudio = computeHasAudio(modules, resolver)
+    expect(hasAudio).toEqual([true, true, false])
+
+    const cachedMedia: Record<string, string> = {
+      "https://cdn/a.mp3": "/cache/a.mp3",
+    }
+
+    const slideAudio = computeSlideAudio(modules, cachedMedia, resolver)
+    expect(slideAudio).toEqual([
+      { id: "1", title: "A", audioUrl: "/cache/a.mp3" },
+      { id: "2", title: "B", audioUrl: "/media/b.mp3" },
+      { id: "3", title: "", audioUrl: null },
+    ])
+  })
 })
