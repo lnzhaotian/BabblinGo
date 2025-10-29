@@ -53,6 +53,10 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
   const hasLoadedInitialTrack = useRef(false)
   const hasTriggeredFinish = useRef(false)
   const finishedTrackIndex = useRef(-1)  // Track which index triggered finish
+  const desiredTrackIndexRef = useRef(0) // Latest requested track index
+  const loadSerialRef = useRef(0)        // Monotonic increasing token for loads
+  const latestLoadTokenRef = useRef(0)   // The token of the latest requested load
+  const mountedRef = useRef(true)
   const lastProgressLogAt = useRef<number>(0)
   const lastLoadRequest = useRef<{ index: number; ts: number }>({ index: -1, ts: 0 })
 
@@ -68,19 +72,50 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
       }
       lastLoadRequest.current = { index, ts: now }
 
+      // Record user's desired track and create a new load token
+      desiredTrackIndexRef.current = index
+  const myToken = ++loadSerialRef.current
+  latestLoadTokenRef.current = myToken
+
   const track = tracks[index]
-  if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Loading track ${index}/${tracks.length - 1}: ${track.title}, url=${track.audioUrl}, autoPlay=${shouldAutoPlay}, speed=${playbackSpeed}`)
+  if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Loading track ${index}/${tracks.length - 1}: ${track.title}, url=${track.audioUrl}, autoPlay=${shouldAutoPlay}, speed=${playbackSpeed}`)
       try {
         hasTriggeredFinish.current = false
         // Don't reset finishedTrackIndex yet - keep it to block stale status updates
         
         // Replace and wait for it to be ready
-  await player.replace({ uri: track.audioUrl } as AudioSource)
+        try { await player.pause() } catch {}
+        await player.replace({ uri: track.audioUrl } as AudioSource)
+        if (!mountedRef.current) {
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Unmounted after replace, aborting`)
+          return
+        }
+        // If this load is stale (a newer token exists), abort quietly
+        if (myToken !== latestLoadTokenRef.current) {
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Stale after replace, aborting`)
+          return
+        }
         
         // Apply playback rate after loading
-  await player.setPlaybackRate(playbackSpeed)
+        await player.setPlaybackRate(playbackSpeed)
+        if (!mountedRef.current) {
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Unmounted after setPlaybackRate, aborting`)
+          return
+        }
+        if (myToken !== latestLoadTokenRef.current) {
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Stale after setPlaybackRate, aborting`)
+          return
+        }
   // Ensure position is at start
-  try { await player.seekTo(0) } catch {}
+        try { await player.seekTo(0) } catch {}
+        if (!mountedRef.current) {
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Unmounted after seekTo(0), aborting`)
+          return
+        }
+        if (myToken !== latestLoadTokenRef.current) {
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Stale after seekTo(0), aborting`)
+          return
+        }
         
   setCurrentIndex(index)
   currentIndexRef.current = index
@@ -90,27 +125,48 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
         if (shouldAutoPlay) {
           // Give a small delay to ensure player is fully ready
           await new Promise(resolve => setTimeout(resolve, 50))
-          await player.play()
+          if (myToken !== latestLoadTokenRef.current) {
+            if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Stale before play(), aborting`)
+            return
+          }
+          if (!mountedRef.current) {
+            if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Unmounted before play(), aborting`)
+            return
+          }
+          try {
+            await player.play()
+          } catch (err) {
+            console.error(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] play() failed`, err)
+            return
+          }
           setIsPlaying(true)
-          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Started playing track ${index}`)
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Started playing track ${index}`)
           // Verify playback actually started (time should advance)
           try {
             const t0 = player.currentTime || 0
             await new Promise(r => setTimeout(r, 250))
             const t1 = player.currentTime || 0
             if (t1 <= t0 + 0.01) {
-              if (DEBUG) console.warn(`[AudioPlayer#${sessionIdRef.current}] Play may have stalled (t0=${t0.toFixed(2)}, t1=${t1.toFixed(2)}), retrying play()`)
+              if (DEBUG) console.warn(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Play may have stalled (t0=${t0.toFixed(2)}, t1=${t1.toFixed(2)}), retrying play()`)
               await player.play()
               // Re-verify once after retry
               await new Promise(r => setTimeout(r, 400))
               const t2 = player.currentTime || 0
-              if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Post-retry time check: ${t2.toFixed(2)}s`)
+              if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Post-retry time check: ${t2.toFixed(2)}s`)
             }
           } catch {}
         } else {
           setIsPlaying(false)
         }
         
+        // If user's desired track changed during this load, chase it
+        const desired = desiredTrackIndexRef.current
+        if (myToken === latestLoadTokenRef.current && desired !== index) {
+          if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] [t${myToken}] Desired index changed (${index} -> ${desired}), chaining load`)
+          await loadTrack(desired, true)
+          return
+        }
+
         onTrackChange?.(index)
       } catch (e) {
         console.error(`[AudioPlayer#${sessionIdRef.current}] Error loading track`, e)
@@ -123,6 +179,7 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
     ref,
     () => ({
       goToTrack: (index: number, autoPlayParam = true) => {
+        desiredTrackIndexRef.current = index
         loadTrack(index, autoPlayParam).catch(err => console.error("[AudioPlayer] goToTrack error", err))
       },
       play: () => {
@@ -200,11 +257,19 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
       finishedTrackIndex.current = idx
       if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Track ${idx} finished (didJustFinish)`) 
       onTrackEnd?.(idx)
-      const next = idx + 1
-      if (next < tracks.length) {
-        loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
-      } else if (isLoopEnabled) {
-        loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+      const desired = desiredTrackIndexRef.current
+      if (desired !== idx) {
+        if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Finish on ${idx}, but desired=${desired}; honoring desired`)
+        loadTrack(desired, true).catch(err => console.error("[AudioPlayer] Desired-advance error", err))
+      } else {
+        const next = idx + 1
+        if (next < tracks.length) {
+          desiredTrackIndexRef.current = next
+          loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
+        } else if (isLoopEnabled) {
+          desiredTrackIndexRef.current = 0
+          loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+        }
       }
     }
 
@@ -228,11 +293,19 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
           finishedTrackIndex.current = idx
           if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Track ${idx} finished (near-end idle)`) 
           onTrackEnd?.(idx)
-          const next = idx + 1
-          if (next < tracks.length) {
-            loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
-          } else if (isLoopEnabled) {
-            loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+          const desired = desiredTrackIndexRef.current
+          if (desired !== idx) {
+            if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Finish on ${idx} (near-end), desired=${desired}; honoring desired`)
+            loadTrack(desired, true).catch(err => console.error("[AudioPlayer] Desired-advance error", err))
+          } else {
+            const next = idx + 1
+            if (next < tracks.length) {
+              desiredTrackIndexRef.current = next
+              loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
+            } else if (isLoopEnabled) {
+              desiredTrackIndexRef.current = 0
+              loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+            }
           }
         }
       }
@@ -286,11 +359,19 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
           lastProgressTs = 0
           console.warn(`[AudioPlayer#${sessionIdRef.current}] Track ${idx} stalled (no progress for ${elapsed}ms, Δt=${progressed.toFixed(3)}s), forcing advance (time: ${currentTime.toFixed(2)}s / ${duration.toFixed(2)}s)`)
           onTrackEnd?.(idx)
-          const next = idx + 1
-          if (next < tracks.length) {
-            loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
-          } else if (isLoopEnabled) {
-            loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+          const desired = desiredTrackIndexRef.current
+          if (desired !== idx) {
+            if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Stall finish on ${idx}, desired=${desired}; honoring desired`)
+            loadTrack(desired, true).catch(err => console.error("[AudioPlayer] Desired-advance error", err))
+          } else {
+            const next = idx + 1
+            if (next < tracks.length) {
+              desiredTrackIndexRef.current = next
+              loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
+            } else if (isLoopEnabled) {
+              desiredTrackIndexRef.current = 0
+              loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+            }
           }
           return
         }
@@ -315,11 +396,19 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
             finishedTrackIndex.current = idx
             if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Track ${idx} finished via polling fallback (time: ${currentTime.toFixed(2)}s / ${duration.toFixed(2)}s)`) 
             onTrackEnd?.(idx)
-            const next = idx + 1
-            if (next < tracks.length) {
-              loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
-            } else if (isLoopEnabled) {
-              loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+            const desired = desiredTrackIndexRef.current
+            if (desired !== idx) {
+              if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Polling finish on ${idx}, desired=${desired}; honoring desired`)
+              loadTrack(desired, true).catch(err => console.error("[AudioPlayer] Desired-advance error", err))
+            } else {
+              const next = idx + 1
+              if (next < tracks.length) {
+                desiredTrackIndexRef.current = next
+                loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
+              } else if (isLoopEnabled) {
+                desiredTrackIndexRef.current = 0
+                loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+              }
             }
           }
           return
@@ -339,11 +428,19 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
             finishedTrackIndex.current = idx
             if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Track ${idx} finished via stall-detect (time: ${currentTime.toFixed(2)}s / ${duration.toFixed(2)}s, Δt=${progressed.toFixed(3)}, elapsed=${elapsed}ms)`)
             onTrackEnd?.(idx)
-            const next = idx + 1
-            if (next < tracks.length) {
-              loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
-            } else if (isLoopEnabled) {
-              loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+            const desired = desiredTrackIndexRef.current
+            if (desired !== idx) {
+              if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Stall-detect finish on ${idx}, desired=${desired}; honoring desired`)
+              loadTrack(desired, true).catch(err => console.error("[AudioPlayer] Desired-advance error", err))
+            } else {
+              const next = idx + 1
+              if (next < tracks.length) {
+                desiredTrackIndexRef.current = next
+                loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
+              } else if (isLoopEnabled) {
+                desiredTrackIndexRef.current = 0
+                loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+              }
             }
           }
           return
@@ -361,11 +458,19 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
             finishedTrackIndex.current = idx
             if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Track ${idx} finished (unknown duration fallback, time ~ ${currentTime.toFixed(2)}s, elapsed=${elapsed}ms)`) 
             onTrackEnd?.(idx)
-            const next = idx + 1
-            if (next < tracks.length) {
-              loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
-            } else if (isLoopEnabled) {
-              loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+            const desired = desiredTrackIndexRef.current
+            if (desired !== idx) {
+              if (DEBUG) console.log(`[AudioPlayer#${sessionIdRef.current}] Unknown-duration finish on ${idx}, desired=${desired}; honoring desired`)
+              loadTrack(desired, true).catch(err => console.error("[AudioPlayer] Desired-advance error", err))
+            } else {
+              const next = idx + 1
+              if (next < tracks.length) {
+                desiredTrackIndexRef.current = next
+                loadTrack(next, true).catch(err => console.error("[AudioPlayer] Auto-advance error", err))
+              } else if (isLoopEnabled) {
+                desiredTrackIndexRef.current = 0
+                loadTrack(0, true).catch(err => console.error("[AudioPlayer] Loop error", err))
+              }
             }
           }
           return
@@ -385,6 +490,9 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(funct
       try {
         if (player.playing) player.pause()
       } catch {}
+      mountedRef.current = false
+      // Invalidate any in-flight loads
+      latestLoadTokenRef.current = Number.MAX_SAFE_INTEGER
     }
   }, [player])
 

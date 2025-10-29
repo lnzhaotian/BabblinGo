@@ -5,7 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons"
 import { useLocalSearchParams, useRouter } from "expo-router"
 
 import { extractModules, fetchLessonById, LessonDoc, MediaDoc, resolveMediaUrl } from "@/lib/payload"
-import { AudioPlayer, type AudioTrack as PlayerTrack, type AudioPlayerHandle } from "@/components/AudioPlayer"
+import SingleTrackPlayer from "@/components/SingleTrackPlayer"
 
 const extractParagraphs = (body: unknown): string[] => {
   if (!body) {
@@ -48,9 +48,11 @@ const LessonDetail = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  const [diagnostics, setDiagnostics] = useState(false)
   const flatListRef = useRef<FlatList>(null)
-  const playerRef = useRef<AudioPlayerHandle>(null)
   const { width: screenWidth } = Dimensions.get("window")
+  const programmaticScrollRef = useRef(false)
+  const slideDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const loadLesson = useCallback(async () => {
     if (!lessonId) {
@@ -76,6 +78,16 @@ const LessonDetail = () => {
     loadLesson()
   }, [loadLesson])
 
+  useEffect(() => {
+    return () => {
+      // Clear any pending slide debounce on unmount
+      if (slideDebounceTimer.current) {
+        clearTimeout(slideDebounceTimer.current)
+        slideDebounceTimer.current = null
+      }
+    }
+  }, [])
+
   const modules = useMemo(() => (lesson ? extractModules(lesson) : []), [lesson])
 
   const modulesWithContent = modules
@@ -85,40 +97,22 @@ const LessonDetail = () => {
   // after a short dwell time to keep the slideshow flowing.
   const SILENT_SLIDE_DWELL_MS = 2500
   
-  // Build player tracks and mapping to module indices
-  const { tracks, trackIndexToModuleIndex } = useMemo(() => {
-    const t: PlayerTrack[] = []
-    const idxToModule: number[] = []
-    modules.forEach((module, index) => {
-      const audioUrl = resolveMediaUrl(module.audio)
-      if (!audioUrl) return
-      const displayOrder = formatOrder(module.order, index)
-      const title = module.title ? `Module ${displayOrder}: ${module.title}` : `Module ${displayOrder}`
-      t.push({ id: module.id, title, audioUrl })
-      idxToModule.push(index)
-    })
-    return { tracks: t, trackIndexToModuleIndex: idxToModule }
-  }, [modules])
-
-  const showAudioPlayer = tracks.length > 0
+  // Pre-resolve audio per slide for quick lookup
+  const slideAudio = useMemo(() => modules.map(m => ({ id: m.id, title: m.title, audioUrl: resolveMediaUrl(m.audio) })), [modules])
+  const showAudioPlayer = modules.length > 0
 
   const onSlideScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     const offsetX = event.nativeEvent.contentOffset.x
     const index = Math.round(offsetX / screenWidth)
     setCurrentSlideIndex(index)
-    if (showAudioPlayer && trackIndexToModuleIndex.length > 0) {
-      const trackIndex = trackIndexToModuleIndex.findIndex((mIndex) => mIndex === index)
-      if (trackIndex >= 0) {
-        const currentTrack = playerRef.current?.getCurrentIndex()
-        if (typeof currentTrack === "number" && currentTrack === trackIndex) {
-          // Avoid redundant loads caused by programmatic scroll syncing
-          // console.log(`[LessonDetail] Slide synced to current track ${trackIndex}, skipping goToTrack`)
-          return
-        }
-        playerRef.current?.goToTrack(trackIndex, true)
-      }
+    if (diagnostics) console.log(`[LessonDetail] onSlideScroll: offsetX=${offsetX.toFixed(1)}, index=${index}`)
+    if (programmaticScrollRef.current) {
+      // Reset the flag and do not sync to audio to avoid feedback loops
+      programmaticScrollRef.current = false
+      return
     }
-  }, [screenWidth, showAudioPlayer, trackIndexToModuleIndex])
+    // No direct player sync; remounting by key will take effect
+  }, [screenWidth, diagnostics])
 
   const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0]; index: number }) => {
     const displayOrder = formatOrder(item.order, index)
@@ -153,22 +147,23 @@ const LessonDetail = () => {
   }, [screenWidth])
 
   // When player track changes, scroll slides accordingly
-  const handlePlayerTrackChange = useCallback(
-    (trackIdx: number) => {
-      const moduleIdx = trackIndexToModuleIndex[trackIdx]
-      if (typeof moduleIdx === "number") {
-        flatListRef.current?.scrollToIndex({ index: moduleIdx, animated: true })
-        setCurrentSlideIndex(moduleIdx)
-      }
-    },
-    [trackIndexToModuleIndex]
-  )
+  const handleTrackFinish = useCallback(() => {
+    const lastIndex = modules.length - 1
+    if (currentSlideIndex >= lastIndex) {
+      // If last slide, stay put; you can customize looping across slides if desired
+      return
+    }
+    const next = currentSlideIndex + 1
+    programmaticScrollRef.current = true
+    flatListRef.current?.scrollToIndex({ index: next, animated: true })
+    setCurrentSlideIndex(next)
+  }, [currentSlideIndex, modules.length])
 
   // Auto-advance slides that have no audio after a short dwell
   useEffect(() => {
     if (modulesWithContent.length === 0) return
     // Build a quick set of module indices that have audio
-    const audioModuleSet = new Set<number>(trackIndexToModuleIndex)
+  const audioModuleSet = new Set<number>(modules.map((_, idx) => (slideAudio[idx]?.audioUrl ? idx : -1)).filter((i) => i >= 0))
     // If current slide has audio, do nothing—audio player will drive advancement
     if (audioModuleSet.has(currentSlideIndex)) return
 
@@ -183,18 +178,10 @@ const LessonDetail = () => {
     }, SILENT_SLIDE_DWELL_MS)
 
     return () => clearTimeout(timer)
-  }, [currentSlideIndex, modulesWithContent.length, trackIndexToModuleIndex])
+  }, [currentSlideIndex, modulesWithContent.length, slideAudio, modules])
 
   // When track ends, also scroll to next slide
-  const DEBUG_AUDIO = false
-  const handlePlayerTrackEnd = useCallback(
-    (trackIdx: number) => {
-      if (DEBUG_AUDIO) console.log(`[LessonDetail] Track ${trackIdx} ended`)
-      // Track end is handled by the player's auto-advance, 
-      // which will trigger onTrackChange for the next track
-    },
-    [DEBUG_AUDIO]
-  )
+  // No-op: SingleTrackPlayer uses onFinish -> handleTrackFinish
 
   if (loading) {
     return (
@@ -244,7 +231,14 @@ const LessonDetail = () => {
           <Text style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700" }} numberOfLines={1}>
             {lesson.title || routeTitle || "Lesson"}
           </Text>
-          {/* Diagnostics toggle removed for production commit */}
+          <Pressable
+            onPress={() => setDiagnostics((v) => !v)}
+            accessibilityLabel="Toggle diagnostics"
+            hitSlop={8}
+            style={{ padding: 4, marginLeft: 8 }}
+          >
+            <MaterialIcons name={diagnostics ? "bug-report" : "bug-report"} size={22} color={diagnostics ? "#ef4444" : "#9ca3af"} />
+          </Pressable>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -305,15 +299,18 @@ const LessonDetail = () => {
             paddingBottom: 16,
           }}
         >
-          {/* External Audio Player */}
-          {showAudioPlayer ? (
-            <AudioPlayer
-              ref={playerRef}
-              tracks={tracks}
+          {/* Single-track player per slide */}
+          {slideAudio[currentSlideIndex]?.audioUrl ? (
+            <SingleTrackPlayer
+              key={slideAudio[currentSlideIndex].id}
+              track={{
+                id: slideAudio[currentSlideIndex].id,
+                title: modules[currentSlideIndex]?.title || undefined,
+                audioUrl: slideAudio[currentSlideIndex].audioUrl as string,
+              }}
               autoPlay={true}
-              loop={true}
-              onTrackChange={handlePlayerTrackChange}
-              onTrackEnd={handlePlayerTrackEnd}
+              debug={diagnostics}
+              onFinish={handleTrackFinish}
             />
           ) : null}
         </View>
