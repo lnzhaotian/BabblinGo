@@ -10,7 +10,7 @@ const resources = {
       // Tabs
       "tabs.home": "BabblinGo",
       "tabs.tests": "Tests",
-      "tabs.progress": "Progress",
+      "tabs.progress": "History",
       "tabs.settings": "Settings",
 
       // Home screen
@@ -66,7 +66,7 @@ const resources = {
       "player.speed": "Speed",
 
       // Progress screen
-      "progress.title": "Progress",
+      "progress.title": "History",
       "progress.today": "Today",
       "progress.thisWeek": "This Week",
       "progress.allTime": "All Time",
@@ -116,7 +116,7 @@ const resources = {
       // Tabs
       "tabs.home": "BabblinGo",
       "tabs.tests": "测试",
-      "tabs.progress": "进度",
+      "tabs.progress": "记录",
       "tabs.settings": "设置",
 
       // Home screen
@@ -172,7 +172,7 @@ const resources = {
       "player.speed": "速度",
 
       // Progress screen
-      "progress.title": "学习进度",
+      "progress.title": "学习记录",
       "progress.today": "今天",
       "progress.thisWeek": "本周",
       "progress.allTime": "总计",
