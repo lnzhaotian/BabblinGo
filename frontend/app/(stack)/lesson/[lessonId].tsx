@@ -5,6 +5,8 @@ import { MaterialIcons } from "@expo/vector-icons"
 import { useLocalSearchParams, useRouter } from "expo-router"
 
 import { extractModules, fetchLessonById, LessonDoc, MediaDoc, resolveMediaUrl } from "@/lib/payload"
+import AsyncStorage from "@react-native-async-storage/async-storage"
+import { useFocusEffect } from "@react-navigation/native"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
 
 /**
@@ -81,6 +83,8 @@ const LessonDetail = () => {
   const { width: screenWidth } = Dimensions.get("window")
   const programmaticScrollRef = useRef(false)
   const slideDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Prevent writing default prefs over saved ones before initial load completes
+  const prefsLoadedRef = useRef(false)
 
   const loadLesson = useCallback(async () => {
     if (!lessonId) {
@@ -117,6 +121,52 @@ const LessonDetail = () => {
   }, [])
 
   const modules = useMemo(() => (lesson ? extractModules(lesson) : []), [lesson])
+  // Persist user preferences for loop and speed so they survive app restarts.
+  // Load on mount and whenever the screen regains focus (e.g., user navigates back into it).
+  const loadPrefs = useCallback(async () => {
+    try {
+      const [[, savedSpeed], [, savedLoop]] = await AsyncStorage.multiGet([
+        "lesson.playerSpeed",
+        "lesson.loopEnabled",
+      ])
+      
+      if (savedSpeed) {
+        const n = Number(savedSpeed)
+        if (!Number.isNaN(n)) setPlayerSpeed(n as PlaybackSpeed)
+      }
+      if (savedLoop != null) {
+        // Accept "true"/"false" string
+        setLoopEnabled(savedLoop === "true")
+      }
+      prefsLoadedRef.current = true
+    } catch {
+      // Non-fatal: fall back to defaults
+      prefsLoadedRef.current = true
+    }
+  }, [])
+
+  useEffect(() => {
+    loadPrefs()
+  }, [loadPrefs])
+
+  useFocusEffect(
+    useCallback(() => {
+      // Reload preferences whenever the screen gains focus
+      loadPrefs()
+      return () => {}
+    }, [loadPrefs])
+  )
+
+  useEffect(() => {
+    if (!prefsLoadedRef.current) return
+    AsyncStorage.setItem("lesson.playerSpeed", String(playerSpeed)).catch(() => {})
+  }, [playerSpeed])
+
+  useEffect(() => {
+    if (!prefsLoadedRef.current) return
+    AsyncStorage.setItem("lesson.loopEnabled", String(loopEnabled)).catch(() => {})
+  }, [loopEnabled])
+
 
   const modulesWithContent = modules
   
