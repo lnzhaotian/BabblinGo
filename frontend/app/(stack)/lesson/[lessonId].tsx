@@ -69,7 +69,7 @@ const isMediaDoc = (value: MediaDoc | string | null | undefined): value is Media
   Boolean(value && typeof value === "object")
 
 const LessonDetail = () => {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const router = useRouter()
   const { lessonId, title: routeTitle } = useLocalSearchParams<{
     lessonId?: string
@@ -118,7 +118,8 @@ const LessonDetail = () => {
 
     try {
       setLoading(true)
-      const data = await fetchLessonById(lessonId)
+      const locale = i18n.language
+      const data = await fetchLessonById(lessonId, locale)
       setLesson(data)
       setError(null)
     } catch (err) {
@@ -127,7 +128,7 @@ const LessonDetail = () => {
     } finally {
       setLoading(false)
     }
-  }, [lessonId])
+  }, [lessonId, i18n])
 
   useEffect(() => {
     loadLesson()

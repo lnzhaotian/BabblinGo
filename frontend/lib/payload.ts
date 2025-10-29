@@ -56,8 +56,15 @@ const buildUrl = (path: string): string => {
   return `${base}${suffix}`
 }
 
-const fetchPayload = async <T>(path: string, init?: RequestInit): Promise<T> => {
-  const response = await fetch(buildUrl(path), {
+const fetchPayload = async <T>(path: string, init?: RequestInit, locale?: string): Promise<T> => {
+  const url = new URL(buildUrl(path))
+  
+  // Add locale query parameter if provided
+  if (locale) {
+    url.searchParams.set('locale', locale)
+  }
+  
+  const response = await fetch(url.toString(), {
     headers: {
       Accept: 'application/json',
     },
@@ -110,10 +117,12 @@ export const extractModules = (lesson: LessonDoc): ModuleDoc[] => {
   return sortByOrder(modules)
 }
 
-export const fetchLessonsByLevelSlug = async (levelSlug: string): Promise<LessonDoc[]> => {
+export const fetchLessonsByLevelSlug = async (levelSlug: string, locale?: string): Promise<LessonDoc[]> => {
   const encodedSlug = encodeURIComponent(levelSlug)
   const levelResponse = await fetchPayload<PayloadListResponse<LevelDoc>>(
-    `/api/levels?where[slug][equals]=${encodedSlug}&depth=0&limit=1`
+    `/api/levels?where[slug][equals]=${encodedSlug}&depth=0&limit=1`,
+    undefined,
+    locale
   )
 
   const [level] = levelResponse.docs
@@ -123,11 +132,13 @@ export const fetchLessonsByLevelSlug = async (levelSlug: string): Promise<Lesson
   }
 
   const lessonsResponse = await fetchPayload<PayloadListResponse<LessonDoc>>(
-    `/api/lessons?where[level][equals]=${level.id}&depth=1&limit=100&sort=order`
+    `/api/lessons?where[level][equals]=${level.id}&depth=1&limit=100&sort=order`,
+    undefined,
+    locale
   )
 
   return sortByOrder(lessonsResponse.docs)
 }
 
-export const fetchLessonById = async (lessonId: string): Promise<LessonDoc> =>
-  fetchPayload<LessonDoc>(`/api/lessons/${lessonId}?depth=2`)
+export const fetchLessonById = async (lessonId: string, locale?: string): Promise<LessonDoc> =>
+  fetchPayload<LessonDoc>(`/api/lessons/${lessonId}?depth=2`, undefined, locale)

@@ -13,6 +13,20 @@ const resources = {
       "tabs.progress": "Progress",
       "tabs.settings": "Settings",
 
+      // Home screen
+      "home.title": "BabblinGo",
+      "home.lesson": "Lesson {{number}}",
+      "home.noLessons": "No lessons found for the Novice level.",
+      "home.loadError": "Unable to load lessons. Pull to refresh and try again.",
+      "home.noDisplay": "No lessons to display.",
+
+      // Tests screen
+      "tests.title": "Tests",
+      "tests.placementTitle": "ACTFL Language Proficiency Self-Assessment",
+      "tests.placementDescription": "Assess your current language proficiency level",
+      "tests.achievementTitle": "Beginner Course Achievement Test",
+      "tests.achievementDescription": "Check if you have mastered the content from our beginner course",
+
       // Lesson screen
       "lesson.back": "Back",
       "lesson.noModules": "No modules available for this lesson.",
@@ -73,6 +87,20 @@ const resources = {
       "tabs.tests": "测试",
       "tabs.progress": "进度",
       "tabs.settings": "设置",
+
+      // Home screen
+      "home.title": "BabblinGo",
+      "home.lesson": "第 {{number}} 课",
+      "home.noLessons": "未找到初级课程。",
+      "home.loadError": "无法加载课程。下拉刷新重试。",
+      "home.noDisplay": "暂无课程。",
+
+      // Tests screen
+      "tests.title": "测试",
+      "tests.placementTitle": "ACTFL语言能力自测题",
+      "tests.placementDescription": "判断您当前的语言能力水平",
+      "tests.achievementTitle": "零基础教练课测试",
+      "tests.achievementDescription": "判断您是否已掌握我们的零基础教练课中的内容",
 
       // Lesson screen
       "lesson.back": "返回",

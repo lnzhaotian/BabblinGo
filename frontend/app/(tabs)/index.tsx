@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } fr
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 import { extractModules, fetchLessonsByLevelSlug, LessonDoc } from "@/lib/payload";
 import type { ModuleDoc } from "@/lib/payload";
@@ -11,6 +12,7 @@ const NOVICE_LEVEL_SLUG = "novice";
 
 export default function Index() {
   const router = useRouter();
+  const { t, i18n } = useTranslation();
   const [lessons, setLessons] = useState<LessonDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -23,19 +25,20 @@ export default function Index() {
       }
 
       try {
-        const data = await fetchLessonsByLevelSlug(NOVICE_LEVEL_SLUG);
+        const locale = i18n.language;
+        const data = await fetchLessonsByLevelSlug(NOVICE_LEVEL_SLUG, locale);
         setLessons(data);
-        setError(data.length === 0 ? "No lessons found for the Novice level." : null);
+        setError(data.length === 0 ? t("home.noLessons") : null);
       } catch (err) {
         console.error("Failed to load lessons", err);
-        setError("Unable to load lessons. Pull to refresh and try again.");
+        setError(t("home.loadError"));
       } finally {
         if (!skipLoading) {
           setLoading(false);
         }
       }
     },
-    []
+    [t, i18n]
   );
 
   useEffect(() => {
@@ -97,7 +100,7 @@ export default function Index() {
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600" }}>{`Lesson ${padded}`}</Text>
+          <Text style={{ fontSize: 16, fontWeight: "600" }}>{t("home.lesson", { number: padded })}</Text>
           {summary ? <Text style={{ marginTop: 4, color: "#666" }}>{summary}</Text> : null}
         </View>
 
@@ -119,7 +122,7 @@ export default function Index() {
   return (
     <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
       <View style={{ padding: 8, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "700" }}>BabblinGo</Text>
+        <Text style={{ fontSize: 20, fontWeight: "700" }}>{t("home.title")}</Text>
       </View>
 
       {error ? (
@@ -141,7 +144,7 @@ export default function Index() {
         ListEmptyComponent={
           !error ? (
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ color: "#666" }}>No lessons to display.</Text>
+              <Text style={{ color: "#666" }}>{t("home.noDisplay")}</Text>
             </View>
           ) : null
         }
