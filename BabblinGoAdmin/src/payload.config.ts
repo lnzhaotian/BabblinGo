@@ -25,18 +25,8 @@ export default buildConfig({
     importMap: {
       baseDir: path.resolve(dirname),
     },
-    meta: {
-      titleSuffix: '- BabblinGo Admin',
-    },
-    components: {
-      views: {
-        dashboard: {
-          Component: '/admin/components/Dashboard#default',
-        },
-      },
-    },
   },
-  collections: [Users, Media, Levels, Lessons, Modules],
+  collections: [Users, Levels, Lessons, Modules, Media],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   i18n: {
