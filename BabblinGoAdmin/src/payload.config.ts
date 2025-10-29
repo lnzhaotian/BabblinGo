@@ -33,6 +33,11 @@ export default buildConfig({
   db: mongooseAdapter({
     url: process.env.DATABASE_URI || '',
   }),
+  localization: {
+    locales: ['en', 'zh'],
+    defaultLocale: 'en',
+    fallback: true,
+  },
   sharp,
   plugins: [
     payloadCloudPlugin(),

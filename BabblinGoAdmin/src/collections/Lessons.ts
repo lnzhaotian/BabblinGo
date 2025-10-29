@@ -125,6 +125,7 @@ export const Lessons: CollectionConfig = {
       name: 'title',
       type: 'text',
       required: true,
+      localized: true,
     },
     createSlugField('title'),
     {
@@ -138,6 +139,7 @@ export const Lessons: CollectionConfig = {
     {
       name: 'summary',
       type: 'textarea',
+      localized: true,
     },
     {
       name: 'level',
