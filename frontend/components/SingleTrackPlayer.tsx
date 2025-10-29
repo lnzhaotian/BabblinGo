@@ -251,7 +251,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             onPress={() => onSpeedChange?.(s)}
             style={({ pressed }) => ({ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: speed === s ? "#6366f1" : pressed ? "#e5e7eb" : "#d1d5db" })}
           >
-            <Text style={{ fontSize: 12, fontWeight: "500", color: speed === s ? "#fff" : "#374151" }}>{Number.isInteger(s) ? `${s.toFixed(0)}x` : `${s.toFixed(1)}x`}</Text>
+            <Text style={{ fontSize: 12, fontWeight: "500", color: speed === s ? "#fff" : "#374151" }}>{s.toFixed(1)}x</Text>
           </Pressable>
         ))}
       </View>
