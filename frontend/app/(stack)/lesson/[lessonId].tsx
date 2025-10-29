@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, Dimensions, FlatList, Image, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, TextInput, View } from "react-native"
+import * as Haptics from "expo-haptics"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useLocalSearchParams, useRouter } from "expo-router"
@@ -612,6 +613,20 @@ const LessonDetail = () => {
                   {/* Minutes wheel */}
                   <View style={{ alignItems: "center" }}>
                     <View style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS, width: 80, overflow: "hidden" }}>
+                      {/* Center highlight */}
+                      <View
+                        pointerEvents="none"
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          top: ITEM_HEIGHT * (VISIBLE_ITEMS / 2) - ITEM_HEIGHT / 2,
+                          height: ITEM_HEIGHT,
+                          backgroundColor: "#eef2ff",
+                          opacity: 0.6,
+                          borderRadius: 8,
+                        }}
+                      />
                       <FlatList
                         data={minutesLoop}
                         keyExtractor={(_, i) => `m-${i}`}
@@ -626,6 +641,7 @@ const LessonDetail = () => {
                           const idx = Math.round(y / ITEM_HEIGHT)
                           const val = ((idx % 60) + 60) % 60
                           setSelectedMinuteIndex(val)
+                          Haptics.selectionAsync().catch(() => {})
                         }}
                         renderItem={({ item, index }) => (
                           <View style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}>
@@ -644,6 +660,20 @@ const LessonDetail = () => {
                   {/* Seconds wheel */}
                   <View style={{ alignItems: "center" }}>
                     <View style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS, width: 80, overflow: "hidden" }}>
+                      {/* Center highlight */}
+                      <View
+                        pointerEvents="none"
+                        style={{
+                          position: "absolute",
+                          left: 0,
+                          right: 0,
+                          top: ITEM_HEIGHT * (VISIBLE_ITEMS / 2) - ITEM_HEIGHT / 2,
+                          height: ITEM_HEIGHT,
+                          backgroundColor: "#eef2ff",
+                          opacity: 0.6,
+                          borderRadius: 8,
+                        }}
+                      />
                       <FlatList
                         data={secondsLoop}
                         keyExtractor={(_, i) => `s-${i}`}
@@ -658,6 +688,7 @@ const LessonDetail = () => {
                           const idx = Math.round(y / ITEM_HEIGHT)
                           const val = ((idx % 60) + 60) % 60
                           setSelectedSecondIndex(val)
+                          Haptics.selectionAsync().catch(() => {})
                         }}
                         renderItem={({ item, index }) => (
                           <View style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}>
