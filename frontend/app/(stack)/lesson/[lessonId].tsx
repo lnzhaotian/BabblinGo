@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Dimensions, FlatList, Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native"
+import { ActivityIndicator, Dimensions, FlatList, Image, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, TextInput, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useLocalSearchParams, useRouter } from "expo-router"
@@ -86,6 +86,22 @@ const LessonDetail = () => {
   // Prevent writing default prefs over saved ones before initial load completes
   const prefsLoadedRef = useRef(false)
 
+  // Session timer state
+  const [timerModalVisible, setTimerModalVisible] = useState(false)
+  const [timeUpModalVisible, setTimeUpModalVisible] = useState(false)
+  // Default to 10 minutes
+  const [selectedMinuteIndex, setSelectedMinuteIndex] = useState<number>(10)
+  const [selectedSecondIndex, setSelectedSecondIndex] = useState<number>(0)
+  const [resumeOnModalClose, setResumeOnModalClose] = useState<boolean>(false)
+  const [playerResetCounter, setPlayerResetCounter] = useState<number>(0)
+  const [timerActive, setTimerActive] = useState(false)
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(0)
+  const sessionEndAtRef = useRef<number | null>(null)
+  const [playerPlaySignal, setPlayerPlaySignal] = useState<number>(0)
+  const [playerSuspended, setPlayerSuspended] = useState<boolean>(false)
+  const sessionStartAtRef = useRef<number | null>(null)
+  const plannedSecondsRef = useRef<number>(0)
+
   const loadLesson = useCallback(async () => {
     if (!lessonId) {
       setError("Missing lesson ID")
@@ -169,6 +185,88 @@ const LessonDetail = () => {
 
 
   const modulesWithContent = modules
+  // Save a session record to AsyncStorage
+  const saveLearningSession = useCallback(async (record: { lessonId: string; lessonTitle: string; startedAt: number; endedAt: number; plannedSeconds: number; speed: number }) => {
+    try {
+      const key = "learning.sessions"
+      const raw = await AsyncStorage.getItem(key)
+      const arr = raw ? JSON.parse(raw) : []
+      arr.push({ id: Math.random().toString(36).slice(2), ...record })
+      await AsyncStorage.setItem(key, JSON.stringify(arr))
+    } catch {}
+  }, [])
+
+  // Format countdown for header (MM:SS)
+  const formatCountdown = (total: number) => {
+    const m = Math.floor(total / 60)
+    const s = total % 60
+    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
+  }
+
+  // Timer tick
+  useEffect(() => {
+    if (!timerActive || !sessionEndAtRef.current) return
+    const tick = () => {
+      const now = Date.now()
+      const remainMs = sessionEndAtRef.current! - now
+      const remainSec = Math.max(0, Math.ceil(remainMs / 1000))
+      setRemainingSeconds(remainSec)
+      if (remainSec <= 0) {
+        // Time's up: stop audio and slides, show modal, record session
+        setTimerActive(false)
+        setPlayerSuspended(true)
+        setTimeUpModalVisible(true)
+        // Save session record
+        const startedAt = sessionStartAtRef.current ?? now
+        saveLearningSession({
+          lessonId: lesson?.id ?? String(lessonId ?? ""),
+          lessonTitle: lesson?.title ?? String(routeTitle ?? "Lesson"),
+          startedAt,
+          endedAt: now,
+          plannedSeconds: plannedSecondsRef.current,
+          speed: playerSpeed,
+        }).catch(() => {})
+      }
+    }
+    const iv = setInterval(tick, 1000)
+    tick()
+    return () => clearInterval(iv)
+  }, [timerActive, lesson?.id, lesson?.title, lessonId, routeTitle, playerSpeed, saveLearningSession])
+
+  
+
+  const startTimer = useCallback(() => {
+    // Build duration from wheels (minutes + seconds)
+    const minutes = Math.max(0, Math.floor(Number(selectedMinuteIndex) || 0))
+    const seconds = Math.max(0, Math.floor(Number(selectedSecondIndex) || 0))
+    const durationSecRaw = minutes * 60 + seconds
+    const durationSec = Math.max(1, durationSecRaw) // enforce at least 1 second
+    // Jump to the first slide for a full learning session
+    if (currentSlideIndex !== 0) {
+      programmaticScrollRef.current = true
+      flatListRef.current?.scrollToIndex({ index: 0, animated: true })
+      setCurrentSlideIndex(0)
+    }
+    const now = Date.now()
+    sessionStartAtRef.current = now
+    sessionEndAtRef.current = now + durationSec * 1000
+    plannedSecondsRef.current = durationSec
+    setRemainingSeconds(durationSec)
+    // Turn on loop and kick playback
+    setLoopEnabled(true)
+    setPlayerSuspended(false)
+    setPlayerPlaySignal((x) => x + 1)
+    setTimerActive(true)
+    setTimerModalVisible(false)
+  }, [selectedMinuteIndex, selectedSecondIndex, currentSlideIndex])
+
+  const cancelTimer = useCallback(() => {
+    setTimerActive(false)
+    sessionEndAtRef.current = null
+    setRemainingSeconds(0)
+    setPlayerSuspended(true)
+  }, [])
+
   
   // Auto-advance behavior for slides without audio
   // If a slide has no associated audio track, we'll advance to the next slide
@@ -333,6 +431,23 @@ const LessonDetail = () => {
           <Text style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700" }} numberOfLines={1}>
             {lesson.title || routeTitle || "Lesson"}
           </Text>
+          {/* Timer button + countdown */}
+          <Pressable
+            onPress={() => {
+              // Pause current playback while user sets timer
+              setPlayerSuspended(true)
+              setResumeOnModalClose(true)
+              setTimerModalVisible(true)
+            }}
+            accessibilityLabel="Set session timer"
+            hitSlop={8}
+            style={{ padding: 4, marginLeft: 8, flexDirection: "row", alignItems: "center", gap: 6 }}
+          >
+            <MaterialIcons name="timer" size={22} color={timerActive ? "#16a34a" : "#9ca3af"} />
+            {timerActive ? (
+              <Text style={{ fontSize: 14, color: "#16a34a", fontWeight: "700" }}>{formatCountdown(remainingSeconds)}</Text>
+            ) : null}
+          </Pressable>
           <Pressable
             onPress={() => setLoopEnabled(!loopEnabled)}
             accessibilityLabel="Toggle loop"
@@ -414,7 +529,7 @@ const LessonDetail = () => {
               if (!audioUrl) return null
               return (
                 <SingleTrackPlayer
-                  key={slideId}
+                  key={`${slideId}:${playerResetCounter}`}
                   track={{ id: trk.id, title: trk.title, audioUrl }}
                   autoPlay
                   speed={playerSpeed}
@@ -425,12 +540,205 @@ const LessonDetail = () => {
                   onSpeedChange={setPlayerSpeed}
                   onNavigate={handleNavigate}
                   onFinish={handleTrackFinish}
+                  suspend={playerSuspended}
+                  playSignal={playerPlaySignal}
                 />
               )
             })()
           ) : null}
         </View>
       ) : null}
+      {/* Timer setup modal */}
+      <Modal
+        visible={timerModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          // Close without starting: resume playback if requested
+          setTimerModalVisible(false)
+          if (resumeOnModalClose && !timerActive) {
+            setPlayerSuspended(false)
+            setPlayerPlaySignal((x) => x + 1)
+          }
+          setResumeOnModalClose(false)
+        }}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>Set session timer</Text>
+            {/* Inputs for quick manual edit */}
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
+              <View style={{ alignItems: "center" }}>
+                <TextInput
+                  value={String(selectedMinuteIndex)}
+                  onChangeText={(txt) => {
+                    const n = Math.min(59, Math.max(0, Math.floor(Number(txt) || 0)))
+                    setSelectedMinuteIndex(n)
+                  }}
+                  keyboardType="number-pad"
+                  style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, textAlign: "center" }}
+                  placeholder="MM"
+                />
+                <Text style={{ color: "#6b7280", marginTop: 4 }}>minutes</Text>
+              </View>
+              <Text style={{ fontSize: 16, fontWeight: "700" }}>:</Text>
+              <View style={{ alignItems: "center" }}>
+                <TextInput
+                  value={String(selectedSecondIndex).padStart(2, "0")}
+                  onChangeText={(txt) => {
+                    const n = Math.min(59, Math.max(0, Math.floor(Number(txt) || 0)))
+                    setSelectedSecondIndex(n)
+                  }}
+                  keyboardType="number-pad"
+                  style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, textAlign: "center" }}
+                  placeholder="SS"
+                />
+                <Text style={{ color: "#6b7280", marginTop: 4 }}>seconds</Text>
+              </View>
+            </View>
+
+            {/* Wheels for swipe selection (centered and looping) */}
+            {(() => {
+              const ITEM_HEIGHT = 36
+              const VISIBLE_ITEMS = 5
+              const PAD = Math.floor(VISIBLE_ITEMS / 2) * ITEM_HEIGHT
+              const CYCLES = 50 // ample to avoid edges
+              const base = Math.floor(CYCLES / 2) * 60
+              const fmt = (n: number) => String(n).padStart(2, "0")
+              const minutesLoop = Array.from({ length: CYCLES * 60 }, (_, idx) => fmt(idx % 60))
+              const secondsLoop = Array.from({ length: CYCLES * 60 }, (_, idx) => fmt(idx % 60))
+              return (
+                <View style={{ flexDirection: "row", justifyContent: "center", gap: 16, marginTop: 8 }}>
+                  {/* Minutes wheel */}
+                  <View style={{ alignItems: "center" }}>
+                    <View style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS, width: 80, overflow: "hidden" }}>
+                      <FlatList
+                        data={minutesLoop}
+                        keyExtractor={(_, i) => `m-${i}`}
+                        initialScrollIndex={base + selectedMinuteIndex}
+                        getItemLayout={(_, idx) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * idx, index: idx })}
+                        showsVerticalScrollIndicator={false}
+                        snapToInterval={ITEM_HEIGHT}
+                        decelerationRate="fast"
+                        contentContainerStyle={{ paddingVertical: PAD }}
+                        onMomentumScrollEnd={(e) => {
+                          const y = e.nativeEvent.contentOffset.y
+                          const idx = Math.round(y / ITEM_HEIGHT)
+                          const val = ((idx % 60) + 60) % 60
+                          setSelectedMinuteIndex(val)
+                        }}
+                        renderItem={({ item, index }) => (
+                          <View style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}>
+                            <Text style={{ fontSize: 18, fontWeight: (index % 60) === selectedMinuteIndex ? "700" : "400", color: (index % 60) === selectedMinuteIndex ? "#111827" : "#9ca3af" }}>
+                              {item}
+                            </Text>
+                          </View>
+                        )}
+                      />
+                    </View>
+                    <Text style={{ color: "#6b7280", marginTop: 4 }}>minutes</Text>
+                  </View>
+                  <View style={{ justifyContent: "center" }}>
+                    <Text style={{ fontSize: 18, fontWeight: "700" }}>:</Text>
+                  </View>
+                  {/* Seconds wheel */}
+                  <View style={{ alignItems: "center" }}>
+                    <View style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS, width: 80, overflow: "hidden" }}>
+                      <FlatList
+                        data={secondsLoop}
+                        keyExtractor={(_, i) => `s-${i}`}
+                        initialScrollIndex={base + selectedSecondIndex}
+                        getItemLayout={(_, idx) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * idx, index: idx })}
+                        showsVerticalScrollIndicator={false}
+                        snapToInterval={ITEM_HEIGHT}
+                        decelerationRate="fast"
+                        contentContainerStyle={{ paddingVertical: PAD }}
+                        onMomentumScrollEnd={(e) => {
+                          const y = e.nativeEvent.contentOffset.y
+                          const idx = Math.round(y / ITEM_HEIGHT)
+                          const val = ((idx % 60) + 60) % 60
+                          setSelectedSecondIndex(val)
+                        }}
+                        renderItem={({ item, index }) => (
+                          <View style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}>
+                            <Text style={{ fontSize: 18, fontWeight: (index % 60) === selectedSecondIndex ? "700" : "400", color: (index % 60) === selectedSecondIndex ? "#111827" : "#9ca3af" }}>
+                              {item}
+                            </Text>
+                          </View>
+                        )}
+                      />
+                    </View>
+                    <Text style={{ color: "#6b7280", marginTop: 4 }}>seconds</Text>
+                  </View>
+                </View>
+              )
+            })()}
+            <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 8 }}>
+              <Pressable
+                onPress={() => {
+                  // Close without starting: resume playback if requested
+                  setTimerModalVisible(false)
+                  if (resumeOnModalClose && !timerActive) {
+                    setPlayerSuspended(false)
+                    setPlayerPlaySignal((x) => x + 1)
+                  }
+                  setResumeOnModalClose(false)
+                }}
+                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#e5e7eb" }}
+              >
+                <Text style={{ fontWeight: "600", color: "#374151" }}>Close</Text>
+              </Pressable>
+              {timerActive ? (
+                <Pressable onPress={cancelTimer} style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#ef4444" }}>
+                  <Text style={{ fontWeight: "700", color: "#fff" }}>Cancel timer</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={() => {
+                  // Starting a session: reset player to start and play
+                  setResumeOnModalClose(false)
+                  setPlayerResetCounter((c) => c + 1)
+                  startTimer()
+                }}
+                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#6366f1" }}
+              >
+                <Text style={{ fontWeight: "700", color: "#fff" }}>{timerActive ? "Restart" : "Start"}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Time up modal */}
+      <Modal visible={timeUpModalVisible} transparent animationType="fade" onRequestClose={() => setTimeUpModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>Time&apos;s up</Text>
+            <Text style={{ textAlign: "center", color: "#6b7280" }}>Would you like to set a new timer and continue, or end this session?</Text>
+            <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 8 }}>
+              <Pressable
+                onPress={() => {
+                  setTimeUpModalVisible(false)
+                  setTimerModalVisible(true)
+                }}
+                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#6366f1" }}
+              >
+                <Text style={{ fontWeight: "700", color: "#fff" }}>Set new timer</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setTimeUpModalVisible(false)
+                  // Return to previous screen without duplicating routes
+                  router.back()
+                }}
+                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#ef4444" }}
+              >
+                <Text style={{ fontWeight: "700", color: "#fff" }}>End session</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
