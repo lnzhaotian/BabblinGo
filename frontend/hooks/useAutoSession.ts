@@ -70,6 +70,7 @@ export function useAutoSession(): UseAutoSessionResult {
         endedAt: endTime,
         plannedSeconds: plannedSecondsRef.current,
         speed: playbackSpeedRef.current,
+        finished: true,
       }).catch(console.error)
     }
 
@@ -193,6 +194,7 @@ export function useAutoSession(): UseAutoSessionResult {
           endedAt: endTime,
           plannedSeconds: plannedSecondsRef.current,
           speed: playbackSpeedRef.current,
+          finished: false,
         }).catch(console.error)
       }
     }
@@ -247,6 +249,7 @@ export function useAutoSession(): UseAutoSessionResult {
             endedAt: endTime,
             plannedSeconds: plannedSecondsRef.current,
             speed: playbackSpeedRef.current,
+            finished: false,
           }).catch(console.error)
 
           if (showAlert) {

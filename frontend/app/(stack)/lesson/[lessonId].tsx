@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, FlatList, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { Stack, useLocalSearchParams } from "expo-router"
+import { Stack, useLocalSearchParams, useRouter } from "expo-router"
 
 import { extractModules, fetchLessonById, LessonDoc, resolveMediaUrl } from "@/lib/payload"
 // SingleTrackPlayer is wrapped by LessonAudioPlayer
@@ -16,6 +16,11 @@ import { useLessonNavigation } from "@/hooks/useLessonNavigation"
 import { LessonAudioPlayer } from "@/components/LessonAudioPlayer"
 import { useSlideAudio } from "@/hooks/useSlideAudio"
 import { LessonHeaderControls } from "@/components/LessonHeaderControls"
+import { useLearningSession } from "@/hooks/useLearningSession"
+import { LessonLandingCard } from "@/components/LessonLandingCard"
+import { LessonCountdownTimer } from "@/components/LessonCountdownTimer"
+import { LessonSessionResult } from "@/components/LessonSessionResult"
+// useRouter imported above with Stack
 
 /**
  * Lesson detail screen – Audio + Slides architecture
@@ -44,6 +49,7 @@ import { LessonHeaderControls } from "@/components/LessonHeaderControls"
 
 const LessonDetail = () => {
   const { t, i18n } = useTranslation()
+  const router = useRouter()
   const { lessonId, title: routeTitle } = useLocalSearchParams<{
     lessonId?: string
     title?: string
@@ -81,6 +87,7 @@ const LessonDetail = () => {
     onSlideScroll,
     handleNavigate,
     handleTrackFinish,
+    resetToFirstSlide,
   } = useLessonNavigation({ totalSlides: modules.length, hasAudio, loopEnabled })
   const slideDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -152,6 +159,18 @@ const LessonDetail = () => {
 
   const headerTitle = lesson?.title || (typeof routeTitle === "string" && routeTitle) || (lessonId ? String(lessonId) : t("lesson.title"))
 
+  // Learning session flow: landing -> active -> results
+  const {
+    mode,
+    configuredSeconds,
+    remainingSeconds,
+    elapsedSeconds,
+    startSession,
+    // resetToLanding,
+    restartSession,
+    updateConfiguredSeconds,
+  } = useLearningSession(lessonId, lesson?.title, { speed: playerSpeed, loop: loopEnabled })
+
   return (
     <>
       <Stack.Screen
@@ -182,9 +201,33 @@ const LessonDetail = () => {
         <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
           <Text style={{ textAlign: "center" }}>{t("lesson.notFound")}</Text>
         </SafeAreaView>
+      ) : mode === "landing" ? (
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom"]}>
+          <LessonLandingCard
+            summary={lesson.summary}
+            sessionSeconds={configuredSeconds}
+            speed={playerSpeed}
+            onSessionSecondsChange={updateConfiguredSeconds}
+            onSpeedChange={setPlayerSpeed}
+            onStart={startSession}
+          />
+        </SafeAreaView>
+      ) : mode === "results" ? (
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom"]}>
+          <LessonSessionResult
+            elapsedSec={elapsedSeconds}
+            plannedSec={configuredSeconds}
+            onExit={() => router.back()}
+            onRestart={() => {
+              resetToFirstSlide()
+              restartSession()
+            }}
+          />
+        </SafeAreaView>
       ) : (
         <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1 }}>
+            <LessonCountdownTimer remaining={remainingSeconds} />
             {modulesWithContent.length === 0 ? (
               <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
                 <Text style={{ textAlign: "center", color: "#666" }}>{t("lesson.noModules")}</Text>
@@ -216,7 +259,7 @@ const LessonDetail = () => {
             )}
           </View>
 
-      {showAudioPlayer || modules.length > 1 ? (
+      {mode === "active" && (showAudioPlayer || modules.length > 1) ? (
         <LessonAudioPlayer
           track={slideAudio[currentSlideIndex]?.audioUrl ? { id: slideAudio[currentSlideIndex].id, title: (slideAudio[currentSlideIndex].title ?? "") as string, audioUrl: slideAudio[currentSlideIndex].audioUrl as string } : null}
           playerSpeed={playerSpeed}

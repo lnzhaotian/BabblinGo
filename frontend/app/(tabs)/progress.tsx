@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { SectionList, View, Text, Pressable, ScrollView } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
@@ -6,6 +6,7 @@ import { useFocusEffect } from "@react-navigation/native"
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
 import { Stack } from "expo-router"
+import { fetchLessonById } from "@/lib/payload"
 
 // Stored by lesson timer in lesson screen
 // id, lessonId, lessonTitle, startedAt, endedAt, plannedSeconds, speed
@@ -17,6 +18,7 @@ interface SessionRecord {
   endedAt: number
   plannedSeconds: number
   speed: number
+  finished?: boolean // true if session completed planned time, false if exited early
 }
 
 const secToHMM = (s: number) => {
@@ -42,10 +44,11 @@ const withinLastNDays = (ms: number, days: number) => {
 }
 
 export default function ProgressScreen() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [timeframe, setTimeframe] = useState<"7d" | "30d" | "all">("7d")
   const [lessonFilter, setLessonFilter] = useState<string | "all">("all")
+  const [titlesById, setTitlesById] = useState<Record<string, string>>({})
 
   const loadSessions = useCallback(async () => {
     try {
@@ -63,6 +66,37 @@ export default function ProgressScreen() {
       return () => {}
     }, [loadSessions])
   )
+
+  // Fetch localized lesson titles for current language
+  useEffect(() => {
+    const loadTitles = async () => {
+      try {
+        const ids = Array.from(new Set(sessions.map((s) => s.lessonId)))
+        if (ids.length === 0) {
+          setTitlesById({})
+          return
+        }
+        const entries = await Promise.all(
+          ids.map(async (id) => {
+            try {
+              const doc = await fetchLessonById(id, i18n.language)
+              return [id, doc.title as string] as const
+            } catch {
+              // Fallback to existing saved title from the latest session with that id
+              const saved = sessions.find((s) => s.lessonId === id)?.lessonTitle || id
+              return [id, saved] as const
+            }
+          })
+        )
+        const map: Record<string, string> = {}
+        for (const [id, title] of entries) map[id] = title
+        setTitlesById(map)
+      } catch {
+        // ignore failures; fallbacks will handle
+      }
+    }
+    loadTitles()
+  }, [sessions, i18n.language])
 
   const summary = useMemo(() => {
     const now = new Date()
@@ -82,10 +116,11 @@ export default function ProgressScreen() {
   const uniqueLessons = useMemo(() => {
     const map = new Map<string, string>()
     sessions.forEach((s) => {
-      if (!map.has(s.lessonId)) map.set(s.lessonId, s.lessonTitle || s.lessonId)
+      const title = titlesById[s.lessonId] || s.lessonTitle || s.lessonId
+      if (!map.has(s.lessonId)) map.set(s.lessonId, title)
     })
     return Array.from(map.entries()).map(([id, title]) => ({ id, title }))
-  }, [sessions])
+  }, [sessions, titlesById])
 
   const filteredSessions = useMemo(() => {
     let arr = sessions
@@ -95,23 +130,39 @@ export default function ProgressScreen() {
     return arr
   }, [sessions, timeframe, lessonFilter])
 
-  // Weekly chart data (last 7 days). If lessonFilter applied, respects it.
+  // Weekly chart data (current week Monday -> Sunday). Respects lesson filter.
   const weekly = useMemo(() => {
-    const days: { label: string; total: number }[] = []
-    const now = new Date()
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now)
-      d.setHours(0, 0, 0, 0)
-      d.setDate(d.getDate() - i)
-      const label = d.toLocaleDateString(undefined, { weekday: "short" }).slice(0, 2)
+    // Find Monday of current week
+    const base = new Date()
+    base.setHours(0, 0, 0, 0)
+    const dow = base.getDay() // 0=Sun..6=Sat
+    const daysFromMonday = (dow + 6) % 7 // 0 if Mon
+    const monday = new Date(base)
+    monday.setDate(base.getDate() - daysFromMonday)
+
+    const keys: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[] = [
+      "mon",
+      "tue",
+      "wed",
+      "thu",
+      "fri",
+      "sat",
+      "sun",
+    ]
+
+    const days: { label: string; total: number }[] = keys.map((k, idx) => {
+      const d = new Date(monday)
+      d.setDate(monday.getDate() + idx)
+      const label = t(`common.weekdayShort.${k}`)
       const total = filteredSessions
         .filter((s) => isSameDay(new Date(s.startedAt), d))
         .reduce((acc, s) => acc + Math.max(0, Math.round((s.endedAt - s.startedAt) / 1000)), 0)
-      days.push({ label, total })
-    }
+      return { label, total }
+    })
+
     const max = Math.max(1, ...days.map((d) => d.total))
     return { days, max }
-  }, [filteredSessions])
+  }, [filteredSessions, t])
 
   const sections = useMemo(() => {
     const now = new Date()
@@ -137,7 +188,8 @@ export default function ProgressScreen() {
     const map = new Map<string, { title: string; total: number; sessions: number }>()
     for (const s of filteredSessions) {
       const key = s.lessonId
-      const prev = map.get(key) || { title: s.lessonTitle || s.lessonId, total: 0, sessions: 0 }
+      const displayTitle = titlesById[key] || s.lessonTitle || s.lessonId
+      const prev = map.get(key) || { title: displayTitle, total: 0, sessions: 0 }
       prev.total += Math.max(0, Math.round((s.endedAt - s.startedAt) / 1000))
       prev.sessions += 1
       map.set(key, prev)
@@ -145,7 +197,7 @@ export default function ProgressScreen() {
     const arr = Array.from(map.entries()).map(([lessonId, v]) => ({ lessonId, ...v }))
     arr.sort((a, b) => b.total - a.total)
     return arr
-  }, [filteredSessions])
+  }, [filteredSessions, titlesById])
 
   const deleteSession = useCallback(async (id: string) => {
     try {
@@ -292,12 +344,18 @@ export default function ProgressScreen() {
             >
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f1f5f9", backgroundColor: "#fff" }}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Text style={{ flex: 1, fontSize: 16, fontWeight: "700", color: "#111827" }} numberOfLines={1}>{item.lessonTitle || item.lessonId}</Text>
-                  <Text style={{ fontSize: 14, fontWeight: "800", color: "#111827", marginLeft: 12 }}>{secToMMSS(actualSec)}</Text>
+                  <Text style={{ flex: 1, fontSize: 16, fontWeight: "700", color: item.finished === false ? "#f59e42" : "#111827" }} numberOfLines={1}>
+                    {titlesById[item.lessonId] || item.lessonTitle || item.lessonId}
+                    {item.finished === false ? ` (${t('progress.unfinished')})` : ""}
+                  </Text>
+                  <Text style={{ fontSize: 14, fontWeight: "800", color: item.finished === false ? "#f59e42" : "#111827", marginLeft: 12 }}>{t("progress.actual")} {secToMMSS(actualSec)}</Text>
                 </View>
                 <View style={{ flexDirection: "row", marginTop: 4 }}>
                   <Text style={{ flex: 1, color: "#6b7280" }}>{dateStr}</Text>
-                  <Text style={{ color: "#9ca3af" }}>{t("progress.planned")} {secToMMSS(item.plannedSeconds)} • {item.speed.toFixed(2)}x</Text>
+                  <Text style={{ color: "#9ca3af" }}>
+                    {item.finished === false ? `${t('progress.planned')} ${secToMMSS(item.plannedSeconds)}` : `${t('progress.planned')} ${secToMMSS(item.plannedSeconds)}`}
+                    • {item.speed.toFixed(1)}x
+                  </Text>
                 </View>
               </View>
             </Swipeable>

@@ -5,14 +5,16 @@ import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
  * Session record structure matching the progress screen format
  */
 export interface SessionRecord {
-  id: string
-  lessonId: string
-  lessonTitle: string
-  startedAt: number // timestamp
-  endedAt: number // timestamp
-  plannedSeconds: number
-  speed: PlaybackSpeed
+  id: string;
+  lessonId: string;
+  lessonTitle: string;
+  startedAt: number; // timestamp
+  endedAt: number; // timestamp
+  plannedSeconds: number;
+  speed: PlaybackSpeed;
+  finished: boolean; // true if session completed planned time, false if exited early
 }
+// ...existing code...
 
 /**
  * Learning preferences structure
@@ -31,9 +33,10 @@ const DEFAULT_PREFERENCES: LearningPreferences = {
 }
 
 /**
- * Minimum session duration to record (2 minutes)
+ * Minimum session duration to record (disabled for testing)
+ * Set to >0 to enforce a minimum duration in seconds.
  */
-export const MIN_SESSION_DURATION = 120
+export const MIN_SESSION_DURATION = 0
 
 /**
  * Load learning preferences from AsyncStorage
@@ -89,32 +92,32 @@ export async function saveLearningPreferences(
  */
 export async function saveLearningSession(record: Omit<SessionRecord, "id">): Promise<void> {
   try {
-    const duration = record.endedAt - record.startedAt
-    const durationSeconds = Math.floor(duration / 1000)
+    const duration = record.endedAt - record.startedAt;
+    const durationSeconds = Math.floor(duration / 1000);
 
     // Only save sessions that meet minimum duration
-    if (durationSeconds < MIN_SESSION_DURATION) {
+    if (MIN_SESSION_DURATION > 0 && durationSeconds < MIN_SESSION_DURATION) {
       console.log(
         `Session too short (${durationSeconds}s), not saving (min: ${MIN_SESSION_DURATION}s)`
-      )
-      return
+      );
+      return;
     }
 
-    const key = "learning.sessions"
-    const raw = await AsyncStorage.getItem(key)
-    const sessions: SessionRecord[] = raw ? JSON.parse(raw) : []
+    const key = "learning.sessions";
+    const raw = await AsyncStorage.getItem(key);
+    const sessions: SessionRecord[] = raw ? JSON.parse(raw) : [];
 
     const newSession: SessionRecord = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       ...record,
-    }
+    };
 
-    sessions.push(newSession)
-    await AsyncStorage.setItem(key, JSON.stringify(sessions))
+    sessions.push(newSession);
+    await AsyncStorage.setItem(key, JSON.stringify(sessions));
 
-    console.log(`Saved learning session: ${durationSeconds}s for ${record.lessonTitle}`)
+    console.log(`Saved learning session: ${durationSeconds}s for ${record.lessonTitle} (finished: ${record.finished})`);
   } catch (error) {
-    console.error("Failed to save learning session:", error)
+    console.error("Failed to save learning session:", error);
     // Don't throw - session saving is not critical
   }
 }

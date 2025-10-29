@@ -17,9 +17,9 @@ export default function TabsLayout() {
             "home";
 
           if (route.name === "index") {
-            iconName = "language";
+            iconName = "auto-stories";
           } else if (route.name === "tests") {
-            iconName = "quiz";
+            iconName = "task-alt";
           } else if (route.name === "settings") {
             iconName = "settings";
           } else if (route.name === "progress") {

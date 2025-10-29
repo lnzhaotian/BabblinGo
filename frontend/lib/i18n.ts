@@ -48,6 +48,11 @@ const resources = {
       "lesson.cache.redownloadMessage": "This will download fresh copies of all media files.",
       "lesson.cache.redownload": "Re-download All",
       "lesson.cache.redownloadError": "Failed to re-download media.",
+      "lesson.startLearning": "Start learning",
+      "lesson.sessionComplete": "Session complete",
+      "lesson.timeSpent": "Time spent",
+      "lesson.sessionTarget": "Session target",
+      "lesson.startAnother": "Start another session",
 
       // Timer
       "timer.set": "Set session timer",
@@ -85,6 +90,8 @@ const resources = {
       "progress.sectionEarlier": "Earlier",
       "progress.delete": "Delete",
       "progress.planned": "planned",
+  "progress.actual": "actual",
+  "progress.unfinished": "unfinished",
 
       // Settings
       "settings.title": "Settings",
@@ -113,6 +120,8 @@ const resources = {
       "settings.learning.saved": "Saved",
       "settings.learning.savedMessage": "Your preferences have been saved.",
       "settings.learning.saveError": "Failed to save preferences.",
+      "settings.learning.setSessionLength": "Session length",
+      "settings.learning.setPlaybackSpeed": "Playback speed",
 
       // Session
       "session.startLearning": "Start Learning Session",
@@ -130,9 +139,18 @@ const resources = {
       "common.loading": "Loading...",
       "common.saving": "Saving...",
       "common.save": "Save Preferences",
-  "common.close": "Close",
-  "common.done": "Done",
-  "common.tapToEdit": "Tap to edit",
+      "common.close": "Close",
+      "common.done": "Done",
+      "common.tapToEdit": "Tap to edit",
+      "common.exit": "Exit",
+      // Weekday labels
+      "common.weekdayShort.mon": "Mo",
+      "common.weekdayShort.tue": "Tu",
+      "common.weekdayShort.wed": "We",
+      "common.weekdayShort.thu": "Th",
+      "common.weekdayShort.fri": "Fr",
+      "common.weekdayShort.sat": "Sa",
+      "common.weekdayShort.sun": "Su",
     },
   },
   zh: {
@@ -178,6 +196,11 @@ const resources = {
       "lesson.cache.redownloadMessage": "这将重新下载所有媒体文件。",
       "lesson.cache.redownload": "重新下载全部",
       "lesson.cache.redownloadError": "重新下载媒体失败。",
+      "lesson.startLearning": "开始学习",
+      "lesson.sessionComplete": "学习完成",
+      "lesson.timeSpent": "学习时长",
+      "lesson.sessionTarget": "计划时长",
+      "lesson.startAnother": "再来一次",
 
       // Timer
       "timer.set": "设置学习计时",
@@ -215,6 +238,8 @@ const resources = {
       "progress.sectionEarlier": "更早",
       "progress.delete": "删除",
       "progress.planned": "计划",
+  "progress.actual": "实际",
+  "progress.unfinished": "未完成",
 
       // Settings
       "settings.title": "设置",
@@ -243,6 +268,8 @@ const resources = {
       "settings.learning.saved": "已保存",
       "settings.learning.savedMessage": "您的偏好设置已保存。",
       "settings.learning.saveError": "保存偏好设置失败。",
+      "settings.learning.setSessionLength": "学习时长",
+      "settings.learning.setPlaybackSpeed": "播放速度",
 
       // Session
       "session.startLearning": "开始学习",
@@ -260,9 +287,18 @@ const resources = {
       "common.loading": "加载中...",
       "common.saving": "保存中...",
       "common.save": "保存偏好设置",
-  "common.close": "关闭",
-  "common.done": "完成",
-  "common.tapToEdit": "点击编辑",
+      "common.close": "关闭",
+      "common.done": "完成",
+      "common.tapToEdit": "点击编辑",
+      "common.exit": "退出",
+      // Weekday labels
+      "common.weekdayShort.mon": "周一",
+      "common.weekdayShort.tue": "周二",
+      "common.weekdayShort.wed": "周三",
+      "common.weekdayShort.thu": "周四",
+      "common.weekdayShort.fri": "周五",
+      "common.weekdayShort.sat": "周六",
+      "common.weekdayShort.sun": "周日",
     },
   },
 }
