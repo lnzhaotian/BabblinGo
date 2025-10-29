@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Dimensions, FlatList, Image, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, TextInput, View } from "react-native"
+import { ActivityIndicator, Alert, Dimensions, FlatList, Image, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, TextInput, View } from "react-native"
 import * as Haptics from "expo-haptics"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { MaterialIcons } from "@expo/vector-icons"
@@ -10,7 +10,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import { useTranslation } from "react-i18next"
-import { getOrDownloadFile } from "@/lib/cache-manager"
+import { getOrDownloadFile, getLessonCacheStatus, clearLessonCache, redownloadLessonMedia, LessonCacheStatus } from "@/lib/cache-manager"
 
 /**
  * Lesson detail screen – Audio + Slides architecture
@@ -94,6 +94,8 @@ const LessonDetail = () => {
   const [cachedMedia, setCachedMedia] = useState<Record<string, string>>({}) // URL -> local path
   const [downloadProgress, setDownloadProgress] = useState<Record<string, number>>({}) // URL -> progress (0-1)
   const [cachingInProgress, setCachingInProgress] = useState(false)
+  const [lessonCacheStatus, setLessonCacheStatus] = useState<LessonCacheStatus>('none')
+  const [cacheMenuVisible, setCacheMenuVisible] = useState(false)
 
   // Session timer state
   const [timerModalVisible, setTimerModalVisible] = useState(false)
@@ -183,7 +185,117 @@ const LessonDetail = () => {
 
     setCachedMedia(cached)
     setCachingInProgress(false)
+
+    // Update cache status
+    if (mediaUrls.length > 0) {
+      try {
+        const status = await getLessonCacheStatus(
+          mediaUrls.map(m => m.url),
+          version
+        );
+        setLessonCacheStatus(status.status);
+      } catch (error) {
+        console.error('Failed to get cache status:', error);
+      }
+    }
   }, [])
+
+  // Handle clearing cache for this lesson
+  const handleClearCache = useCallback(async () => {
+    if (!lesson || !lesson.updatedAt) return;
+
+    Alert.alert(
+      t("lesson.cache.clearTitle") || "Clear Cache?",
+      t("lesson.cache.clearMessage") || "This will delete all cached media for this lesson.",
+      [
+        { text: t("common.cancel") || "Cancel", style: "cancel" },
+        {
+          text: t("common.clear") || "Clear",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const modulesList = extractModules(lesson);
+              const mediaUrls: string[] = [];
+
+              for (const module of modulesList) {
+                const imageUrl = resolveMediaUrl(module.image);
+                const audioUrl = resolveMediaUrl(module.audio);
+                if (imageUrl) mediaUrls.push(imageUrl);
+                if (audioUrl) mediaUrls.push(audioUrl);
+              }
+
+              await clearLessonCache(mediaUrls);
+              setCachedMedia({});
+              setLessonCacheStatus('none');
+              setCacheMenuVisible(false);
+              Alert.alert(
+                t("lesson.cache.cleared") || "Cache Cleared",
+                t("lesson.cache.clearedMessage") || "Media files have been removed."
+              );
+            } catch (error) {
+              console.error('Failed to clear cache:', error);
+              Alert.alert(
+                t("common.error") || "Error",
+                t("lesson.cache.clearError") || "Failed to clear cache."
+              );
+            }
+          },
+        },
+      ]
+    );
+  }, [lesson, t]);
+
+  // Handle re-downloading all media
+  const handleRedownload = useCallback(async () => {
+    if (!lesson || !lesson.updatedAt) return;
+
+    Alert.alert(
+      t("lesson.cache.redownloadTitle") || "Re-download Media?",
+      t("lesson.cache.redownloadMessage") || "This will download fresh copies of all media files.",
+      [
+        { text: t("common.cancel") || "Cancel", style: "cancel" },
+        {
+          text: t("lesson.cache.redownload") || "Re-download",
+          onPress: async () => {
+            try {
+              setCacheMenuVisible(false);
+              setCachingInProgress(true);
+              setLessonCacheStatus('downloading');
+
+              const modulesList = extractModules(lesson);
+              const mediaUrls: string[] = [];
+
+              for (const module of modulesList) {
+                const imageUrl = resolveMediaUrl(module.image);
+                const audioUrl = resolveMediaUrl(module.audio);
+                if (imageUrl) mediaUrls.push(imageUrl);
+                if (audioUrl) mediaUrls.push(audioUrl);
+              }
+
+              await redownloadLessonMedia(
+                mediaUrls,
+                lesson.updatedAt!,
+                (url, progress) => {
+                  setDownloadProgress((prev) => ({ ...prev, [url]: progress }));
+                }
+              );
+
+              // Reload cached media
+              await cacheMediaFiles(lesson);
+            } catch (error) {
+              console.error('Failed to redownload:', error);
+              Alert.alert(
+                t("common.error") || "Error",
+                t("lesson.cache.redownloadError") || "Failed to re-download media."
+              );
+            } finally {
+              setCachingInProgress(false);
+            }
+          },
+        },
+      ]
+    );
+  }, [lesson, t, cacheMediaFiles]);
 
   useEffect(() => {
     loadLesson()
@@ -589,6 +701,19 @@ const LessonDetail = () => {
           >
             <MaterialIcons name="repeat" size={22} color={loopEnabled ? "#6366f1" : "#9ca3af"} />
           </Pressable>
+          {/* Cache status button */}
+          <Pressable
+            onPress={() => setCacheMenuVisible(true)}
+            accessibilityLabel="Cache options"
+            hitSlop={8}
+            style={{ padding: 4, marginLeft: 8 }}
+          >
+            <MaterialIcons 
+              name={lessonCacheStatus === 'full' ? 'cloud-done' : lessonCacheStatus === 'partial' ? 'cloud-download' : 'cloud-queue'} 
+              size={22} 
+              color={lessonCacheStatus === 'full' ? '#10b981' : lessonCacheStatus === 'partial' ? '#f59e0b' : '#9ca3af'} 
+            />
+          </Pressable>
         </View>
 
         <View style={{ flex: 1 }}>
@@ -933,9 +1058,98 @@ const LessonDetail = () => {
           </View>
         </View>
       </Modal>
+
+      {/* Cache management modal */}
+      <Modal visible={cacheMenuVisible} transparent animationType="fade" onRequestClose={() => setCacheMenuVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
+          <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>
+              {t("lesson.cache.title") || "Cache Management"}
+            </Text>
+            
+            {/* Cache status display */}
+            <View style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: "#f3f4f6", borderRadius: 8, gap: 8 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={{ color: "#6b7280", fontWeight: "600" }}>
+                  {t("lesson.cache.status") || "Status"}
+                </Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <MaterialIcons 
+                    name={lessonCacheStatus === 'full' ? 'check-circle' : lessonCacheStatus === 'partial' ? 'cloud-download' : 'cloud-queue'} 
+                    size={18} 
+                    color={lessonCacheStatus === 'full' ? '#10b981' : lessonCacheStatus === 'partial' ? '#f59e0b' : '#9ca3af'} 
+                  />
+                  <Text style={{ color: "#374151", fontWeight: "600" }}>
+                    {lessonCacheStatus === 'full' ? (t("lesson.cache.statusFull") || "Fully Cached") :
+                     lessonCacheStatus === 'partial' ? (t("lesson.cache.statusPartial") || "Partially Cached") :
+                     (t("lesson.cache.statusNone") || "Not Cached")}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Actions */}
+            <View style={{ gap: 8, marginTop: 8 }}>
+              <Pressable
+                onPress={handleRedownload}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 8,
+                  backgroundColor: "#3b82f6",
+                  alignItems: "center",
+                }}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <MaterialIcons name="refresh" size={20} color="#fff" />
+                  <Text style={{ fontWeight: "700", color: "#fff" }}>
+                    {t("lesson.cache.redownload") || "Re-download All"}
+                  </Text>
+                </View>
+              </Pressable>
+
+              {lessonCacheStatus !== 'none' && (
+                <Pressable
+                  onPress={handleClearCache}
+                  style={{
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                    borderRadius: 8,
+                    backgroundColor: "#ef4444",
+                    alignItems: "center",
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <MaterialIcons name="delete" size={20} color="#fff" />
+                    <Text style={{ fontWeight: "700", color: "#fff" }}>
+                      {t("common.clear") || "Clear Cache"}
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
+
+              <Pressable
+                onPress={() => setCacheMenuVisible(false)}
+                style={{
+                  paddingVertical: 12,
+                  paddingHorizontal: 16,
+                  borderRadius: 8,
+                  backgroundColor: "#e5e7eb",
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontWeight: "600", color: "#374151" }}>
+                  {t("common.cancel") || "Cancel"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   )
 }
 
 export default LessonDetail
+
 

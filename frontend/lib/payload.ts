@@ -133,7 +133,7 @@ export const fetchLessonsByLevelSlug = async (levelSlug: string, locale?: string
   }
 
   const lessonsResponse = await fetchPayload<PayloadListResponse<LessonDoc>>(
-    `/api/lessons?where[level][equals]=${level.id}&depth=1&limit=100&sort=order`,
+    `/api/lessons?where[level][equals]=${level.id}&depth=2&limit=100&sort=order`,
     undefined,
     locale
   )
