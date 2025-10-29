@@ -122,7 +122,6 @@ export const Modules: CollectionConfig = {
       name: 'title',
       type: 'text',
       required: true,
-      localized: true,
     },
     createSlugField('title'),
     {
@@ -143,7 +142,6 @@ export const Modules: CollectionConfig = {
       name: 'image',
       type: 'upload',
       relationTo: 'media',
-      localized: true,
       admin: {
         description: 'Primary visual used when presenting this module.',
       },
@@ -152,7 +150,6 @@ export const Modules: CollectionConfig = {
       name: 'audio',
       type: 'upload',
       relationTo: 'media',
-      localized: true,
       admin: {
         description: 'Narration or audio file associated with this module.',
       },
@@ -162,7 +159,6 @@ export const Modules: CollectionConfig = {
       label: 'Module Content',
       type: 'richText',
       required: true,
-      localized: true,
     },
     {
       name: 'resources',
