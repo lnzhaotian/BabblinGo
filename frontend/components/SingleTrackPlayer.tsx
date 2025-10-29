@@ -15,20 +15,25 @@ export type SingleTrack = {
 export type SingleTrackPlayerProps = {
   track: SingleTrack
   autoPlay?: boolean
-  initialSpeed?: PlaybackSpeed
+  speed: PlaybackSpeed  // Now controlled by parent
+  loop: boolean  // Read-only from parent
   debug?: boolean
+  hasPrev?: boolean
+  hasNext?: boolean
+  onSpeedChange?: (speed: PlaybackSpeed) => void
   onFinish?: () => void
+  onNavigate?: (action: 'prev' | 'next') => void
 }
 
-export default function SingleTrackPlayer({ track, autoPlay = true, initialSpeed = 1.0, debug = false, onFinish }: SingleTrackPlayerProps) {
+export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate }: SingleTrackPlayerProps) {
   const DEBUG = !!debug
   const player = useAudioPlayer(undefined, { updateInterval: 250, downloadFirst: true })
   const status = useAudioPlayerStatus(player)
   const [isPlaying, setIsPlaying] = useState(false)
-  const [speed, setSpeed] = useState<PlaybackSpeed>(initialSpeed)
   const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
   const mountedRef = useRef(true)
   const hasStartedRef = useRef(false)
+  const hasCalledFinishRef = useRef(false)
   const lastProgressLogAt = useRef<number>(0)
 
   // Configure audio mode (iOS silent switch)
@@ -45,6 +50,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, initialSpeed
       try {
         // Reset
         hasStartedRef.current = false
+        hasCalledFinishRef.current = false
         setIsPlaying(false)
         try { await player.pause() } catch {}
 
@@ -66,6 +72,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, initialSpeed
           }
         }
       } catch (e) {
+        // Silently ignore disposed player errors (happens when unmounting during load)
+        if (cancelled || !mountedRef.current) return
         console.error(`[SingleTrack#${sessionIdRef.current}] Load error`, e)
       }
     })()
@@ -97,16 +105,22 @@ export default function SingleTrackPlayer({ track, autoPlay = true, initialSpeed
 
     // Preferred finish signal
     if (status?.didJustFinish) {
-      if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (didJustFinish)`)
-      onFinish?.()
+      if (!hasCalledFinishRef.current) {
+        hasCalledFinishRef.current = true
+        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (didJustFinish)`)
+        onFinish?.()
+      }
     }
 
     // Backup: near-end idle
     if (status && status.duration > 0) {
       const timeRemaining = status.duration - status.currentTime
       if (!status.playing && (timeRemaining <= 1.0 || status.currentTime / status.duration >= 0.985)) {
-        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (near-end idle)`) 
-        onFinish?.()
+        if (!hasCalledFinishRef.current) {
+          hasCalledFinishRef.current = true
+          if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (near-end idle)`) 
+          onFinish?.()
+        }
       }
     }
   }, [status, DEBUG, onFinish])
@@ -124,6 +138,11 @@ export default function SingleTrackPlayer({ track, autoPlay = true, initialSpeed
         await player.pause()
         setIsPlaying(false)
       } else {
+        // If at end, seek to start before playing
+        if (status && status.duration > 0 && status.currentTime >= status.duration - 0.5) {
+          await player.seekTo(0)
+          hasCalledFinishRef.current = false
+        }
         try { await player.setPlaybackRate(speed) } catch {}
         await player.play()
         setIsPlaying(true)
@@ -137,10 +156,32 @@ export default function SingleTrackPlayer({ track, autoPlay = true, initialSpeed
     <View>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
         <Pressable
+          onPress={() => {
+            const canNavigate = hasPrev || loop
+            if (!canNavigate) return
+            onNavigate?.('prev')
+          }}
+          disabled={!hasPrev && !loop}
+          style={({ pressed }) => ({ borderRadius: 999, padding: 8, backgroundColor: pressed ? "#e5e7eb" : "transparent", opacity: (!hasPrev && !loop) ? 0.4 : 1 })}
+        >
+          <MaterialIcons name="skip-previous" size={32} color="#4b5563" />
+        </Pressable>
+        <Pressable
           onPress={handlePlayPause}
           style={({ pressed }) => ({ borderRadius: 999, backgroundColor: "#6366f1", padding: 12, opacity: pressed ? 0.8 : 1 })}
         >
           <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={32} color="#fff" />
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            const canNavigate = hasNext || loop
+            if (!canNavigate) return
+            onNavigate?.('next')
+          }}
+          disabled={!hasNext && !loop}
+          style={({ pressed }) => ({ borderRadius: 999, padding: 8, backgroundColor: pressed ? "#e5e7eb" : "transparent", opacity: (!hasNext && !loop) ? 0.4 : 1 })}
+        >
+          <MaterialIcons name="skip-next" size={32} color="#4b5563" />
         </Pressable>
       </View>
 
@@ -148,7 +189,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, initialSpeed
         {SPEED_OPTIONS.map((s) => (
           <Pressable
             key={s}
-            onPress={() => setSpeed(s)}
+            onPress={() => onSpeedChange?.(s)}
             style={({ pressed }) => ({ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: speed === s ? "#6366f1" : pressed ? "#e5e7eb" : "#d1d5db" })}
           >
             <Text style={{ fontSize: 12, fontWeight: "500", color: speed === s ? "#fff" : "#374151" }}>{Number.isInteger(s) ? `${s.toFixed(0)}x` : `${s.toFixed(1)}x`}</Text>

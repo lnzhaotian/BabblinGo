@@ -5,7 +5,7 @@ import { MaterialIcons } from "@expo/vector-icons"
 import { useLocalSearchParams, useRouter } from "expo-router"
 
 import { extractModules, fetchLessonById, LessonDoc, MediaDoc, resolveMediaUrl } from "@/lib/payload"
-import SingleTrackPlayer from "@/components/SingleTrackPlayer"
+import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
 
 const extractParagraphs = (body: unknown): string[] => {
   if (!body) {
@@ -48,7 +48,8 @@ const LessonDetail = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
-  const [diagnostics, setDiagnostics] = useState(false)
+  const [playerSpeed, setPlayerSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
+  const [loopEnabled, setLoopEnabled] = useState<boolean>(true)
   const flatListRef = useRef<FlatList>(null)
   const { width: screenWidth } = Dimensions.get("window")
   const programmaticScrollRef = useRef(false)
@@ -105,14 +106,13 @@ const LessonDetail = () => {
     const offsetX = event.nativeEvent.contentOffset.x
     const index = Math.round(offsetX / screenWidth)
     setCurrentSlideIndex(index)
-    if (diagnostics) console.log(`[LessonDetail] onSlideScroll: offsetX=${offsetX.toFixed(1)}, index=${index}`)
     if (programmaticScrollRef.current) {
       // Reset the flag and do not sync to audio to avoid feedback loops
       programmaticScrollRef.current = false
       return
     }
     // No direct player sync; remounting by key will take effect
-  }, [screenWidth, diagnostics])
+  }, [screenWidth])
 
   const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0]; index: number }) => {
     const displayOrder = formatOrder(item.order, index)
@@ -147,17 +147,33 @@ const LessonDetail = () => {
   }, [screenWidth])
 
   // When player track changes, scroll slides accordingly
+  const handleNavigate = useCallback((action: 'prev' | 'next') => {
+    const lastIndex = modules.length - 1
+    let target = currentSlideIndex
+    if (action === 'prev') {
+      if (currentSlideIndex > 0) target = currentSlideIndex - 1
+      else if (loopEnabled && lastIndex >= 0) target = lastIndex
+    } else {
+      if (currentSlideIndex < lastIndex) target = currentSlideIndex + 1
+      else if (loopEnabled && lastIndex >= 0) target = 0
+    }
+    if (target !== currentSlideIndex) {
+      programmaticScrollRef.current = true
+      flatListRef.current?.scrollToIndex({ index: target, animated: true })
+      setCurrentSlideIndex(target)
+    }
+  }, [currentSlideIndex, modules.length, loopEnabled])
+
   const handleTrackFinish = useCallback(() => {
     const lastIndex = modules.length - 1
-    if (currentSlideIndex >= lastIndex) {
-      // If last slide, stay put; you can customize looping across slides if desired
-      return
-    }
-    const next = currentSlideIndex + 1
+    let next = currentSlideIndex
+    if (currentSlideIndex < lastIndex) next = currentSlideIndex + 1
+    else if (loopEnabled && lastIndex >= 0) next = 0
+    else return
     programmaticScrollRef.current = true
     flatListRef.current?.scrollToIndex({ index: next, animated: true })
     setCurrentSlideIndex(next)
-  }, [currentSlideIndex, modules.length])
+  }, [currentSlideIndex, modules.length, loopEnabled])
 
   // Auto-advance slides that have no audio after a short dwell
   useEffect(() => {
@@ -232,12 +248,12 @@ const LessonDetail = () => {
             {lesson.title || routeTitle || "Lesson"}
           </Text>
           <Pressable
-            onPress={() => setDiagnostics((v) => !v)}
-            accessibilityLabel="Toggle diagnostics"
+            onPress={() => setLoopEnabled(!loopEnabled)}
+            accessibilityLabel="Toggle loop"
             hitSlop={8}
             style={{ padding: 4, marginLeft: 8 }}
           >
-            <MaterialIcons name={diagnostics ? "bug-report" : "bug-report"} size={22} color={diagnostics ? "#ef4444" : "#9ca3af"} />
+            <MaterialIcons name="repeat" size={22} color={loopEnabled ? "#6366f1" : "#9ca3af"} />
           </Pressable>
         </View>
 
@@ -301,17 +317,27 @@ const LessonDetail = () => {
         >
           {/* Single-track player per slide */}
           {slideAudio[currentSlideIndex]?.audioUrl ? (
-            <SingleTrackPlayer
-              key={slideAudio[currentSlideIndex].id}
-              track={{
-                id: slideAudio[currentSlideIndex].id,
-                title: modules[currentSlideIndex]?.title || undefined,
-                audioUrl: slideAudio[currentSlideIndex].audioUrl as string,
-              }}
-              autoPlay={true}
-              debug={diagnostics}
-              onFinish={handleTrackFinish}
-            />
+            (() => {
+              const trk = slideAudio[currentSlideIndex]
+              const slideId = trk.id
+              const audioUrl = trk.audioUrl
+              if (!audioUrl) return null
+              return (
+                <SingleTrackPlayer
+                  key={slideId}
+                  track={{ id: trk.id, title: trk.title, audioUrl }}
+                  autoPlay
+                  speed={playerSpeed}
+                  loop={loopEnabled}
+                  hasPrev={currentSlideIndex > 0 || loopEnabled}
+                  hasNext={currentSlideIndex < modules.length - 1 || loopEnabled}
+                  debug={false}
+                  onSpeedChange={setPlayerSpeed}
+                  onNavigate={handleNavigate}
+                  onFinish={handleTrackFinish}
+                />
+              )
+            })()
           ) : null}
         </View>
       ) : null}
