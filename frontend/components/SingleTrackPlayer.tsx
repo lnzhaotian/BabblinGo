@@ -12,6 +12,22 @@ export type SingleTrack = {
   audioUrl: string
 }
 
+/**
+ * SingleTrackPlayer – plays exactly one audio track.
+ *
+ * Component contract:
+ * - Receives controlled props: speed (parent controls) and loop (read-only).
+ * - Emits onSpeedChange when user taps a speed chip, so parent can persist it
+ *   across slide changes and remounts.
+ * - Emits onNavigate('prev'|'next') for navigation button clicks; parent decides
+ *   the target slide and performs the scroll.
+ * - Emits onFinish() once per track end (guarded) so parent can advance slides.
+ *
+ * Mount/remount behavior:
+ * - The parent renders this with key={slideId}, so changing slides destroys
+ *   the old instance and mounts a fresh one. We only load/replace on mount,
+ *   not on every prop change, which avoids race conditions during fast swipes.
+ */
 export type SingleTrackPlayerProps = {
   track: SingleTrack
   autoPlay?: boolean
@@ -36,7 +52,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const hasCalledFinishRef = useRef(false)
   const lastProgressLogAt = useRef<number>(0)
 
-  // Configure audio mode (iOS silent switch)
+  // Configure audio mode (iOS silent switch) so audio plays even if the device
+  // is in silent mode. Do this once per mount.
   useEffect(() => {
     (async () => {
       try { await setAudioModeAsync({ playsInSilentMode: true }) } catch {}
@@ -44,6 +61,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   }, [])
 
   // Load and (optionally) play on mount
+  // We intentionally do not re-run this on every prop change. Parent will
+  // remount on slide change by altering the React key.
   useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -83,6 +102,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   }, [])
 
   // Apply rate changes on the fly
+  // When parent updates speed, we set the playback rate and ensure playback
+  // resumes if it was already playing (some platforms pause on rate change).
   useEffect(() => {
     ;(async () => {
       try {
@@ -93,6 +114,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   }, [player, speed, isPlaying])
 
   // Keep UI in sync and detect finish
+  // We guard onFinish with hasCalledFinishRef to avoid duplicate signals
+  // (didJustFinish + near-end idle can arrive closely together on some devices).
   useEffect(() => {
     if (typeof status?.playing === 'boolean') setIsPlaying(status.playing)
 
@@ -132,6 +155,9 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
     }
   }, [player])
 
+  // Play/Pause button behavior
+  // If the track already finished (e.g., last slide with loop off) and the
+  // user presses Play, we seek to the start so it replays without remounting.
   const handlePlayPause = async () => {
     try {
       if (player.playing) {
@@ -155,6 +181,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   return (
     <View>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+        {/* Navigation controls: enabled if neighbor exists OR loop is on. The parent
+            is authoritative about slide boundaries and loop behavior. */}
         <Pressable
           onPress={() => {
             const canNavigate = hasPrev || loop
@@ -186,6 +214,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       </View>
 
       <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>
+        {/* Speed selector – calls onSpeedChange so the parent can store the new value
+            and feed it back as a controlled prop (survives remounts). */}
         {SPEED_OPTIONS.map((s) => (
           <Pressable
             key={s}
