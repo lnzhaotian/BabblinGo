@@ -4,9 +4,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useFocusEffect } from "@react-navigation/native";
 
-import { extractModules, fetchLessonsByLevelSlug, LessonDoc } from "@/lib/payload";
+import { extractModules, fetchLessonsByLevelSlug, LessonDoc, resolveMediaUrl } from "@/lib/payload";
 import type { ModuleDoc } from "@/lib/payload";
+import { getLessonCacheStatus, LessonCacheStatus } from "@/lib/cache-manager";
 
 const NOVICE_LEVEL_SLUG = "novice";
 
@@ -17,6 +19,46 @@ export default function Index() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cacheStatuses, setCacheStatuses] = useState<Record<string, LessonCacheStatus>>({});
+
+  // Load cache status for all lessons
+  const loadCacheStatuses = useCallback(async (lessonsList: LessonDoc[]) => {
+    const statuses: Record<string, LessonCacheStatus> = {};
+
+    await Promise.all(
+      lessonsList.map(async (lesson) => {
+        if (!lesson.updatedAt) {
+          statuses[lesson.id] = 'none';
+          return;
+        }
+
+        const modules = extractModules(lesson);
+        const mediaUrls: string[] = [];
+
+        for (const module of modules) {
+          const imageUrl = resolveMediaUrl(module.image);
+          const audioUrl = resolveMediaUrl(module.audio);
+          if (imageUrl) mediaUrls.push(imageUrl);
+          if (audioUrl) mediaUrls.push(audioUrl);
+        }
+
+        if (mediaUrls.length === 0) {
+          statuses[lesson.id] = 'none';
+          return;
+        }
+
+        try {
+          const info = await getLessonCacheStatus(mediaUrls, lesson.updatedAt);
+          statuses[lesson.id] = info.status;
+        } catch (error) {
+          console.error(`Failed to get cache status for lesson ${lesson.id}:`, error);
+          statuses[lesson.id] = 'none';
+        }
+      })
+    );
+
+    setCacheStatuses(statuses);
+  }, []);
 
   const loadLessons = useCallback(
     async (skipLoading = false) => {
@@ -29,6 +71,9 @@ export default function Index() {
         const data = await fetchLessonsByLevelSlug(NOVICE_LEVEL_SLUG, locale);
         setLessons(data);
         setError(data.length === 0 ? t("home.noLessons") : null);
+
+        // Load cache statuses for all lessons
+        loadCacheStatuses(data);
       } catch (err) {
         console.error("Failed to load lessons", err);
         setError(t("home.loadError"));
@@ -38,12 +83,21 @@ export default function Index() {
         }
       }
     },
-    [t, i18n]
+    [t, i18n, loadCacheStatuses]
   );
 
   useEffect(() => {
     loadLessons();
   }, [loadLessons]);
+
+  // Reload cache statuses when screen comes into focus (e.g., after returning from lesson page)
+  useFocusEffect(
+    useCallback(() => {
+      if (lessons.length > 0) {
+        loadCacheStatuses(lessons);
+      }
+    }, [lessons, loadCacheStatuses])
+  );
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -70,6 +124,24 @@ export default function Index() {
     const summary = item.summary?.trim();
     const modules = extractModules(item);
     const hasModules = modules.length > 0;
+    const cacheStatus = cacheStatuses[item.id] || 'none';
+
+    // Cache status icon and color
+    const getCacheIcon = () => {
+      switch (cacheStatus) {
+        case 'full':
+          return { name: 'cloud-done' as const, color: '#10b981' }; // Green cloud with check
+        case 'partial':
+          return { name: 'cloud-download' as const, color: '#f59e0b' }; // Amber
+        case 'downloading':
+          return { name: 'cloud-download' as const, color: '#3b82f6' }; // Blue
+        case 'none':
+        default:
+          return { name: 'cloud-queue' as const, color: '#9ca3af' }; // Gray
+      }
+    };
+
+    const cacheIcon = getCacheIcon();
 
     return (
       <Pressable
@@ -102,6 +174,11 @@ export default function Index() {
         <View style={{ flex: 1 }}>
           <Text style={{ fontSize: 16, fontWeight: "600" }}>{t("home.lesson", { number: padded })}</Text>
           {summary ? <Text style={{ marginTop: 4, color: "#666" }}>{summary}</Text> : null}
+        </View>
+
+        {/* Cache status indicator */}
+        <View style={{ marginRight: 8 }}>
+          <MaterialIcons name={cacheIcon.name} size={20} color={cacheIcon.color} />
         </View>
 
         {hasModules ? (

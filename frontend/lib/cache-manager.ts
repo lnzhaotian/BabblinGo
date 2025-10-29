@@ -18,6 +18,28 @@ interface CacheIndex {
 const CACHE_DIR = new Directory(Paths.cache, 'media');
 const CACHE_INDEX_KEY = '@babblingo:cache_index';
 
+// Simple mutex to prevent race conditions when updating cache index
+let cacheIndexLock: Promise<void> = Promise.resolve();
+
+/**
+ * Acquire lock for cache index operations
+ */
+async function withCacheIndexLock<T>(fn: () => Promise<T>): Promise<T> {
+  const currentLock = cacheIndexLock;
+  let releaseLock: () => void;
+  
+  cacheIndexLock = new Promise<void>((resolve) => {
+    releaseLock = resolve;
+  });
+
+  try {
+    await currentLock;
+    return await fn();
+  } finally {
+    releaseLock!();
+  }
+}
+
 /**
  * Initialize cache directory
  */
@@ -122,7 +144,6 @@ export async function downloadAndCache(
   try {
     // Check if file already exists from a previous partial/failed download
     if (targetFile.exists) {
-      // Delete the old file to allow fresh download
       await targetFile.delete();
     }
 
@@ -134,16 +155,18 @@ export async function downloadAndCache(
       onProgress(1.0);
     }
 
-    // Update cache index
-    const index = await getCacheIndex();
-    index[cacheKey] = {
-      url,
-      localPath: downloadedFile.uri,
-      version,
-      downloadedAt: Date.now(),
-      size: downloadedFile.size || 0,
-    };
-    await saveCacheIndex(index);
+    // Update cache index with lock to prevent race conditions
+    await withCacheIndexLock(async () => {
+      const index = await getCacheIndex();
+      index[cacheKey] = {
+        url,
+        localPath: downloadedFile.uri,
+        version,
+        downloadedAt: Date.now(),
+        size: downloadedFile.size || 0,
+      };
+      await saveCacheIndex(index);
+    });
 
     return downloadedFile.uri;
   } catch (error) {
@@ -177,13 +200,11 @@ export async function getOrDownloadFile(
   if (!forceDownload) {
     const cached = await getCachedFile(url, version);
     if (cached) {
-      console.log(`Using cached file: ${cached}`);
       onProgress?.(1); // Already complete
       return cached;
     }
   }
 
-  console.log(`Downloading file: ${url}`);
   return downloadAndCache(url, version, onProgress);
 }
 
@@ -226,22 +247,145 @@ export async function getCacheStats(): Promise<{
  * Delete a specific cached file
  */
 export async function deleteCachedFile(url: string): Promise<void> {
-  try {
-    const index = await getCacheIndex();
+  await withCacheIndexLock(async () => {
+    try {
+      const index = await getCacheIndex();
+      const cacheKey = getCacheKey(url);
+      const cached = index[cacheKey];
+
+      if (cached) {
+        const file = new File(cached.localPath);
+        if (file.exists) {
+          await file.delete();
+        }
+        delete index[cacheKey];
+        await saveCacheIndex(index);
+        console.log(`Deleted cached file: ${url}`);
+      }
+    } catch (error) {
+      console.error('Failed to delete cached file:', error);
+    }
+  });
+}
+
+/**
+ * Cache status for a lesson
+ */
+export type LessonCacheStatus = 'full' | 'partial' | 'none' | 'downloading';
+
+export interface LessonCacheInfo {
+  status: LessonCacheStatus;
+  cachedCount: number;
+  totalCount: number;
+  cachedSize: number;
+  urls: string[];
+}
+
+/**
+ * Get cache status for a specific lesson
+ * @param mediaUrls - Array of media URLs from the lesson
+ * @param version - Expected version (lesson.updatedAt)
+ * @returns Cache status information
+ */
+export async function getLessonCacheStatus(
+  mediaUrls: string[],
+  version: string
+): Promise<LessonCacheInfo> {
+  const index = await getCacheIndex();
+  let cachedCount = 0;
+  let cachedSize = 0;
+
+  for (const url of mediaUrls) {
     const cacheKey = getCacheKey(url);
     const cached = index[cacheKey];
 
-    if (cached) {
+    if (cached && cached.version === version) {
+      // Verify file still exists
       const file = new File(cached.localPath);
       if (file.exists) {
-        await file.delete();
+        cachedCount++;
+        cachedSize += cached.size;
       }
-      delete index[cacheKey];
-      await saveCacheIndex(index);
-      console.log(`Deleted cached file: ${url}`);
     }
-  } catch (error) {
-    console.error('Failed to delete cached file:', error);
   }
+
+  const totalCount = mediaUrls.length;
+  let status: LessonCacheStatus = 'none';
+
+  if (cachedCount === 0) {
+    status = 'none';
+  } else if (cachedCount === totalCount) {
+    status = 'full';
+  } else {
+    status = 'partial';
+  }
+
+  return {
+    status,
+    cachedCount,
+    totalCount,
+    cachedSize,
+    urls: mediaUrls,
+  };
+}
+
+/**
+ * Clear all cached files for a specific lesson
+ * @param mediaUrls - Array of media URLs from the lesson
+ */
+export async function clearLessonCache(mediaUrls: string[]): Promise<void> {
+  await withCacheIndexLock(async () => {
+    const index = await getCacheIndex();
+    let deletedCount = 0;
+
+    for (const url of mediaUrls) {
+      const cacheKey = getCacheKey(url);
+      const cached = index[cacheKey];
+
+      if (cached) {
+        try {
+          const file = new File(cached.localPath);
+          if (file.exists) {
+            await file.delete();
+            deletedCount++;
+          }
+          delete index[cacheKey];
+        } catch (error) {
+          console.error(`Failed to delete ${url}:`, error);
+        }
+      }
+    }
+
+    await saveCacheIndex(index);
+    console.log(`Cleared ${deletedCount} cached files for lesson`);
+  });
+}
+
+/**
+ * Force re-download all media for a lesson
+ * @param mediaUrls - Array of media URLs
+ * @param version - Current version
+ * @param onProgress - Progress callback (url, progress)
+ */
+export async function redownloadLessonMedia(
+  mediaUrls: string[],
+  version: string,
+  onProgress?: (url: string, progress: number) => void
+): Promise<void> {
+  // First clear existing cache
+  await clearLessonCache(mediaUrls);
+
+  // Then download all files
+  await Promise.all(
+    mediaUrls.map(async (url) => {
+      try {
+        await downloadAndCache(url, version, (progress) => {
+          onProgress?.(url, progress);
+        });
+      } catch (error) {
+        console.error(`Failed to redownload ${url}:`, error);
+      }
+    })
+  );
 }
 
