@@ -1,0 +1,59 @@
+import React from "react"
+import { View } from "react-native"
+import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
+
+export type LessonAudioPlayerProps = {
+  track?: { id: string; title: string; audioUrl: string } | null
+  playerSpeed: PlaybackSpeed
+  loopEnabled: boolean
+  hasPrev: boolean
+  hasNext: boolean
+  onSpeedChange: (speed: PlaybackSpeed) => void
+  onNavigate: (action: "prev" | "next") => void
+  onFinish: () => void
+}
+
+export function LessonAudioPlayer({
+  track,
+  playerSpeed,
+  loopEnabled,
+  hasPrev,
+  hasNext,
+  onSpeedChange,
+  onNavigate,
+  onFinish,
+}: LessonAudioPlayerProps) {
+  if (!track || !track.audioUrl) return null
+
+  return (
+    <View
+      style={{
+        borderTopWidth: 1,
+        borderTopColor: "#eee",
+        backgroundColor: "#fff",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 4,
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 16,
+      }}
+    >
+      <SingleTrackPlayer
+        key={track.id}
+        track={{ id: track.id, title: track.title ?? "", audioUrl: track.audioUrl }}
+        autoPlay
+        speed={playerSpeed}
+        loop={loopEnabled}
+        hasPrev={hasPrev}
+        hasNext={hasNext}
+        debug={false}
+        onSpeedChange={onSpeedChange}
+        onNavigate={onNavigate}
+        onFinish={onFinish}
+      />
+    </View>
+  )
+}

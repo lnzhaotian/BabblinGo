@@ -76,6 +76,28 @@ Where to look
 - Single-track player (one audio per slide):
    - `frontend/components/SingleTrackPlayer.tsx`
 
+## Testing
+
+This project includes a small unit test setup using Vitest for pure helper logic related to lessons.
+
+- Test runner: Vitest
+- Config: `frontend/vitest.config.ts`
+- Tests location: `frontend/tests/**/*.test.ts`
+
+Run tests:
+
+```bash
+npm run test
+```
+
+What’s covered:
+- Navigation helpers: prev/next computation, finish behavior, and loop wrapping.
+- Slide audio helpers: mapping audio URLs with cached substitutions.
+
+Notes:
+- Tests avoid importing React Native or Expo modules by targeting pure helpers only.
+- The `@` path alias resolves to the frontend root in Vitest config.
+
 Extension ideas
 - Persist `loopEnabled` and `playerSpeed` to AsyncStorage so preferences survive app restarts.
 - If a true playlist view is needed later, build it as a separate component that reuses the single-track player internally.
