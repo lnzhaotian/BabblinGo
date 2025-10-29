@@ -1,6 +1,6 @@
 import React from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, ScrollView, Pressable } from "react-native";
+import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { changeLanguage } from "@/lib/i18n";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -8,7 +8,6 @@ import { MaterialIcons } from "@expo/vector-icons";
 
 export default function LanguageSettings() {
   const { t, i18n } = useTranslation();
-  const router = useRouter();
   const currentLang = i18n.language;
 
   const languages = [
@@ -29,27 +28,9 @@ export default function LanguageSettings() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["top"]}>
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 8,
-          paddingVertical: 12,
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={8}
-          style={{ padding: 8 }}
-        >
-          <MaterialIcons name="arrow-back" size={24} color="#1f2937" />
-        </Pressable>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: "#1f2937", marginLeft: 8 }}>
-          {t("settings.language")}
-        </Text>
-      </View>
+    <>
+      <Stack.Screen options={{ title: t("settings.language") }} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["bottom"]}>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>
@@ -89,5 +70,6 @@ export default function LanguageSettings() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 }

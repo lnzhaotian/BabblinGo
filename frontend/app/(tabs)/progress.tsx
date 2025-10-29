@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
+import { Stack } from "expo-router"
 
 // Stored by lesson timer in lesson screen
 // id, lessonId, lessonTitle, startedAt, endedAt, plannedSeconds, speed
@@ -159,14 +160,13 @@ export default function ProgressScreen() {
   }, [])
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
-        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: "#eee" }}>
-          <Text style={{ fontSize: 20, fontWeight: "800", textAlign: "center" }}>{t("progress.title")}</Text>
-        </View>
+    <>
+      <Stack.Screen options={{ title: t("progress.title") }} />
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: "#fff" }}>
 
-      {/* Summary chips */}
-      <View style={{ flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 12, paddingVertical: 12 }}>
+  {/* Summary chips */}
+  <View style={{ flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 12, paddingVertical: 12 }}>
         <View style={{ backgroundColor: "#eef2ff", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, minWidth: 96, alignItems: "center" }}>
           <Text style={{ fontSize: 12, color: "#6366f1" }}>{t("progress.today")}</Text>
           <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>{secToHMM(summary.today)}</Text>
@@ -181,8 +181,8 @@ export default function ProgressScreen() {
         </View>
       </View>
 
-      {/* Filters */}
-      <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
+  {/* Filters */}
+  <View style={{ paddingHorizontal: 12, paddingBottom: 8 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
           {["7d", "30d", "all"].map((tf) => (
             <Pressable
@@ -220,8 +220,8 @@ export default function ProgressScreen() {
         </ScrollView>
       </View>
 
-      {/* Weekly bar chart (last 7 days, respects lesson filter) */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+  {/* Weekly bar chart (last 7 days, respects lesson filter) */}
+  <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
         <Text style={{ fontSize: 14, color: "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.weekly")}</Text>
         <View style={{ flexDirection: "row", alignItems: "flex-end", height: 120, gap: 8 }}>
           {weekly.days.map((d, idx) => {
@@ -236,8 +236,8 @@ export default function ProgressScreen() {
         </View>
       </View>
 
-      {/* Per-lesson rollups */}
-      <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
+  {/* Per-lesson rollups */}
+  <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
         <Text style={{ fontSize: 14, color: "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.topLessons")}</Text>
         {perLessonRollups.length === 0 ? (
           <Text style={{ color: "#9ca3af" }}>{t("progress.noData")}</Text>
@@ -254,8 +254,8 @@ export default function ProgressScreen() {
         )}
       </View>
 
-      {/* Recents list */}
-      <SectionList
+  {/* Recents list */}
+  <SectionList
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 24 }}
@@ -304,7 +304,8 @@ export default function ProgressScreen() {
           )
         }}
       />
-    </SafeAreaView>
-    </GestureHandlerRootView>
+        </SafeAreaView>
+      </GestureHandlerRootView>
+    </>
   )
 }

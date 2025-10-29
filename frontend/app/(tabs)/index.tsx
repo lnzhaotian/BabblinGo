@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Stack, useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -197,10 +197,9 @@ export default function Index() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1 }} edges={["top"]}>
-      <View style={{ padding: 8, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "700" }}>{t("home.title")}</Text>
-      </View>
+    <>
+      <Stack.Screen options={{ title: t("home.title") }} />
+      <SafeAreaView style={{ flex: 1 }} edges={["bottom"]}>
 
       {error ? (
         <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
@@ -227,5 +226,6 @@ export default function Index() {
         }
       />
     </SafeAreaView>
+    </>
   );
 }

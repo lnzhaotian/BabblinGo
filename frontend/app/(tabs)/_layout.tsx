@@ -10,7 +10,8 @@ export default function TabsLayout() {
     <Tabs
       initialRouteName="index"
       screenOptions={({ route }) => ({
-        headerShown: false,
+        headerShown: true,
+        headerBackButtonDisplayMode: "minimal",
         tabBarIcon: ({ color, size }) => {
           let iconName: React.ComponentProps<typeof MaterialIcons>["name"] =
             "home";

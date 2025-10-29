@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -27,6 +27,15 @@ export default function Settings() {
       titleKey: "settings.language",
       descriptionKey: "settings.languageDescription",
       route: "/settings/language",
+      showChevron: true,
+    },
+    {
+      id: "learning",
+      icon: "school",
+      iconColor: "#3b82f6",
+      titleKey: "settings.learningPreferences",
+      descriptionKey: "settings.learningPreferencesDescription",
+      route: "/settings/learning",
       showChevron: true,
     },
     {
@@ -104,14 +113,13 @@ export default function Settings() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["top"]}>
-      <View style={{ padding: 16, paddingTop: 8 }}>
-        <Text style={{ fontSize: 28, fontWeight: "800", color: "#1f2937" }}>{t("settings.title")}</Text>
-      </View>
-
-      <ScrollView contentContainerStyle={{ paddingTop: 8 }}>
-        {settingsItems.map(renderSettingItem)}
-      </ScrollView>
-    </SafeAreaView>
+    <>
+      <Stack.Screen options={{ title: t("settings.title") }} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["bottom"]}>
+        <ScrollView>
+          {settingsItems.map(renderSettingItem)}
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }
