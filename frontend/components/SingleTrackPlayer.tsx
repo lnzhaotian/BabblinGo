@@ -3,8 +3,8 @@ import { Pressable, Text, View } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useAudioPlayer, useAudioPlayerStatus, AudioSource, setAudioModeAsync } from "expo-audio"
 
-export type PlaybackSpeed = 0.5 | 0.7 | 1.0 | 1.25 | 1.5 | 1.7 | 2.0
-const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.25, 1.5, 1.7, 2.0]
+export type PlaybackSpeed = 0.5 | 0.7 | 1.0 | 1.3 | 1.5 | 1.7 | 2.0
+const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 2.0]
 
 export type SingleTrack = {
   id: string

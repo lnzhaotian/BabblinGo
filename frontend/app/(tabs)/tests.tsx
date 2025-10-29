@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 export default function Tests() {
@@ -13,11 +13,9 @@ export default function Tests() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f6f7fb" }} edges={["top"]}>
-      {/* Title/header area */}
-      <View style={{ padding: 8, justifyContent: "center", alignItems: "center" }}>
-        <Text style={{ fontSize: 20, fontWeight: "700" }}>{t("tests.title")}</Text>
-      </View>
+    <>
+      <Stack.Screen options={{ title: t("tests.title") }} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f6f7fb" }} edges={["bottom"]}>
 
       {/* Content area */}
       <View style={{ flex: 1, padding: 16 }}>
@@ -38,5 +36,6 @@ export default function Tests() {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+    </>
   );
 }

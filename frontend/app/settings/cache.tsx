@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getCacheStats, clearCache } from "@/lib/cache-manager";
@@ -9,7 +9,6 @@ import { useFocusEffect } from "@react-navigation/native";
 
 export default function CacheSettings() {
   const { t } = useTranslation();
-  const router = useRouter();
   const [cacheStats, setCacheStats] = React.useState<{ fileCount: number; totalSize: number } | null>(null);
   const [loadingCache, setLoadingCache] = React.useState(false);
   const [clearingCache, setClearingCache] = React.useState(false);
@@ -79,28 +78,9 @@ export default function CacheSettings() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["top"]}>
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 8,
-          paddingVertical: 12,
-        }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={8}
-          style={{ padding: 8 }}
-        >
-          <MaterialIcons name="arrow-back" size={24} color="#1f2937" />
-        </Pressable>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: "#1f2937", marginLeft: 8 }}>
-          {t("settings.cache.title")}
-        </Text>
-      </View>
-
+    <>
+      <Stack.Screen options={{ title: t("settings.cache.title") }} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["bottom"]}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>
           {t("settings.cache.description")}
@@ -205,5 +185,6 @@ export default function CacheSettings() {
         )}
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 }

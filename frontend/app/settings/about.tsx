@@ -1,13 +1,12 @@
 import React from "react";
 import { View, Text, Pressable, ScrollView, Linking, Image } from "react-native";
-import { useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 
 export default function AboutSettings() {
   const { i18n } = useTranslation();
-  const router = useRouter();
   const isZh = i18n.language.startsWith("zh");
 
   const openWebsite = () => {
@@ -23,24 +22,9 @@ export default function AboutSettings() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["top"]}>
-      {/* Header */}
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingHorizontal: 8,
-          paddingVertical: 12,
-        }}
-      >
-        <Pressable onPress={() => router.back()} hitSlop={8} style={{ padding: 8 }}>
-          <MaterialIcons name="arrow-back" size={24} color="#1f2937" />
-        </Pressable>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: "#1f2937", marginLeft: 8 }}>
-          {isZh ? "关于我们" : "About"}
-        </Text>
-      </View>
-
+    <>
+      <Stack.Screen options={{ title: isZh ? "关于我们" : "About" }} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["bottom"]}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         {/* App Info */}
         <View
@@ -183,5 +167,6 @@ export default function AboutSettings() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </>
   );
 }

@@ -8,13 +8,12 @@ import {
   Linking,
   StyleSheet,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { Stack, useLocalSearchParams } from "expo-router";
 
 export default function WebPage() {
   const { url, title } = useLocalSearchParams() as { url?: string; title?: string };
-  const router = useRouter();
   const [WebViewComponent, setWebViewComponent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -53,27 +52,18 @@ export default function WebPage() {
   // share removed per request
 
   return (
-    <View style={{ flex: 1 }}>
-      <SafeAreaView style={[styles.header, Platform.OS === "ios" ? styles.headerIos : null]} edges={['left', 'top', 'right']}>
-        <View style={styles.headerRow}>
-          <View style={styles.headerActions}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.iconButton} accessibilityLabel="Back">
-              <MaterialIcons name="arrow-back" size={24} color="#007aff" />
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
-            {title ?? "Web"}
-          </Text>
-
-          <View style={styles.headerActions}>
+    <>
+      <Stack.Screen
+        options={{
+          title: title ?? "Web",
+          headerBackButtonDisplayMode: "minimal",
+          headerRight: () => (
             <TouchableOpacity onPress={onReload} style={styles.iconButton} accessibilityLabel="Reload">
               <MaterialIcons name="refresh" size={22} color="#007aff" />
             </TouchableOpacity>
-          </View>
-        </View>
-      </SafeAreaView>
-
+          ),
+        }}
+      />
       <View style={{ flex: 1 }}>
         {WebViewComponent ? (
           (() => {
@@ -129,43 +119,12 @@ export default function WebPage() {
           </View>
         )}
       </View>
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    // leave background transparent where possible so system area can blend
-    backgroundColor: "transparent",
-  },
-  headerIos: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingBottom: 8,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 8,
-    paddingBottom: 8,
-  },
-  headerButton: {
-    paddingRight: 8,
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  headerActionButton: {
-    marginLeft: 8,
-  },
+  // Removed custom header styles as native header is used
   iconButton: {
     paddingHorizontal: 8,
     paddingVertical: 0,

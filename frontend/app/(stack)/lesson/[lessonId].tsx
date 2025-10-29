@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, TextInput, View } from "react-native"
-import * as Haptics from "expo-haptics"
+import { ActivityIndicator, Alert, Dimensions, FlatList, NativeScrollEvent, NativeSyntheticEvent, Pressable, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { useLocalSearchParams, useRouter } from "expo-router"
+import { Stack, useLocalSearchParams } from "expo-router"
+import { MaterialIcons } from "@expo/vector-icons"
 
 import { extractModules, fetchLessonById, LessonDoc, resolveMediaUrl } from "@/lib/payload"
 import AsyncStorage from "@react-native-async-storage/async-storage"
@@ -12,8 +12,7 @@ import { useTranslation } from "react-i18next"
 import { getOrDownloadFile, getLessonCacheStatus, clearLessonCache, redownloadLessonMedia, LessonCacheStatus } from "@/lib/cache-manager"
 
 import { LessonSlide } from "@/components/LessonSlide"
-import { LessonHeader } from "@/components/LessonHeader"
-import { TimeUpModal } from "@/components/TimeUpModal"
+// Timer-related UI removed
 import { CacheMenuModal } from "@/components/CacheMenuModal"
 import { PaginationDots } from "@/components/PaginationDots"
 
@@ -46,7 +45,6 @@ import { PaginationDots } from "@/components/PaginationDots"
 
 const LessonDetail = () => {
   const { t, i18n } = useTranslation()
-  const router = useRouter()
   const { lessonId, title: routeTitle } = useLocalSearchParams<{
     lessonId?: string
     title?: string
@@ -72,25 +70,7 @@ const LessonDetail = () => {
   const [lessonCacheStatus, setLessonCacheStatus] = useState<LessonCacheStatus>('none')
   const [cacheMenuVisible, setCacheMenuVisible] = useState(false)
 
-  // Session timer state
-  const [timerModalVisible, setTimerModalVisible] = useState(false)
-  const [timeUpModalVisible, setTimeUpModalVisible] = useState(false)
-  // Default to 10 minutes
-  const [selectedMinuteIndex, setSelectedMinuteIndex] = useState<number>(10)
-  const [selectedSecondIndex, setSelectedSecondIndex] = useState<number>(0)
-  const [resumeOnModalClose, setResumeOnModalClose] = useState<boolean>(false)
-  const [playerResetCounter, setPlayerResetCounter] = useState<number>(0)
-  // Track last emitted center indices for continuous haptics while scrolling
-  const minuteHapticRef = useRef<number>(0)
-  const secondHapticRef = useRef<number>(0)
-  const [timerPaused, setTimerPaused] = useState<boolean>(false)
-  const [timerActive, setTimerActive] = useState(false)
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(0)
-  const sessionEndAtRef = useRef<number | null>(null)
-  const [playerPlaySignal, setPlayerPlaySignal] = useState<number>(0)
-  const [playerSuspended, setPlayerSuspended] = useState<boolean>(false)
-  const sessionStartAtRef = useRef<number | null>(null)
-  const plannedSecondsRef = useRef<number>(0)
+  // Timer and session logging removed
 
   const loadLesson = useCallback(async () => {
     if (!lessonId) {
@@ -299,7 +279,7 @@ const LessonDetail = () => {
   const loadPrefs = useCallback(async () => {
     try {
       const [[, savedSpeed], [, savedLoop]] = await AsyncStorage.multiGet([
-        "lesson.playerSpeed",
+        "learning.playbackSpeed",
         "lesson.loopEnabled",
       ])
       
@@ -330,11 +310,9 @@ const LessonDetail = () => {
     }, [loadPrefs])
   )
 
-  useEffect(() => {
-    if (!prefsLoadedRef.current) return
-    AsyncStorage.setItem("lesson.playerSpeed", String(playerSpeed)).catch(() => {})
-  }, [playerSpeed])
-
+  // Don't persist speed changes during a lesson - they're session-only
+  // Speed is loaded from settings on mount but not saved back
+  
   useEffect(() => {
     if (!prefsLoadedRef.current) return
     AsyncStorage.setItem("lesson.loopEnabled", String(loopEnabled)).catch(() => {})
@@ -342,107 +320,7 @@ const LessonDetail = () => {
 
 
   const modulesWithContent = modules
-  // Save a session record to AsyncStorage
-  const saveLearningSession = useCallback(async (record: { lessonId: string; lessonTitle: string; startedAt: number; endedAt: number; plannedSeconds: number; speed: number }) => {
-    try {
-      const key = "learning.sessions"
-      const raw = await AsyncStorage.getItem(key)
-      const arr = raw ? JSON.parse(raw) : []
-      arr.push({ id: Math.random().toString(36).slice(2), ...record })
-      await AsyncStorage.setItem(key, JSON.stringify(arr))
-    } catch {}
-  }, [])
-
-  // Format countdown for header (MM:SS)
-  const formatCountdown = (total: number) => {
-    const m = Math.floor(total / 60)
-    const s = total % 60
-    return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-  }
-
-  // Timer tick
-  useEffect(() => {
-    if (!timerActive || timerPaused || !sessionEndAtRef.current) return
-    const tick = () => {
-      const now = Date.now()
-      const remainMs = sessionEndAtRef.current! - now
-      const remainSec = Math.max(0, Math.ceil(remainMs / 1000))
-      setRemainingSeconds(remainSec)
-      if (remainSec <= 0) {
-        // Time's up: stop audio and slides, show modal, record session
-        setTimerActive(false)
-        setPlayerSuspended(true)
-        setTimeUpModalVisible(true)
-        // Save session record
-        const startedAt = sessionStartAtRef.current ?? now
-        saveLearningSession({
-          lessonId: lesson?.id ?? String(lessonId ?? ""),
-          lessonTitle: lesson?.title ?? String(routeTitle ?? "Lesson"),
-          startedAt,
-          endedAt: now,
-          plannedSeconds: plannedSecondsRef.current,
-          speed: playerSpeed,
-        }).catch(() => {})
-      }
-    }
-    const iv = setInterval(tick, 1000)
-    tick()
-    return () => clearInterval(iv)
-  }, [timerActive, timerPaused, lesson?.id, lesson?.title, lessonId, routeTitle, playerSpeed, saveLearningSession])
-
-  const pauseTimer = useCallback(() => {
-    if (!timerActive || timerPaused) return
-    // Freeze remaining seconds
-    if (sessionEndAtRef.current) {
-      const now = Date.now()
-      const remainMs = sessionEndAtRef.current - now
-      const remainSec = Math.max(0, Math.ceil(remainMs / 1000))
-      setRemainingSeconds(remainSec)
-    }
-    sessionEndAtRef.current = null
-    setTimerPaused(true)
-  }, [timerActive, timerPaused])
-
-  const resumeTimer = useCallback(() => {
-    if (!timerActive || !timerPaused) return
-    const now = Date.now()
-    sessionEndAtRef.current = now + remainingSeconds * 1000
-    setTimerPaused(false)
-  }, [timerActive, timerPaused, remainingSeconds])
-
-  
-
-  const startTimer = useCallback(() => {
-    // Build duration from wheels (minutes + seconds)
-    const minutes = Math.max(0, Math.floor(Number(selectedMinuteIndex) || 0))
-    const seconds = Math.max(0, Math.floor(Number(selectedSecondIndex) || 0))
-    const durationSecRaw = minutes * 60 + seconds
-    const durationSec = Math.max(1, durationSecRaw) // enforce at least 1 second
-    // Jump to the first slide for a full learning session
-    if (currentSlideIndex !== 0) {
-      programmaticScrollRef.current = true
-      flatListRef.current?.scrollToIndex({ index: 0, animated: true })
-      setCurrentSlideIndex(0)
-    }
-    const now = Date.now()
-    sessionStartAtRef.current = now
-    sessionEndAtRef.current = now + durationSec * 1000
-    plannedSecondsRef.current = durationSec
-    setRemainingSeconds(durationSec)
-    // Turn on loop and kick playback
-    setLoopEnabled(true)
-    setPlayerSuspended(false)
-    setPlayerPlaySignal((x) => x + 1)
-    setTimerActive(true)
-    setTimerModalVisible(false)
-  }, [selectedMinuteIndex, selectedSecondIndex, currentSlideIndex])
-
-  const cancelTimer = useCallback(() => {
-    setTimerActive(false)
-    sessionEndAtRef.current = null
-    setRemainingSeconds(0)
-    setPlayerSuspended(true)
-  }, [])
+  // Timer logic removed
 
   
   // Auto-advance behavior for slides without audio
@@ -547,88 +425,104 @@ const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0
   // When track ends, also scroll to next slide
   // No-op: SingleTrackPlayer uses onFinish -> handleTrackFinish
 
-  if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-        <ActivityIndicator size="large" />
-        <Text style={{ marginTop: 12 }}>{t("lesson.loading")}</Text>
-      </SafeAreaView>
-    )
-  }
-
-  if (error) {
-    return (
-      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-        <Text style={{ textAlign: "center", color: "#b71c1c" }}>{error || t("lesson.error")}</Text>
-      </SafeAreaView>
-    )
-  }
-
-  if (!lesson) {
-    return (
-      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-        <Text style={{ textAlign: "center" }}>{t("lesson.notFound")}</Text>
-      </SafeAreaView>
-    )
-  }
+  const headerTitle = lesson?.title || (typeof routeTitle === "string" && routeTitle) || (lessonId ? String(lessonId) : t("lesson.title"))
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["top", "bottom"]}>
-      <View style={{ flex: 1 }}>
-        <LessonHeader
-          title={lesson.title || routeTitle || "Lesson"}
-          onBack={() => router.back()}
-          cachingInProgress={cachingInProgress}
-          timerActive={timerActive}
-          timerPaused={timerPaused}
-          remainingSeconds={remainingSeconds}
-          onTimerPress={() => {
-            setPlayerSuspended(true)
-            setResumeOnModalClose(true)
-            if (timerActive && !timerPaused) {
-              pauseTimer()
-            }
-            setTimerModalVisible(true)
-          }}
-          formatCountdown={formatCountdown}
-          loopEnabled={loopEnabled}
-          onToggleLoop={() => setLoopEnabled(!loopEnabled)}
-          lessonCacheStatus={lessonCacheStatus}
-          onCachePress={() => setCacheMenuVisible(true)}
-        />
-
-        <View style={{ flex: 1 }}>
-          {modulesWithContent.length === 0 ? (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-              <Text style={{ textAlign: "center", color: "#666" }}>{t("lesson.noModules")}</Text>
+    <>
+      <Stack.Screen
+        options={{
+          title: headerTitle,
+          headerBackButtonDisplayMode: "minimal",
+          headerRight: () => (
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              {/* Optional caching spinner (overlay to avoid layout shift) */}
+              {cachingInProgress ? (
+                <View style={{ position: "absolute", right: 52, top: -6 }} pointerEvents="none">
+                  <ActivityIndicator size="small" color="#007aff" />
+                </View>
+              ) : null}
+              <Pressable
+                onPress={() => setLoopEnabled(!loopEnabled)}
+                accessibilityLabel="Toggle loop"
+                hitSlop={8}
+                style={{ padding: 4, marginLeft: 8 }}
+              >
+                <MaterialIcons name="repeat" size={22} color={loopEnabled ? "#6366f1" : "#9ca3af"} />
+              </Pressable>
+              <Pressable
+                onPress={() => setCacheMenuVisible(true)}
+                accessibilityLabel="Cache options"
+                hitSlop={8}
+                style={{ padding: 4, marginLeft: 8 }}
+              >
+                <MaterialIcons
+                  name={
+                    lessonCacheStatus === "full"
+                      ? "cloud-done"
+                      : lessonCacheStatus === "partial"
+                        ? "cloud-download"
+                        : "cloud-queue"
+                  }
+                  size={22}
+                  color={
+                    lessonCacheStatus === "full"
+                      ? "#10b981"
+                      : lessonCacheStatus === "partial"
+                        ? "#f59e0b"
+                        : "#9ca3af"
+                  }
+                />
+              </Pressable>
             </View>
-          ) : (
-            <>
-              <FlatList
-                ref={flatListRef}
-                data={modulesWithContent}
-                keyExtractor={(item) => item.id}
-                renderItem={renderModuleSlide}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                onMomentumScrollEnd={onSlideScroll}
-                scrollEnabled={true}
-                getItemLayout={(_, index) => ({
-                  length: screenWidth,
-                  offset: screenWidth * index,
-                  index,
-                })}
-              />
+          ),
+        }}
+      />
+      {loading ? (
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+          <ActivityIndicator size="large" />
+          <Text style={{ marginTop: 12 }}>{t("lesson.loading")}</Text>
+        </SafeAreaView>
+      ) : error ? (
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
+          <Text style={{ textAlign: "center", color: "#b71c1c" }}>{error || t("lesson.error")}</Text>
+        </SafeAreaView>
+      ) : !lesson ? (
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
+          <Text style={{ textAlign: "center" }}>{t("lesson.notFound")}</Text>
+        </SafeAreaView>
+      ) : (
+        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom"]}>
+          <View style={{ flex: 1 }}>
+            {modulesWithContent.length === 0 ? (
+              <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
+                <Text style={{ textAlign: "center", color: "#666" }}>{t("lesson.noModules")}</Text>
+              </View>
+            ) : (
+              <>
+                <FlatList
+                  ref={flatListRef}
+                  data={modulesWithContent}
+                  keyExtractor={(item) => item.id}
+                  renderItem={renderModuleSlide}
+                  horizontal
+                  pagingEnabled
+                  showsHorizontalScrollIndicator={false}
+                  onMomentumScrollEnd={onSlideScroll}
+                  scrollEnabled={true}
+                  getItemLayout={(_, index) => ({
+                    length: screenWidth,
+                    offset: screenWidth * index,
+                    index,
+                  })}
+                />
 
-              <PaginationDots
-                total={modulesWithContent.length}
-                currentIndex={currentSlideIndex}
-              />
-            </>
-          )}
-        </View>
-      </View>
+                <PaginationDots
+                  total={modulesWithContent.length}
+                  currentIndex={currentSlideIndex}
+                />
+              </>
+            )}
+          </View>
 
       {showAudioPlayer || modules.length > 1 ? (
         <View
@@ -659,8 +553,8 @@ const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0
               if (!audioUrl) return null
               return (
                 <SingleTrackPlayer
-                  key={`${slideId}:${playerResetCounter}`}
-                  track={{ id: trk.id, title: trk.title, audioUrl }}
+                  key={slideId}
+                  track={{ id: trk.id, title: (trk.title ?? "") as string, audioUrl }}
                   autoPlay
                   speed={playerSpeed}
                   loop={loopEnabled}
@@ -670,249 +564,13 @@ const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0
                   onSpeedChange={setPlayerSpeed}
                   onNavigate={handleNavigate}
                   onFinish={handleTrackFinish}
-                  suspend={playerSuspended}
-                  playSignal={playerPlaySignal}
                 />
               )
             })()
           ) : null}
         </View>
       ) : null}
-      {/* Timer setup modal */}
-      <Modal
-        visible={timerModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          // Close without starting: resume playback if requested
-          setTimerModalVisible(false)
-          if (timerActive && timerPaused) {
-            // Resume the timer and playback
-            resumeTimer()
-            setPlayerSuspended(false)
-            setPlayerPlaySignal((x) => x + 1)
-          } else if (resumeOnModalClose && !timerActive) {
-            // No active timer; simply resume playback
-            setPlayerSuspended(false)
-            setPlayerPlaySignal((x) => x + 1)
-          }
-          setResumeOnModalClose(false)
-        }}
-      >
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.3)", justifyContent: "center", alignItems: "center", padding: 24 }}>
-          <View style={{ width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 12, padding: 16, gap: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}>{t("timer.set")}</Text>
-            {/* Inputs for quick manual edit */}
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
-              <View style={{ alignItems: "center" }}>
-                <TextInput
-                  value={String(selectedMinuteIndex)}
-                  onChangeText={(txt) => {
-                    const n = Math.min(59, Math.max(0, Math.floor(Number(txt) || 0)))
-                    setSelectedMinuteIndex(n)
-                  }}
-                  keyboardType="number-pad"
-                  style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, textAlign: "center" }}
-                  placeholder="MM"
-                />
-                <Text style={{ color: "#6b7280", marginTop: 4 }}>{t("timer.minutes")}</Text>
-              </View>
-              <Text style={{ fontSize: 16, fontWeight: "700" }}>:</Text>
-              <View style={{ alignItems: "center" }}>
-                <TextInput
-                  value={String(selectedSecondIndex).padStart(2, "0")}
-                  onChangeText={(txt) => {
-                    const n = Math.min(59, Math.max(0, Math.floor(Number(txt) || 0)))
-                    setSelectedSecondIndex(n)
-                  }}
-                  keyboardType="number-pad"
-                  style={{ borderWidth: 1, borderColor: "#e5e7eb", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, minWidth: 80, textAlign: "center" }}
-                  placeholder="SS"
-                />
-                <Text style={{ color: "#6b7280", marginTop: 4 }}>{t("timer.seconds")}</Text>
-              </View>
-            </View>
-
-            {/* Wheels for swipe selection (centered and looping) */}
-            {(() => {
-              const ITEM_HEIGHT = 36
-              const VISIBLE_ITEMS = 5
-              const PAD = Math.floor(VISIBLE_ITEMS / 2) * ITEM_HEIGHT
-              const CYCLES = 50 // ample to avoid edges
-              const base = Math.floor(CYCLES / 2) * 60
-              const fmt = (n: number) => String(n).padStart(2, "0")
-              const minutesLoop = Array.from({ length: CYCLES * 60 }, (_, idx) => fmt(idx % 60))
-              const secondsLoop = Array.from({ length: CYCLES * 60 }, (_, idx) => fmt(idx % 60))
-              return (
-                <View style={{ flexDirection: "row", justifyContent: "center", gap: 16, marginTop: 8 }}>
-                  {/* Minutes wheel */}
-                  <View style={{ alignItems: "center" }}>
-                    <View style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS, width: 80, overflow: "hidden" }}>
-                      {/* Center highlight */}
-                      <View
-                        pointerEvents="none"
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          right: 0,
-                          top: ITEM_HEIGHT * (VISIBLE_ITEMS / 2) - ITEM_HEIGHT / 2,
-                          height: ITEM_HEIGHT,
-                          backgroundColor: "#eef2ff",
-                          opacity: 0.6,
-                          borderRadius: 8,
-                        }}
-                      />
-                      <FlatList
-                        data={minutesLoop}
-                        keyExtractor={(_, i) => `m-${i}`}
-                        initialScrollIndex={base + selectedMinuteIndex}
-                        getItemLayout={(_, idx) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * idx, index: idx })}
-                        showsVerticalScrollIndicator={false}
-                        snapToInterval={ITEM_HEIGHT}
-                        decelerationRate="fast"
-                        contentContainerStyle={{ paddingVertical: PAD }}
-                        scrollEventThrottle={16}
-                        onScroll={(e) => {
-                          const y = e.nativeEvent.contentOffset.y
-                          const idx = Math.round(y / ITEM_HEIGHT)
-                          const val = ((idx % 60) + 60) % 60
-                          if (val !== minuteHapticRef.current) {
-                            minuteHapticRef.current = val
-                            setSelectedMinuteIndex(val)
-                            Haptics.selectionAsync().catch(() => {})
-                          }
-                        }}
-                        onMomentumScrollEnd={(e) => {
-                          const y = e.nativeEvent.contentOffset.y
-                          const idx = Math.round(y / ITEM_HEIGHT)
-                          const val = ((idx % 60) + 60) % 60
-                          setSelectedMinuteIndex(val)
-                          Haptics.selectionAsync().catch(() => {})
-                        }}
-                        renderItem={({ item, index }) => (
-                          <View style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}>
-                            <Text style={{ fontSize: 18, fontWeight: (index % 60) === selectedMinuteIndex ? "700" : "400", color: (index % 60) === selectedMinuteIndex ? "#111827" : "#9ca3af" }}>
-                              {item}
-                            </Text>
-                          </View>
-                        )}
-                      />
-                    </View>
-                  </View>
-                  <View style={{ justifyContent: "center" }}>
-                    <Text style={{ fontSize: 18, fontWeight: "700" }}>:</Text>
-                  </View>
-                  {/* Seconds wheel */}
-                  <View style={{ alignItems: "center" }}>
-                    <View style={{ height: ITEM_HEIGHT * VISIBLE_ITEMS, width: 80, overflow: "hidden" }}>
-                      {/* Center highlight */}
-                      <View
-                        pointerEvents="none"
-                        style={{
-                          position: "absolute",
-                          left: 0,
-                          right: 0,
-                          top: ITEM_HEIGHT * (VISIBLE_ITEMS / 2) - ITEM_HEIGHT / 2,
-                          height: ITEM_HEIGHT,
-                          backgroundColor: "#eef2ff",
-                          opacity: 0.6,
-                          borderRadius: 8,
-                        }}
-                      />
-                      <FlatList
-                        data={secondsLoop}
-                        keyExtractor={(_, i) => `s-${i}`}
-                        initialScrollIndex={base + selectedSecondIndex}
-                        getItemLayout={(_, idx) => ({ length: ITEM_HEIGHT, offset: ITEM_HEIGHT * idx, index: idx })}
-                        showsVerticalScrollIndicator={false}
-                        snapToInterval={ITEM_HEIGHT}
-                        decelerationRate="fast"
-                        contentContainerStyle={{ paddingVertical: PAD }}
-                        scrollEventThrottle={16}
-                        onScroll={(e) => {
-                          const y = e.nativeEvent.contentOffset.y
-                          const idx = Math.round(y / ITEM_HEIGHT)
-                          const val = ((idx % 60) + 60) % 60
-                          if (val !== secondHapticRef.current) {
-                            secondHapticRef.current = val
-                            setSelectedSecondIndex(val)
-                            Haptics.selectionAsync().catch(() => {})
-                          }
-                        }}
-                        onMomentumScrollEnd={(e) => {
-                          const y = e.nativeEvent.contentOffset.y
-                          const idx = Math.round(y / ITEM_HEIGHT)
-                          const val = ((idx % 60) + 60) % 60
-                          setSelectedSecondIndex(val)
-                          Haptics.selectionAsync().catch(() => {})
-                        }}
-                        renderItem={({ item, index }) => (
-                          <View style={{ height: ITEM_HEIGHT, justifyContent: "center", alignItems: "center" }}>
-                            <Text style={{ fontSize: 18, fontWeight: (index % 60) === selectedSecondIndex ? "700" : "400", color: (index % 60) === selectedSecondIndex ? "#111827" : "#9ca3af" }}>
-                              {item}
-                            </Text>
-                          </View>
-                        )}
-                      />
-                    </View>
-                  </View>
-                </View>
-              )
-            })()}
-            <View style={{ flexDirection: "row", justifyContent: "center", gap: 12, marginTop: 8 }}>
-              <Pressable
-                onPress={() => {
-                  // Close without starting: resume playback (and timer if paused)
-                  setTimerModalVisible(false)
-                  if (timerActive && timerPaused) {
-                    resumeTimer()
-                    setPlayerSuspended(false)
-                    setPlayerPlaySignal((x) => x + 1)
-                  } else if (resumeOnModalClose && !timerActive) {
-                    setPlayerSuspended(false)
-                    setPlayerPlaySignal((x) => x + 1)
-                  }
-                  setResumeOnModalClose(false)
-                }}
-                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#e5e7eb" }}
-              >
-                <Text style={{ fontWeight: "600", color: "#374151" }}>{t("timer.close")}</Text>
-              </Pressable>
-              {timerActive ? (
-                <Pressable onPress={cancelTimer} style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#ef4444" }}>
-                  <Text style={{ fontWeight: "700", color: "#fff" }}>{t("timer.cancel")}</Text>
-                </Pressable>
-              ) : null}
-              <Pressable
-                onPress={() => {
-                  // Starting a session: reset player to start and play
-                  setResumeOnModalClose(false)
-                  setTimerPaused(false)
-                  setPlayerResetCounter((c) => c + 1)
-                  startTimer()
-                }}
-                style={{ paddingVertical: 10, paddingHorizontal: 16, borderRadius: 8, backgroundColor: "#6366f1" }}
-              >
-                <Text style={{ fontWeight: "700", color: "#fff" }}>{timerActive ? t("timer.restart") : t("timer.start")}</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Time up modal */}
-      <TimeUpModal
-        visible={timeUpModalVisible}
-        onClose={() => setTimeUpModalVisible(false)}
-        onSetNew={() => {
-          setTimeUpModalVisible(false)
-          setTimerModalVisible(true)
-        }}
-        onEndSession={() => {
-          setTimeUpModalVisible(false)
-          router.back()
-        }}
-      />
+      {/* Timer removed */}
 
       {/* Cache management modal */}
       <CacheMenuModal
@@ -922,7 +580,9 @@ const renderModuleSlide = useCallback(({ item, index }: { item: typeof modules[0
         onRedownload={handleRedownload}
         onClear={handleClearCache}
       />
-    </SafeAreaView>
+        </SafeAreaView>
+      )}
+    </>
   )
 }
 

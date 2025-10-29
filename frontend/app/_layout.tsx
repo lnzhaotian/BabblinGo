@@ -10,12 +10,44 @@ export default function RootLayout() {
         {/* (tabs) is a group that contains the bottom tabs. */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         {/* Stack-only routes */}
-        <Stack.Screen name="(stack)/web" options={{ headerShown: false }} />
-        <Stack.Screen name="(stack)/lesson/[lessonId]" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="(stack)/web"
+          options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+        />
+        <Stack.Screen
+          name="(stack)/lesson/[lessonId]"
+          options={{ headerShown: true, headerBackButtonDisplayMode: "minimal" }}
+        />
         {/* Settings detail pages */}
-        <Stack.Screen name="settings/language" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/cache" options={{ headerShown: false }} />
-        <Stack.Screen name="settings/about" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="settings/language"
+          options={{
+            headerShown: true,
+            headerBackButtonDisplayMode: "minimal",
+          }}
+        />
+        <Stack.Screen 
+          name="settings/learning" 
+          options={{ 
+            headerShown: true,
+            headerBackButtonDisplayMode: "minimal",
+            title: "Learning Preferences"
+          }} 
+        />
+        <Stack.Screen
+          name="settings/cache"
+          options={{
+            headerShown: true,
+            headerBackButtonDisplayMode: "minimal",
+          }}
+        />
+        <Stack.Screen
+          name="settings/about"
+          options={{
+            headerShown: true,
+            headerBackButtonDisplayMode: "minimal",
+          }}
+        />
       </Stack>
     </SafeAreaProvider>
   );
