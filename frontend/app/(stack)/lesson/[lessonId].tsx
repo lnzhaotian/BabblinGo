@@ -699,7 +699,6 @@ const LessonDetail = () => {
                         )}
                       />
                     </View>
-                    <Text style={{ color: "#6b7280", marginTop: 4 }}>minutes</Text>
                   </View>
                   <View style={{ justifyContent: "center" }}>
                     <Text style={{ fontSize: 18, fontWeight: "700" }}>:</Text>
@@ -757,7 +756,6 @@ const LessonDetail = () => {
                         )}
                       />
                     </View>
-                    <Text style={{ color: "#6b7280", marginTop: 4 }}>seconds</Text>
                   </View>
                 </View>
               )
