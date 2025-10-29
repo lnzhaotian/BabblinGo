@@ -33,6 +33,7 @@ const resources = {
       "lesson.notFound": "Lesson not found.",
       "lesson.loading": "Loading...",
       "lesson.error": "Unable to load lesson. Try again later.",
+      "lesson.downloading": "Downloading...",
 
       // Timer
       "timer.set": "Set session timer",
@@ -78,6 +79,21 @@ const resources = {
       "settings.language": "Language",
       "settings.languageDescription": "Choose your preferred language",
       "settings.system": "System Default",
+      "settings.cache.title": "Media Cache",
+      "settings.cache.description": "Cached media files for offline access",
+      "settings.cache.files": "Files",
+      "settings.cache.size": "Size",
+      "settings.cache.clearConfirmTitle": "Clear Cache?",
+      "settings.cache.clearConfirmMessage": "This will delete all cached media files. They will be re-downloaded when needed.",
+      "settings.cache.cleared": "Cache Cleared",
+      "settings.cache.clearedMessage": "All cached files have been removed.",
+      "settings.cache.clearError": "Failed to clear cache. Please try again.",
+
+      // Common
+      "common.cancel": "Cancel",
+      "common.clear": "Clear",
+      "common.refresh": "Refresh",
+      "common.error": "Error",
     },
   },
   zh: {
@@ -108,6 +124,7 @@ const resources = {
       "lesson.notFound": "未找到课程。",
       "lesson.loading": "加载中...",
       "lesson.error": "无法加载课程。请稍后重试。",
+      "lesson.downloading": "下载中...",
 
       // Timer
       "timer.set": "设置学习计时",
@@ -153,6 +170,21 @@ const resources = {
       "settings.language": "语言",
       "settings.languageDescription": "选择您的首选语言",
       "settings.system": "跟随系统",
+      "settings.cache.title": "媒体缓存",
+      "settings.cache.description": "已缓存的媒体文件，可离线访问",
+      "settings.cache.files": "文件数",
+      "settings.cache.size": "大小",
+      "settings.cache.clearConfirmTitle": "清除缓存？",
+      "settings.cache.clearConfirmMessage": "这将删除所有缓存的媒体文件。需要时会重新下载。",
+      "settings.cache.cleared": "缓存已清除",
+      "settings.cache.clearedMessage": "所有缓存文件已删除。",
+      "settings.cache.clearError": "清除缓存失败，请重试。",
+
+      // Common
+      "common.cancel": "取消",
+      "common.clear": "清除",
+      "common.refresh": "刷新",
+      "common.error": "错误",
     },
   },
 }
