@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, FlatList, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { Stack, useLocalSearchParams, useRouter } from "expo-router"
+import { useThemeMode } from "../../theme-context";
 
 import { extractModules, fetchLessonById, LessonDoc, resolveMediaUrl } from "@/lib/payload"
 // SingleTrackPlayer is wrapped by LessonAudioPlayer
@@ -91,7 +92,7 @@ const LessonDetail = () => {
   } = useLessonNavigation({ totalSlides: modules.length, hasAudio, loopEnabled })
   const slideDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  
+  const { colorScheme } = useThemeMode();
 
   const loadLesson = useCallback(async () => {
     if (!lessonId) {
@@ -177,8 +178,11 @@ const LessonDetail = () => {
         options={{
           title: headerTitle,
           headerBackButtonDisplayMode: "minimal",
+          headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
+          headerTitleStyle: { color: colorScheme === 'dark' ? '#fff' : '#18181b' },
+          headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
           headerRight: () => (
-            <LessonHeaderControls
+            mode === "landing" ? undefined : <LessonHeaderControls
               loopEnabled={loopEnabled}
               cachingInProgress={cachingInProgress}
               cacheStatus={lessonCacheStatus}
@@ -189,20 +193,20 @@ const LessonDetail = () => {
         }}
       />
       {loading ? (
-        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }}>
           <ActivityIndicator size="large" />
-          <Text style={{ marginTop: 12 }}>{t("lesson.loading")}</Text>
+          <Text style={{ marginTop: 12, color: colorScheme === 'dark' ? '#d1d5db' : undefined }}>{t("lesson.loading")}</Text>
         </SafeAreaView>
       ) : error ? (
-        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-          <Text style={{ textAlign: "center", color: "#b71c1c" }}>{error || t("lesson.error")}</Text>
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }}>
+          <Text style={{ textAlign: "center", color: colorScheme === 'dark' ? '#ef4444' : "#b71c1c" }}>{error || t("lesson.error")}</Text>
         </SafeAreaView>
       ) : !lesson ? (
-        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-          <Text style={{ textAlign: "center" }}>{t("lesson.notFound")}</Text>
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }}>
+          <Text style={{ textAlign: "center", color: colorScheme === 'dark' ? '#d1d5db' : undefined }}>{t("lesson.notFound")}</Text>
         </SafeAreaView>
       ) : mode === "landing" ? (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }} edges={["bottom"]}>
           <LessonLandingCard
             summary={lesson.summary}
             sessionSeconds={configuredSeconds}
@@ -213,7 +217,7 @@ const LessonDetail = () => {
           />
         </SafeAreaView>
       ) : mode === "results" ? (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }} edges={["bottom"]}>
           <LessonSessionResult
             elapsedSec={elapsedSeconds}
             plannedSec={configuredSeconds}
@@ -225,12 +229,12 @@ const LessonDetail = () => {
           />
         </SafeAreaView>
       ) : (
-        <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1 }}>
             <LessonCountdownTimer remaining={remainingSeconds} />
             {modulesWithContent.length === 0 ? (
               <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-                <Text style={{ textAlign: "center", color: "#666" }}>{t("lesson.noModules")}</Text>
+                <Text style={{ textAlign: "center", color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{t("lesson.noModules")}</Text>
               </View>
             ) : (
               <>

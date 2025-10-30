@@ -1,17 +1,25 @@
 import React from "react";
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, useColorScheme } from "react-native";
 import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getCacheStats, clearCache } from "@/lib/cache-manager";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
+import { useThemeMode } from "../theme-context";
+
+function CacheHeaderTitle() {
+  const { t } = useTranslation();
+  const { colorScheme } = useThemeMode();
+  return <Text style={{ fontWeight: "700", fontSize: 18, color: colorScheme === 'dark' ? '#fff' : '#18181b' }}>{t("settings.language")}</Text>;
+}
 
 export default function CacheSettings() {
   const { t } = useTranslation();
   const [cacheStats, setCacheStats] = React.useState<{ fileCount: number; totalSize: number } | null>(null);
   const [loadingCache, setLoadingCache] = React.useState(false);
   const [clearingCache, setClearingCache] = React.useState(false);
+  const { colorScheme } = useThemeMode();
 
   const loadCacheStats = React.useCallback(async () => {
     setLoadingCache(true);
@@ -79,13 +87,16 @@ export default function CacheSettings() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("settings.cache.title") }} />
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["bottom"]}>
+      <Stack.Screen options={{
+        headerTitle: () => <CacheHeaderTitle />,
+        headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
+        headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b' }}
+      />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <Text style={{ fontSize: 14, color: "#6b7280", marginBottom: 16 }}>
+        <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", marginBottom: 16 }}>
           {t("settings.cache.description")}
         </Text>
-
         {loadingCache ? (
           <View style={{ padding: 32, alignItems: "center" }}>
             <ActivityIndicator size="large" color="#6366f1" />
@@ -95,7 +106,7 @@ export default function CacheSettings() {
             {/* Stats Card */}
             <View
               style={{
-                backgroundColor: "#fff",
+                backgroundColor: colorScheme === 'dark' ? '#23232a' : "#fff",
                 borderRadius: 12,
                 padding: 16,
                 marginBottom: 16,
@@ -103,24 +114,24 @@ export default function CacheSettings() {
             >
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <MaterialIcons name="storage" size={24} color="#6b7280" />
-                  <Text style={{ fontSize: 16, color: "#1f2937", fontWeight: "600" }}>
+                  <MaterialIcons name="storage" size={24} color={colorScheme === 'dark' ? '#d1d5db' : "#6b7280"} />
+                  <Text style={{ fontSize: 16, color: colorScheme === 'dark' ? '#fff' : "#1f2937", fontWeight: "600" }}>
                     {t("settings.cache.files") || "Files"}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 20, color: "#1f2937", fontWeight: "700" }}>
+                <Text style={{ fontSize: 20, color: colorScheme === 'dark' ? '#fff' : "#1f2937", fontWeight: "700" }}>
                   {cacheStats?.fileCount || 0}
                 </Text>
               </View>
 
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                  <MaterialIcons name="folder" size={24} color="#6b7280" />
-                  <Text style={{ fontSize: 16, color: "#1f2937", fontWeight: "600" }}>
+                  <MaterialIcons name="folder" size={24} color={colorScheme === 'dark' ? '#d1d5db' : "#6b7280"} />
+                  <Text style={{ fontSize: 16, color: colorScheme === 'dark' ? '#fff' : "#1f2937", fontWeight: "600" }}>
                     {t("settings.cache.size") || "Size"}
                   </Text>
                 </View>
-                <Text style={{ fontSize: 20, color: "#1f2937", fontWeight: "700" }}>
+                <Text style={{ fontSize: 20, color: colorScheme === 'dark' ? '#fff' : "#1f2937", fontWeight: "700" }}>
                   {formatBytes(cacheStats?.totalSize || 0)}
                 </Text>
               </View>
@@ -138,14 +149,14 @@ export default function CacheSettings() {
                   paddingVertical: 14,
                   paddingHorizontal: 16,
                   borderRadius: 12,
-                  backgroundColor: pressed ? "#eef2ff" : "#fff",
+                  backgroundColor: pressed ? (colorScheme === 'dark' ? '#312e81' : '#eef2ff') : (colorScheme === 'dark' ? '#23232a' : '#fff'),
                   borderWidth: 1,
-                  borderColor: "#e5e7eb",
+                  borderColor: colorScheme === 'dark' ? '#23232a' : '#e5e7eb',
                   gap: 8,
                 })}
               >
                 <MaterialIcons name="refresh" size={22} color="#6366f1" />
-                <Text style={{ fontSize: 16, fontWeight: "600", color: "#6366f1" }}>
+                <Text style={{ fontSize: 16, fontWeight: "600", color: '#6366f1' }}>
                   {t("common.refresh") || "Refresh"}
                 </Text>
               </Pressable>
@@ -162,10 +173,10 @@ export default function CacheSettings() {
                   borderRadius: 12,
                   backgroundColor:
                     clearingCache || (cacheStats?.fileCount || 0) === 0
-                      ? "#f3f4f6"
+                      ? (colorScheme === 'dark' ? '#23232a' : '#f3f4f6')
                       : pressed
-                      ? "#dc2626"
-                      : "#ef4444",
+                      ? (colorScheme === 'dark' ? '#dc2626' : '#dc2626')
+                      : (colorScheme === 'dark' ? '#ef4444' : '#ef4444'),
                   gap: 8,
                 })}
               >
@@ -174,7 +185,7 @@ export default function CacheSettings() {
                 ) : (
                   <>
                     <MaterialIcons name="delete" size={22} color="#fff" />
-                    <Text style={{ fontSize: 16, fontWeight: "600", color: "#fff" }}>
+                    <Text style={{ fontSize: 16, fontWeight: "600", color: '#fff' }}>
                       {t("common.clear") || "Clear"}
                     </Text>
                   </>

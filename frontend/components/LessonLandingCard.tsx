@@ -1,8 +1,9 @@
 import React, { useState, useRef } from "react"
-import { View, Text, Pressable, Modal, FlatList } from "react-native"
+import { View, Text, Pressable, Modal, FlatList, useColorScheme } from "react-native"
 import { useTranslation } from "react-i18next"
 import * as Haptics from "expo-haptics"
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 2.0]
 
@@ -26,6 +27,18 @@ export function LessonLandingCard({ summary, sessionSeconds, speed, onSessionSec
   const minuteHapticRef = useRef<number>(selectedMinute)
   const secondHapticRef = useRef<number>(selectedSecond)
 
+  const systemColorScheme = useColorScheme();
+  const [themeMode, setThemeMode] = React.useState<'system' | 'light' | 'dark'>('system');
+  const colorScheme = themeMode === 'system' ? systemColorScheme : themeMode;
+  React.useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem('themeMode');
+      if (stored === 'dark' || stored === 'light' || stored === 'system') {
+        setThemeMode(stored);
+      }
+    })();
+  }, []);
+
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60)
     const secs = seconds % 60
@@ -44,14 +57,14 @@ export function LessonLandingCard({ summary, sessionSeconds, speed, onSessionSec
 
   return (
     <>
-      <View style={{ flex: 1, backgroundColor: "#fff", paddingHorizontal: 16, paddingTop: 24, paddingBottom: 32, justifyContent: "center" }}>
+      <View style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff', paddingHorizontal: 16, paddingTop: 24, paddingBottom: 32, justifyContent: "center" }}>
         {!!summary && (
-          <Text style={{ fontSize: 16, color: "#444", textAlign: "center", marginBottom: 24 }}>{summary}</Text>
+          <Text style={{ fontSize: 16, color: colorScheme === 'dark' ? '#d1d5db' : '#444', textAlign: "center", marginBottom: 24 }}>{summary}</Text>
         )}
         <View style={{ gap: 16, alignSelf: "center", width: "100%", maxWidth: 420 }}>
           {/* Session length */}
           <View style={{ gap: 8 }}>
-            <Text style={{ color: "#374151", fontWeight: "600", textAlign: "center" }}>
+            <Text style={{ color: colorScheme === 'dark' ? '#fff' : '#374151', fontWeight: "600", textAlign: "center" }}>
               {t("settings.learning.setSessionLength") || "Session length"}
             </Text>
             <Pressable
@@ -68,21 +81,21 @@ export function LessonLandingCard({ summary, sessionSeconds, speed, onSessionSec
                 minWidth: 140,
                 paddingVertical: 12,
                 paddingHorizontal: 20,
-                backgroundColor: "#eef2ff",
+                backgroundColor: colorScheme === 'dark' ? '#312e81' : '#eef2ff',
                 borderRadius: 12,
                 alignItems: "center",
               }}>
-                <Text style={{ fontSize: 28, fontWeight: "700", color: "#6366f1" }}>
+                <Text style={{ fontSize: 28, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : '#6366f1' }}>
                   {formatTime(sessionSeconds)}
                 </Text>
-                <Text style={{ marginTop: 4, color: "#6b7280", fontSize: 12 }}>{t("common.tapToEdit") || "Tap to edit"}</Text>
+                <Text style={{ marginTop: 4, color: colorScheme === 'dark' ? '#d1d5db' : '#6b7280', fontSize: 12 }}>{t("common.tapToEdit") || "Tap to edit"}</Text>
               </View>
             </Pressable>
           </View>
 
           {/* Playback speed */}
           <View style={{ gap: 8 }}>
-            <Text style={{ color: "#374151", fontWeight: "600", textAlign: "center" }}>
+            <Text style={{ color: colorScheme === 'dark' ? '#fff' : '#374151', fontWeight: "600", textAlign: "center" }}>
               {t("settings.learning.setPlaybackSpeed") || "Playback speed"}
             </Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
@@ -94,7 +107,7 @@ export function LessonLandingCard({ summary, sessionSeconds, speed, onSessionSec
                     paddingVertical: 10,
                     paddingHorizontal: 16,
                     borderRadius: 8,
-                    backgroundColor: speed === s ? "#6366f1" : "#f3f4f6",
+                    backgroundColor: speed === s ? (colorScheme === 'dark' ? '#6366f1' : '#6366f1') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6'),
                     minWidth: 60,
                     alignItems: "center",
                   }}
@@ -103,7 +116,7 @@ export function LessonLandingCard({ summary, sessionSeconds, speed, onSessionSec
                     style={{
                       fontSize: 15,
                       fontWeight: "600",
-                      color: speed === s ? "#fff" : "#374151",
+                      color: speed === s ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'),
                     }}
                   >
                     {s}×
@@ -113,8 +126,8 @@ export function LessonLandingCard({ summary, sessionSeconds, speed, onSessionSec
             </View>
           </View>
 
-          <Pressable onPress={onStart} style={({ pressed }) => ({ marginTop: 16, backgroundColor: "#6366f1", paddingVertical: 14, borderRadius: 10, opacity: pressed ? 0.9 : 1 })}>
-            <Text style={{ color: "#fff", textAlign: "center", fontSize: 16, fontWeight: "700" }}>
+          <Pressable onPress={onStart} style={({ pressed }) => ({ marginTop: 16, backgroundColor: colorScheme === 'dark' ? '#6366f1' : '#6366f1', paddingVertical: 14, borderRadius: 10, opacity: pressed ? 0.9 : 1 })}>
+            <Text style={{ color: '#fff', textAlign: "center", fontSize: 16, fontWeight: "700" }}>
               {t("lesson.startLearning") || "Start learning"}
             </Text>
           </Pressable>

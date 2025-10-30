@@ -1,8 +1,9 @@
 import React from "react"
-import { View, Image, Text, ActivityIndicator } from "react-native"
+import { View, Image, Text, ActivityIndicator, useColorScheme } from "react-native"
 import { useTranslation } from "react-i18next"
 import type { MediaDoc } from "@/lib/payload"
 import { extractParagraphs, formatOrder, isMediaDoc } from "@/lib/lesson-helpers"
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface LessonSlideProps {
   item: {
@@ -37,6 +38,18 @@ export const LessonSlide: React.FC<LessonSlideProps> = ({
   const displayImageUrl = imageUrl && cachedMedia[imageUrl] ? cachedMedia[imageUrl] : imageUrl
   const isDownloading = imageUrl && downloadProgress[imageUrl] !== undefined && downloadProgress[imageUrl] < 1
 
+  const systemColorScheme = useColorScheme();
+  const [themeMode, setThemeMode] = React.useState<'system' | 'light' | 'dark'>('system');
+  const colorScheme = themeMode === 'system' ? systemColorScheme : themeMode;
+  React.useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem('themeMode');
+      if (stored === 'dark' || stored === 'light' || stored === 'system') {
+        setThemeMode(stored);
+      }
+    })();
+  }, []);
+
   return (
     <View
       style={{
@@ -44,6 +57,7 @@ export const LessonSlide: React.FC<LessonSlideProps> = ({
         paddingHorizontal: 16,
         justifyContent: "center",
         alignItems: "center",
+        backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined,
       }}
     >
       <View style={{ gap: 12, width: "100%", maxWidth: 600 }}>
@@ -56,7 +70,7 @@ export const LessonSlide: React.FC<LessonSlideProps> = ({
                 width: "100%",
                 aspectRatio: 1,
                 borderRadius: 12,
-                backgroundColor: "#f5f5f5",
+                backgroundColor: colorScheme === 'dark' ? '#23232a' : '#f5f5f5',
               }}
               resizeMode="cover"
             />
@@ -97,7 +111,7 @@ export const LessonSlide: React.FC<LessonSlideProps> = ({
                   lineHeight: 30,
                   fontWeight: "700",
                   textAlign: "center",
-                  color: "#333",
+                  color: colorScheme === 'dark' ? '#fff' : '#333',
                 }}
               >
                 {paragraph}

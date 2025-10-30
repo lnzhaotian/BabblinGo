@@ -7,6 +7,7 @@ import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
 import { Stack } from "expo-router"
 import { fetchLessonById } from "@/lib/payload"
+import { useThemeMode } from "../theme-context"
 
 // Stored by lesson timer in lesson screen
 // id, lessonId, lessonTitle, startedAt, endedAt, plannedSeconds, speed
@@ -49,6 +50,7 @@ export default function ProgressScreen() {
   const [timeframe, setTimeframe] = useState<"7d" | "30d" | "all">("7d")
   const [lessonFilter, setLessonFilter] = useState<string | "all">("all")
   const [titlesById, setTitlesById] = useState<Record<string, string>>({})
+  const { colorScheme } = useThemeMode();
 
   const loadSessions = useCallback(async () => {
     try {
@@ -215,21 +217,21 @@ export default function ProgressScreen() {
     <>
       <Stack.Screen options={{ title: t("progress.title") }} />
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: "#fff" }}>
+        <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
 
   {/* Summary chips */}
   <View style={{ flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 12, paddingVertical: 12 }}>
-        <View style={{ backgroundColor: "#eef2ff", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, minWidth: 96, alignItems: "center" }}>
-          <Text style={{ fontSize: 12, color: "#6366f1" }}>{t("progress.today")}</Text>
-          <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>{secToHMM(summary.today)}</Text>
+        <View style={{ backgroundColor: colorScheme === 'dark' ? '#312e81' : "#eef2ff", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, minWidth: 96, alignItems: "center" }}>
+          <Text style={{ fontSize: 12, color: colorScheme === 'dark' ? '#6366f1' : "#6366f1" }}>{t("progress.today")}</Text>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>{secToHMM(summary.today)}</Text>
         </View>
-        <View style={{ backgroundColor: "#ecfeff", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, minWidth: 96, alignItems: "center" }}>
-          <Text style={{ fontSize: 12, color: "#06b6d4" }}>{t("progress.thisWeek")}</Text>
-          <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>{secToHMM(summary.week)}</Text>
+        <View style={{ backgroundColor: colorScheme === 'dark' ? '#0e7490' : "#ecfeff", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, minWidth: 96, alignItems: "center" }}>
+          <Text style={{ fontSize: 12, color: colorScheme === 'dark' ? '#06b6d4' : "#06b6d4" }}>{t("progress.thisWeek")}</Text>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>{secToHMM(summary.week)}</Text>
         </View>
-        <View style={{ backgroundColor: "#f5f5f5", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, minWidth: 96, alignItems: "center" }}>
-          <Text style={{ fontSize: 12, color: "#6b7280" }}>{t("progress.allTime")}</Text>
-          <Text style={{ fontSize: 18, fontWeight: "800", color: "#111827" }}>{secToHMM(summary.all)}</Text>
+        <View style={{ backgroundColor: colorScheme === 'dark' ? '#23232a' : "#f5f5f5", paddingVertical: 10, paddingHorizontal: 12, borderRadius: 12, minWidth: 96, alignItems: "center" }}>
+          <Text style={{ fontSize: 12, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{t("progress.allTime")}</Text>
+          <Text style={{ fontSize: 18, fontWeight: "800", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>{secToHMM(summary.all)}</Text>
         </View>
       </View>
 
@@ -244,10 +246,10 @@ export default function ProgressScreen() {
                 paddingVertical: 8,
                 paddingHorizontal: 12,
                 borderRadius: 999,
-                backgroundColor: timeframe === tf ? "#111827" : "#f3f4f6",
+                backgroundColor: timeframe === tf ? (colorScheme === 'dark' ? '#18181b' : '#111827') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6'),
               }}
             >
-              <Text style={{ color: timeframe === tf ? "#fff" : "#374151", fontWeight: "600" }}>
+              <Text style={{ color: timeframe === tf ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'), fontWeight: "600" }}>
                 {tf === "7d" ? t("progress.last7days") : tf === "30d" ? t("progress.last30days") : t("progress.alltime")}
               </Text>
             </Pressable>
@@ -256,17 +258,17 @@ export default function ProgressScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 8 }}>
           <Pressable
             onPress={() => setLessonFilter("all")}
-            style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: lessonFilter === "all" ? "#111827" : "#f3f4f6" }}
+            style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: lessonFilter === "all" ? (colorScheme === 'dark' ? '#18181b' : '#111827') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6') }}
           >
-            <Text style={{ color: lessonFilter === "all" ? "#fff" : "#374151", fontWeight: "600" }}>{t("progress.allLessons")}</Text>
+            <Text style={{ color: lessonFilter === "all" ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'), fontWeight: "600" }}>{t("progress.allLessons")}</Text>
           </Pressable>
           {uniqueLessons.map((l) => (
             <Pressable
               key={l.id}
               onPress={() => setLessonFilter(l.id)}
-              style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: lessonFilter === l.id ? "#111827" : "#f3f4f6" }}
+              style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: lessonFilter === l.id ? (colorScheme === 'dark' ? '#18181b' : '#111827') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6') }}
             >
-              <Text style={{ color: lessonFilter === l.id ? "#fff" : "#374151", fontWeight: "600" }}>{l.title}</Text>
+              <Text style={{ color: lessonFilter === l.id ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'), fontWeight: "600" }}>{l.title}</Text>
             </Pressable>
           ))}
         </ScrollView>
@@ -274,14 +276,14 @@ export default function ProgressScreen() {
 
   {/* Weekly bar chart (last 7 days, respects lesson filter) */}
   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-        <Text style={{ fontSize: 14, color: "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.weekly")}</Text>
+        <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.weekly")}</Text>
         <View style={{ flexDirection: "row", alignItems: "flex-end", height: 120, gap: 8 }}>
           {weekly.days.map((d, idx) => {
             const h = Math.round((d.total / weekly.max) * 100)
             return (
               <View key={idx} style={{ alignItems: "center", justifyContent: "flex-end", flex: 1 }}>
-                <View style={{ width: 20, height: `${h}%`, backgroundColor: "#6366f1", borderRadius: 6 }} />
-                <Text style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>{d.label}</Text>
+                <View style={{ width: 20, height: `${h}%`, backgroundColor: colorScheme === 'dark' ? '#6366f1' : '#6366f1', borderRadius: 6 }} />
+                <Text style={{ marginTop: 6, fontSize: 12, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{d.label}</Text>
               </View>
             )
           })}
@@ -290,17 +292,17 @@ export default function ProgressScreen() {
 
   {/* Per-lesson rollups */}
   <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-        <Text style={{ fontSize: 14, color: "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.topLessons")}</Text>
+        <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.topLessons")}</Text>
         {perLessonRollups.length === 0 ? (
-          <Text style={{ color: "#9ca3af" }}>{t("progress.noData")}</Text>
+          <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : "#9ca3af" }}>{t("progress.noData")}</Text>
         ) : (
           perLessonRollups.slice(0, 6).map((r) => (
             <View key={r.lessonId} style={{ paddingVertical: 8 }}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: "#111827" }} numberOfLines={1}>{r.title}</Text>
-                <Text style={{ fontSize: 14, fontWeight: "800", color: "#111827", marginLeft: 12 }}>{secToHMM(r.total)}</Text>
+                <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#111827" }} numberOfLines={1}>{r.title}</Text>
+                <Text style={{ fontSize: 14, fontWeight: "800", color: colorScheme === 'dark' ? '#fff' : "#111827", marginLeft: 12 }}>{secToHMM(r.total)}</Text>
               </View>
-              <Text style={{ color: "#9ca3af", marginTop: 2 }}>{t("progress.sessions", { count: r.sessions })}</Text>
+              <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#9ca3af", marginTop: 2 }}>{t("progress.sessions", { count: r.sessions })}</Text>
             </View>
           ))
         )}
@@ -313,14 +315,14 @@ export default function ProgressScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
         ListEmptyComponent={() => (
           <View style={{ padding: 24, alignItems: "center" }}>
-            <Text style={{ color: "#6b7280", textAlign: "center" }}>
+            <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", textAlign: "center" }}>
               {t("progress.noSessions")}
             </Text>
           </View>
         )}
         renderSectionHeader={({ section: { title } }) => (
           <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
-            <Text style={{ fontSize: 14, color: "#6b7280", fontWeight: "700" }}>
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700" }}>
               {title === "Today" ? t("progress.sectionToday") : title === "This Week" ? t("progress.sectionWeek") : t("progress.sectionEarlier")}
             </Text>
           </View>
@@ -335,24 +337,24 @@ export default function ProgressScreen() {
                 <View style={{ justifyContent: "center", alignItems: "center" }}>
                   <Pressable
                     onPress={() => deleteSession(item.id)}
-                    style={{ backgroundColor: "#ef4444", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, marginRight: 12 }}
+                    style={{ backgroundColor: colorScheme === 'dark' ? '#ef4444' : "#ef4444", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, marginRight: 12 }}
                   >
-                    <Text style={{ color: "#fff", fontWeight: "700" }}>{t("progress.delete")}</Text>
+                    <Text style={{ color: '#fff', fontWeight: "700" }}>{t("progress.delete")}</Text>
                   </Pressable>
                 </View>
               )}
             >
-              <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f1f5f9", backgroundColor: "#fff" }}>
+              <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colorScheme === 'dark' ? '#23232a' : "#f1f5f9", backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Text style={{ flex: 1, fontSize: 16, fontWeight: "700", color: item.finished === false ? "#f59e42" : "#111827" }} numberOfLines={1}>
+                  <Text style={{ flex: 1, fontSize: 16, fontWeight: "700", color: item.finished === false ? (colorScheme === 'dark' ? '#f59e42' : '#f59e42') : (colorScheme === 'dark' ? '#fff' : "#111827") }} numberOfLines={1}>
                     {titlesById[item.lessonId] || item.lessonTitle || item.lessonId}
                     {item.finished === false ? ` (${t('progress.unfinished')})` : ""}
                   </Text>
-                  <Text style={{ fontSize: 14, fontWeight: "800", color: item.finished === false ? "#f59e42" : "#111827", marginLeft: 12 }}>{t("progress.actual")} {secToMMSS(actualSec)}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: "800", color: item.finished === false ? (colorScheme === 'dark' ? '#f59e42' : '#f59e42') : (colorScheme === 'dark' ? '#fff' : "#111827"), marginLeft: 12 }}>{t("progress.actual")} {secToMMSS(actualSec)}</Text>
                 </View>
                 <View style={{ flexDirection: "row", marginTop: 4 }}>
-                  <Text style={{ flex: 1, color: "#6b7280" }}>{dateStr}</Text>
-                  <Text style={{ color: "#9ca3af" }}>
+                  <Text style={{ flex: 1, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{dateStr}</Text>
+                  <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : "#9ca3af" }}>
                     {item.finished === false ? `${t('progress.planned')} ${secToMMSS(item.plannedSeconds)}` : `${t('progress.planned')} ${secToMMSS(item.plannedSeconds)}`}
                     • {item.speed.toFixed(1)}x
                   </Text>

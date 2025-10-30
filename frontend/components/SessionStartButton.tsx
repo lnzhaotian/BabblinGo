@@ -1,7 +1,8 @@
 import React from "react"
-import { View, Text, Pressable } from "react-native"
+import { View, Text, Pressable, useColorScheme } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 
 interface SessionStartButtonProps {
@@ -36,6 +37,17 @@ export const SessionStartButton: React.FC<SessionStartButtonProps> = ({
   onStop,
 }) => {
   const { t } = useTranslation()
+  const systemColorScheme = useColorScheme();
+  const [themeMode, setThemeMode] = React.useState<'system' | 'light' | 'dark'>('system');
+  const colorScheme = themeMode === 'system' ? systemColorScheme : themeMode;
+  React.useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem('themeMode');
+      if (stored === 'dark' || stored === 'light' || stored === 'system') {
+        setThemeMode(stored);
+      }
+    })();
+  }, []);
 
   const formatTime = (seconds: number) => {
     const minutes = Math.floor(seconds / 60)
@@ -55,9 +67,9 @@ export const SessionStartButton: React.FC<SessionStartButtonProps> = ({
         style={{
           paddingHorizontal: 16,
           paddingVertical: 12,
-          backgroundColor: sessionPaused ? "#fef3c7" : "#dcfce7",
+          backgroundColor: sessionPaused ? (colorScheme === 'dark' ? '#312e81' : '#fef3c7') : (colorScheme === 'dark' ? '#10b98122' : '#dcfce7'),
           borderBottomWidth: 1,
-          borderBottomColor: sessionPaused ? "#fbbf24" : "#10b981",
+          borderBottomColor: sessionPaused ? (colorScheme === 'dark' ? '#f59e0b' : '#fbbf24') : (colorScheme === 'dark' ? '#10b981' : '#10b981'),
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
@@ -153,9 +165,9 @@ export const SessionStartButton: React.FC<SessionStartButtonProps> = ({
       style={{
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: "#eff6ff",
+        backgroundColor: colorScheme === 'dark' ? '#23232a' : '#eff6ff',
         borderBottomWidth: 1,
-        borderBottomColor: "#3b82f6",
+        borderBottomColor: colorScheme === 'dark' ? '#6366f1' : '#3b82f6',
       }}
     >
       <Pressable

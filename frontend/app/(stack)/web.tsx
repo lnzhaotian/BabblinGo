@@ -11,12 +11,14 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { Stack, useLocalSearchParams } from "expo-router";
+import { useThemeMode } from "../theme-context";
 
 export default function WebPage() {
   const { url, title } = useLocalSearchParams() as { url?: string; title?: string };
   const [WebViewComponent, setWebViewComponent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  
+  const { colorScheme } = useThemeMode();
+
   const webviewRef = useRef<any>(null);
   const insets = useSafeAreaInsets();
 
@@ -57,14 +59,16 @@ export default function WebPage() {
         options={{
           title: title ?? "Web",
           headerBackButtonDisplayMode: "minimal",
+          headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
           headerRight: () => (
             <TouchableOpacity onPress={onReload} style={styles.iconButton} accessibilityLabel="Reload">
-              <MaterialIcons name="refresh" size={22} color="#007aff" />
+              <MaterialIcons name="refresh" size={22} color={colorScheme === 'dark' ? "#fff" : "#18181b"} />
             </TouchableOpacity>
           ),
+          headerTitleStyle: { color: colorScheme === 'dark' ? "#fff" : "#18181b" },
         }}
       />
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? "#18181b" : "#fff" }}>
         {WebViewComponent ? (
           (() => {
             const injected = `
@@ -99,20 +103,19 @@ export default function WebPage() {
                 style={{ flex: 1, marginBottom: insets.bottom }}
                 startInLoadingState
                 injectedJavaScriptBeforeContentLoaded={injected}
-                
               />
             );
           })()
         ) : loading ? (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-            <ActivityIndicator size="large" />
-            <Text style={{ marginTop: 8 }}>Loading...</Text>
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colorScheme === 'dark' ? "#18181b" : "#fff" }}>
+            <ActivityIndicator size="large" color={colorScheme === 'dark' ? "#6366f1" : undefined} />
+            <Text style={{ marginTop: 8, color: colorScheme === 'dark' ? "#d1d5db" : undefined }}>Loading...</Text>
           </View>
         ) : (
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 16 }}>
-            <Text>Unable to show in-app.</Text>
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 16, backgroundColor: colorScheme === 'dark' ? "#18181b" : "#fff" }}>
+            <Text style={{ color: colorScheme === 'dark' ? "#d1d5db" : undefined }}>Unable to show in-app.</Text>
             {url ? (
-              <Text style={{ marginTop: 12, color: "#007aff" }} onPress={() => Linking.openURL(String(url))}>
+              <Text style={{ marginTop: 12, color: colorScheme === 'dark' ? "#6366f1" : "#007aff" }} onPress={() => Linking.openURL(String(url))}>
                 Open in browser
               </Text>
             ) : null}
