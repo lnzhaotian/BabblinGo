@@ -47,26 +47,24 @@ export const Users: CollectionConfig = {
       // Only allow editors and managers to access the admin UI
       return !!user && user.role && (user.role === 'editor' || user.role === 'manager');
     },
-    read: ({ req: { user } }) => {
-      // Editors and managers can read all users
-      return !!user && (user.role === 'editor' || user.role === 'manager');
+    read: ({ req: { user }, id }) => {
+      // Allow users to read themselves, editors/managers can read all
+      if (!user) return false;
+      if (user.role === 'editor' || user.role === 'manager') return true;
+      return user.id === id;
     },
     update: ({ req: { user }, id }) => {
-      // Managers can update any user; editors can only update themselves
+      // Allow users to update themselves, managers can update any, editors only themselves
       if (!user || !user.role) return false;
       if (user.role === 'manager') return true;
-      if (user.role === 'editor') return user.id === id;
-      return false;
+      return user.id === id;
     },
     delete: ({ req: { user }, id }) => {
-      // Managers can delete any user; editors can only delete themselves
       if (!user || !user.role) return false;
       if (user.role === 'manager') return true;
-      if (user.role === 'editor') return user.id === id;
-      return false;
+      return user.id === id;
     },
     create: ({ req: { user } }) => {
-      // Only managers can create users
       return !!user && user.role === 'manager';
     },
   },
