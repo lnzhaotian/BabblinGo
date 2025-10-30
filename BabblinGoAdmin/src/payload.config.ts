@@ -9,6 +9,7 @@ import { en } from '@payloadcms/translations/languages/en'
 import { zh } from '@payloadcms/translations/languages/zh'
 import { fileURLToPath } from 'url'
 import sharp from 'sharp'
+import { nodemailerAdapter } from '@payloadcms/email-nodemailer';
 
 import { Levels } from './collections/Levels'
 import { Lessons } from './collections/Lessons'
@@ -63,6 +64,19 @@ export default buildConfig({
     fallback: true,
   },
   sharp,
+  email: nodemailerAdapter({
+    defaultFromAddress: process.env.SMTP_FROM!,
+    defaultFromName: 'BabblinGo',
+    transportOptions: {
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT),
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+      secure: true,
+    },
+  }),
   plugins: [
     payloadCloudPlugin(),
     // storage-adapter-placeholder
