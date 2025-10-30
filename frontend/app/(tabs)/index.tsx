@@ -9,6 +9,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { extractModules, fetchLessonsByLevelSlug, LessonDoc, resolveMediaUrl } from "@/lib/payload";
 import type { ModuleDoc } from "@/lib/payload";
 import { getLessonCacheStatus, LessonCacheStatus } from "@/lib/cache-manager";
+import { useThemeMode } from "../theme-context";
 
 const NOVICE_LEVEL_SLUG = "novice";
 
@@ -20,6 +21,7 @@ export default function Index() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cacheStatuses, setCacheStatuses] = useState<Record<string, LessonCacheStatus>>({});
+  const { colorScheme } = useThemeMode();
 
   // Load cache status for all lessons
   const loadCacheStatuses = useCallback(async (lessonsList: LessonDoc[]) => {
@@ -153,8 +155,9 @@ export default function Index() {
           paddingVertical: 12,
           paddingHorizontal: 8,
           borderBottomWidth: 1,
-          borderBottomColor: "#eee",
+          borderBottomColor: colorScheme === 'dark' ? '#23232a' : '#eee',
           opacity: hasModules ? 1 : 0.6,
+          backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined,
         }}
       >
         <View
@@ -162,18 +165,18 @@ export default function Index() {
             width: 48,
             height: 48,
             borderRadius: 8,
-            backgroundColor: "#f0f0f0",
+            backgroundColor: colorScheme === 'dark' ? '#23232a' : '#f0f0f0',
             justifyContent: "center",
             alignItems: "center",
             marginRight: 12,
           }}
         >
-          <MaterialIcons name="menu-book" size={24} color="#333" />
+          <MaterialIcons name="menu-book" size={24} color={colorScheme === 'dark' ? '#fff' : '#333'} />
         </View>
 
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600" }}>{t("home.lesson", { number: padded })}</Text>
-          {summary ? <Text style={{ marginTop: 4, color: "#666" }}>{summary}</Text> : null}
+          <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : undefined }}>{t("home.lesson", { number: padded })}</Text>
+          {summary ? <Text style={{ marginTop: 4, color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{summary}</Text> : null}
         </View>
 
         {/* Cache status indicator */}
@@ -182,7 +185,7 @@ export default function Index() {
         </View>
 
         {hasModules ? (
-          <MaterialIcons name="chevron-right" size={28} color="#999" />
+          <MaterialIcons name="chevron-right" size={28} color={colorScheme === 'dark' ? '#a1a1aa' : '#999'} />
         ) : null}
       </Pressable>
     );
@@ -190,7 +193,7 @@ export default function Index() {
 
   if (loading && !refreshing) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }}>
         <ActivityIndicator size="large" />
       </SafeAreaView>
     );
@@ -199,33 +202,31 @@ export default function Index() {
   return (
     <>
       <Stack.Screen options={{ title: t("home.title") }} />
-      <SafeAreaView style={{ flex: 1 }} edges={["bottom"]}>
-
-      {error ? (
-        <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
-          <Text style={{ color: "#b71c1c", textAlign: "center" }}>{error}</Text>
-        </View>
-      ) : null}
-
-      <FlatList
-        data={lessons}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
-        contentContainerStyle={{
-          backgroundColor: "#fff",
-          flexGrow: lessons.length === 0 ? 1 : undefined,
-        }}
-        style={{ flex: 1, backgroundColor: "transparent", paddingVertical: 8 }}
-        ListEmptyComponent={
-          !error ? (
-            <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-              <Text style={{ color: "#666" }}>{t("home.noDisplay")}</Text>
-            </View>
-          ) : null
-        }
-      />
-    </SafeAreaView>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={["bottom"]}>
+        {error ? (
+          <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
+            <Text style={{ color: colorScheme === 'dark' ? '#ef4444' : "#b71c1c", textAlign: "center" }}>{error}</Text>
+          </View>
+        ) : null}
+        <FlatList
+          data={lessons}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+          contentContainerStyle={{
+            backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff",
+            flexGrow: lessons.length === 0 ? 1 : undefined,
+          }}
+          style={{ flex: 1, backgroundColor: "transparent", paddingVertical: 8 }}
+          ListEmptyComponent={
+            !error ? (
+              <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+                <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{t("home.noDisplay")}</Text>
+              </View>
+            ) : null
+          }
+        />
+      </SafeAreaView>
     </>
   );
 }

@@ -4,6 +4,7 @@ import { Stack } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 import * as Haptics from "expo-haptics"
 import { useTranslation } from "react-i18next"
+import { useThemeMode } from "../theme-context"
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import {
   loadLearningPreferences,
@@ -18,8 +19,15 @@ const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 2.0]
  * Learning preferences settings screen
  * Allows users to configure default session length and playback speed
  */
+function LearningHeaderTitle() {
+  const { t } = useTranslation();
+  const { colorScheme } = useThemeMode();
+  return <Text style={{ fontWeight: "700", fontSize: 18, color: colorScheme === 'dark' ? '#fff' : '#18181b' }}>{t("settings.learning.title")}</Text>;
+}
+
 export default function LearningSettingsScreen() {
   const { t, i18n } = useTranslation()
+  const { colorScheme } = useThemeMode();
 
   const [sessionLength, setSessionLength] = useState(600) // seconds
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
@@ -112,32 +120,25 @@ export default function LearningSettingsScreen() {
     }
   }
 
-  if (loading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["top"]}>
-        <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-          <Text>{t("common.loading") || "Loading..."}</Text>
-        </View>
-      </SafeAreaView>
-    )
-  }
-
   return (
     <>
-      <Stack.Screen options={{ title: t("settings.learning.title") || "Learning Preferences" }} />
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["bottom"]}>
+      <Stack.Screen options={{
+        headerTitle: () => <LearningHeaderTitle />,
+        headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
+        headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
+      }} />
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 24 }}>
 
         {/* Session Length Section */}
         <View style={{ gap: 12 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>
             {t("settings.learning.sessionLength") || "Default Session Length"}
           </Text>
-          <Text style={{ fontSize: 14, color: "#6b7280" }}>
+          <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>
             {t("settings.learning.sessionLengthDesc") ||
               "How long you plan to study when starting a learning session"}
           </Text>
-
           <Pressable
             onPress={() => setLengthModalVisible(true)}
             style={{ alignItems: "center", marginTop: 8 }}
@@ -146,29 +147,27 @@ export default function LearningSettingsScreen() {
               minWidth: 140,
               paddingVertical: 12,
               paddingHorizontal: 20,
-              backgroundColor: "#eef2ff",
+              backgroundColor: colorScheme === 'dark' ? '#312e81' : "#eef2ff",
               borderRadius: 12,
               alignItems: "center",
             }}>
-              <Text style={{ fontSize: 28, fontWeight: "700", color: "#6366f1" }}>
+              <Text style={{ fontSize: 28, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#6366f1" }}>
                 {formatTime(selectedMinuteIndex * 60 + selectedSecondIndex)}
               </Text>
-              <Text style={{ marginTop: 6, color: "#6b7280" }}>{t("common.tapToEdit") || "Tap to edit"}</Text>
+              <Text style={{ marginTop: 6, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{t("common.tapToEdit") || "Tap to edit"}</Text>
             </View>
           </Pressable>
         </View>
 
         {/* Playback Speed Section */}
         <View style={{ gap: 12 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: "#111827" }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>
             {t("settings.learning.playbackSpeed") || "Default Playback Speed"}
           </Text>
-          <Text style={{ fontSize: 14, color: "#6b7280" }}>
+          <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>
             {t("settings.learning.playbackSpeedDesc") ||
               "Audio playback speed for learning sessions"}
           </Text>
-
-          {/* Speed Options */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {SPEED_OPTIONS.map((speed) => (
               <Pressable
@@ -178,7 +177,7 @@ export default function LearningSettingsScreen() {
                   paddingVertical: 10,
                   paddingHorizontal: 20,
                   borderRadius: 8,
-                  backgroundColor: playbackSpeed === speed ? "#10b981" : "#f3f4f6",
+                  backgroundColor: playbackSpeed === speed ? (colorScheme === 'dark' ? '#10b981' : '#10b981') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6'),
                   minWidth: 70,
                   alignItems: "center",
                 }}
@@ -187,10 +186,10 @@ export default function LearningSettingsScreen() {
                   style={{
                     fontSize: 16,
                     fontWeight: "600",
-                    color: playbackSpeed === speed ? "#fff" : "#374151",
+                    color: playbackSpeed === speed ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'),
                   }}
                 >
-                  {speed}×
+                  {speed}
                 </Text>
               </Pressable>
             ))}

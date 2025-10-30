@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react"
-import { Pressable, Text, View } from "react-native"
+import { Pressable, Text, View, useColorScheme } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useAudioPlayer, useAudioPlayerStatus, AudioSource, setAudioModeAsync } from "expo-audio"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 
 export type PlaybackSpeed = 0.5 | 0.7 | 1.0 | 1.3 | 1.5 | 1.7 | 2.0
 const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 2.0]
@@ -57,6 +58,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // Track the intended play state (avoids relying on laggy status.playing during rate changes)
   const shouldBePlayingRef = useRef(false)
   const ensurePlayingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const colorScheme = useColorScheme()
+  const [themeMode, setThemeMode] = useState<string | null>(null)
 
   // Configure audio mode (iOS silent switch) so audio plays even if the device
   // is in silent mode. Do this once per mount.
@@ -256,6 +259,14 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
     }
   }
 
+  useEffect(() => {
+    AsyncStorage.getItem("themeMode").then((mode) => {
+      setThemeMode(mode)
+    })
+  }, [])
+
+  const isDark = (themeMode === "dark") || (themeMode === "system" && colorScheme === "dark")
+
   return (
     <View>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
@@ -268,15 +279,25 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             onNavigate?.('prev')
           }}
           disabled={!hasPrev && !loop}
-          style={({ pressed }) => ({ borderRadius: 999, padding: 8, backgroundColor: pressed ? "#e5e7eb" : "transparent", opacity: (!hasPrev && !loop) ? 0.4 : 1 })}
+          style={({ pressed }) => ({
+            borderRadius: 999,
+            padding: 8,
+            backgroundColor: pressed ? (isDark ? "#374151" : "#e5e7eb") : "transparent",
+            opacity: (!hasPrev && !loop) ? 0.4 : 1
+          })}
         >
-          <MaterialIcons name="skip-previous" size={32} color="#4b5563" />
+          <MaterialIcons name="skip-previous" size={32} color={isDark ? "#d1d5db" : "#4b5563"} />
         </Pressable>
         <Pressable
           onPress={handlePlayPause}
-          style={({ pressed }) => ({ borderRadius: 999, backgroundColor: "#6366f1", padding: 12, opacity: pressed ? 0.8 : 1 })}
+          style={({ pressed }) => ({
+            borderRadius: 999,
+            backgroundColor: isDark ? "#6366f1" : "#6366f1",
+            padding: 12,
+            opacity: pressed ? 0.8 : 1
+          })}
         >
-          <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={32} color="#fff" />
+          <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={32} color={isDark ? "#fff" : "#fff"} />
         </Pressable>
         <Pressable
           onPress={() => {
@@ -285,9 +306,14 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             onNavigate?.('next')
           }}
           disabled={!hasNext && !loop}
-          style={({ pressed }) => ({ borderRadius: 999, padding: 8, backgroundColor: pressed ? "#e5e7eb" : "transparent", opacity: (!hasNext && !loop) ? 0.4 : 1 })}
+          style={({ pressed }) => ({
+            borderRadius: 999,
+            padding: 8,
+            backgroundColor: pressed ? (isDark ? "#374151" : "#e5e7eb") : "transparent",
+            opacity: (!hasNext && !loop) ? 0.4 : 1
+          })}
         >
-          <MaterialIcons name="skip-next" size={32} color="#4b5563" />
+          <MaterialIcons name="skip-next" size={32} color={isDark ? "#d1d5db" : "#4b5563"} />
         </Pressable>
       </View>
 
@@ -298,9 +324,19 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           <Pressable
             key={s}
             onPress={() => onSpeedChange?.(s)}
-            style={({ pressed }) => ({ borderRadius: 4, paddingHorizontal: 8, paddingVertical: 4, backgroundColor: speed === s ? "#6366f1" : pressed ? "#e5e7eb" : "#d1d5db" })}
+            style={({ pressed }) => ({
+              borderRadius: 4,
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              backgroundColor:
+                speed === s
+                  ? (isDark ? "#6366f1" : "#6366f1")
+                  : pressed
+                  ? (isDark ? "#374151" : "#e5e7eb")
+                  : (isDark ? "#1f2937" : "#d1d5db")
+            })}
           >
-            <Text style={{ fontSize: 12, fontWeight: "500", color: speed === s ? "#fff" : "#374151" }}>{s.toFixed(1)}x</Text>
+            <Text style={{ fontSize: 12, fontWeight: "500", color: speed === s ? "#fff" : (isDark ? "#d1d5db" : "#374151") }}>{s.toFixed(1)}x</Text>
           </Pressable>
         ))}
       </View>

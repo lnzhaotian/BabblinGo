@@ -1,8 +1,9 @@
 import React from "react"
-import { View, Text, Pressable, Modal } from "react-native"
+import { View, Text, Pressable, Modal, useColorScheme } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
 import type { LessonCacheStatus } from "@/lib/cache-manager"
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface CacheMenuModalProps {
   visible: boolean
@@ -20,6 +21,17 @@ export const CacheMenuModal: React.FC<CacheMenuModalProps> = ({
   onClear,
 }) => {
   const { t } = useTranslation()
+  const systemColorScheme = useColorScheme();
+  const [themeMode, setThemeMode] = React.useState<'system' | 'light' | 'dark'>('system');
+  const colorScheme = themeMode === 'system' ? systemColorScheme : themeMode;
+  React.useEffect(() => {
+    (async () => {
+      const stored = await AsyncStorage.getItem('themeMode');
+      if (stored === 'dark' || stored === 'light' || stored === 'system') {
+        setThemeMode(stored);
+      }
+    })();
+  }, []);
 
   return (
     <Modal
@@ -41,14 +53,14 @@ export const CacheMenuModal: React.FC<CacheMenuModalProps> = ({
           style={{
             width: "100%",
             maxWidth: 360,
-            backgroundColor: "#fff",
+            backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
             borderRadius: 12,
             padding: 16,
             gap: 12,
           }}
         >
           <Text
-            style={{ fontSize: 18, fontWeight: "700", textAlign: "center" }}
+            style={{ fontSize: 18, fontWeight: "700", textAlign: "center", color: colorScheme === 'dark' ? '#fff' : undefined }}
           >
             {t("lesson.cache.title") || "Cache Management"}
           </Text>
@@ -58,7 +70,7 @@ export const CacheMenuModal: React.FC<CacheMenuModalProps> = ({
             style={{
               paddingVertical: 12,
               paddingHorizontal: 16,
-              backgroundColor: "#f3f4f6",
+              backgroundColor: colorScheme === 'dark' ? '#18181b' : '#f3f4f6',
               borderRadius: 8,
               gap: 8,
             }}
@@ -70,7 +82,7 @@ export const CacheMenuModal: React.FC<CacheMenuModalProps> = ({
                 alignItems: "center",
               }}
             >
-              <Text style={{ color: "#6b7280", fontWeight: "600" }}>
+              <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : '#6b7280', fontWeight: "600" }}>
                 {t("lesson.cache.status") || "Status"}
               </Text>
               <View
@@ -112,7 +124,7 @@ export const CacheMenuModal: React.FC<CacheMenuModalProps> = ({
                 paddingVertical: 12,
                 paddingHorizontal: 16,
                 borderRadius: 8,
-                backgroundColor: "#3b82f6",
+                backgroundColor: colorScheme === 'dark' ? '#3b82f6' : '#3b82f6',
                 alignItems: "center",
               }}
             >
@@ -133,7 +145,7 @@ export const CacheMenuModal: React.FC<CacheMenuModalProps> = ({
                   paddingVertical: 12,
                   paddingHorizontal: 16,
                   borderRadius: 8,
-                  backgroundColor: "#ef4444",
+                  backgroundColor: colorScheme === 'dark' ? '#ef4444' : '#ef4444',
                   alignItems: "center",
                 }}
               >
@@ -158,11 +170,11 @@ export const CacheMenuModal: React.FC<CacheMenuModalProps> = ({
                 paddingVertical: 12,
                 paddingHorizontal: 16,
                 borderRadius: 8,
-                backgroundColor: "#e5e7eb",
+                backgroundColor: colorScheme === 'dark' ? '#23232a' : '#e5e7eb',
                 alignItems: "center",
               }}
             >
-              <Text style={{ fontWeight: "600", color: "#374151" }}>
+              <Text style={{ fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : '#374151' }}>
                 {t("common.cancel") || "Cancel"}
               </Text>
             </Pressable>

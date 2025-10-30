@@ -1,5 +1,6 @@
-import React from "react"
-import { View } from "react-native"
+import React, { useEffect, useState } from "react"
+import { View, useColorScheme } from "react-native"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
 
 export type LessonAudioPlayerProps = {
@@ -23,15 +24,22 @@ export function LessonAudioPlayer({
   onNavigate,
   onFinish,
 }: LessonAudioPlayerProps) {
+  const colorScheme = useColorScheme()
+  const [themeMode, setThemeMode] = useState<string | null>(null)
+  useEffect(() => {
+    AsyncStorage.getItem("themeMode").then((mode) => setThemeMode(mode))
+  }, [])
+  const isDark = (themeMode === "dark") || (themeMode === "system" && colorScheme === "dark")
+
   if (!track || !track.audioUrl) return null
 
   return (
     <View
       style={{
         borderTopWidth: 1,
-        borderTopColor: "#eee",
-        backgroundColor: "#fff",
-        shadowColor: "#000",
+        borderTopColor: isDark ? "#222" : "#eee",
+        backgroundColor: isDark ? "#18181b" : "#fff",
+        shadowColor: isDark ? "#000" : "#000",
         shadowOffset: { width: 0, height: -2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,

@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
-import { useFocusEffect, Stack, useRouter } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
+import { useThemeMode } from "../theme-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type SettingItem = {
@@ -20,28 +21,20 @@ export default function Settings() {
   const { t } = useTranslation();
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { colorScheme } = useThemeMode();
 
-  useFocusEffect(
-    React.useCallback(() => {
-      const checkAuth = async () => {
-        const token = await AsyncStorage.getItem('jwt');
-        setIsAuthenticated(!!token);
-      };
-      checkAuth();
-    }, [])
-  );
+
 
   const handleLogout = async () => {
     await AsyncStorage.removeItem('jwt');
-    // Optionally clear user info
     await AsyncStorage.removeItem('user_email');
     await AsyncStorage.removeItem('user_displayName');
     setIsAuthenticated(false);
-    // Stay on settings tab after logout
   };
 
+
+
   const settingsItems: SettingItem[] = [
-    // Profile (only if authenticated)
     ...(
       isAuthenticated
         ? [
@@ -92,6 +85,15 @@ export default function Settings() {
       showChevron: true,
     },
     {
+      id: "theme",
+      icon: "dark-mode" as keyof typeof MaterialIcons.glyphMap,
+      iconColor: "#6366f1",
+      titleKey: "settings.theme",
+      descriptionKey: "settings.themeDescription",
+      route: "/settings/theme",
+      showChevron: true,
+    },
+    {
       id: "about",
       icon: "info" as keyof typeof MaterialIcons.glyphMap,
       iconColor: "#8b5cf6",
@@ -99,7 +101,6 @@ export default function Settings() {
       route: "/settings/about",
       showChevron: true,
     },
-    // Authentication actions
     ...(!isAuthenticated ? [] : [
       {
         id: "logout",
@@ -116,7 +117,6 @@ export default function Settings() {
     const title = t(item.titleKey);
     const description = item.descriptionKey ? t(item.descriptionKey) : undefined;
 
-    // Special handling for login button
     if (!isAuthenticated && item.id === 'login') {
       return (
         <View key={item.id} style={{ padding: 18 }}>
@@ -132,7 +132,7 @@ export default function Settings() {
               paddingHorizontal: 24,
               marginHorizontal: 24,
               marginBottom: 8,
-            }]}
+            }, colorScheme === 'dark' && { backgroundColor: pressed ? '#6366f1' : '#312e81' }]}
           >
             <MaterialIcons name={item.icon} size={24} color="#fff" style={{ marginRight: 10 }} />
             <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>{title}</Text>
@@ -141,7 +141,6 @@ export default function Settings() {
       );
     }
 
-    // Special handling for logout button
     if (item.id === 'logout') {
       return (
         <View key={item.id} style={{ padding: 18 }}>
@@ -157,7 +156,7 @@ export default function Settings() {
               paddingHorizontal: 24,
               marginHorizontal: 24,
               marginBottom: 8,
-            }]}
+            }, colorScheme === 'dark' && { backgroundColor: pressed ? '#ef4444' : '#7f1d1d' }]}
           >
             <MaterialIcons name={item.icon} size={24} color="#fff" style={{ marginRight: 10 }} />
             <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>{title}</Text>
@@ -165,6 +164,8 @@ export default function Settings() {
         </View>
       );
     }
+
+    // Theme item now navigates to dedicated theme settings page
 
     return (
       <Pressable
@@ -178,15 +179,18 @@ export default function Settings() {
           backgroundColor: pressed ? "#f3f4f6" : "#fff",
           borderBottomWidth: 1,
           borderBottomColor: "#f3f4f6",
+        }, colorScheme === 'dark' && {
+          backgroundColor: pressed ? '#23232a' : '#18181b',
+          borderBottomColor: '#23232a',
         }]}
       >
         <MaterialIcons name={item.icon} size={28} color={item.iconColor} style={{ marginRight: 18 }} />
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 18, fontWeight: "500" }}>{title}</Text>
-          {description && <Text style={{ color: "#6b7280", marginTop: 2 }}>{description}</Text>}
+          <Text style={{ fontSize: 18, fontWeight: "500", color: colorScheme === 'dark' ? '#fff' : undefined }}>{title}</Text>
+          {description && <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", marginTop: 2 }}>{description}</Text>}
         </View>
         {item.showChevron && (
-          <MaterialIcons name="chevron-right" size={24} color="#d1d5db" />
+          <MaterialIcons name="chevron-right" size={24} color={colorScheme === 'dark' ? '#a1a1aa' : "#d1d5db"} />
         )}
       </Pressable>
     );
@@ -195,10 +199,9 @@ export default function Settings() {
   return (
     <>
       <Stack.Screen options={{ title: t("settings.title") }} />
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }} edges={["bottom"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
         <ScrollView>
           {settingsItems.map(renderSettingItem)}
-          {/* Render login button at the bottom if not authenticated */}
           {!isAuthenticated && renderSettingItem({
             id: "login",
             icon: "login" as keyof typeof MaterialIcons.glyphMap,

@@ -1,12 +1,13 @@
 
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, Image, TextInput, Pressable, Modal, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, Image, TextInput, Pressable, Modal, ActivityIndicator, Alert, useColorScheme } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from "react-i18next";
 import { Stack } from "expo-router";
 import { config } from "@/lib/config";
 
 export default function UserProfileScreen() {
+  const colorScheme = useColorScheme();
   const { t } = useTranslation();
   const [email, setEmail] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -18,6 +19,7 @@ export default function UserProfileScreen() {
   const [editAvatar, setEditAvatar] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  const [userId, setUserId] = useState<string | null>(null);
   useEffect(() => {
     const fetchUserInfo = async () => {
       setLoading(true);
@@ -33,10 +35,13 @@ export default function UserProfileScreen() {
           },
         });
         if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        setEmail(data.email || null);
-        setDisplayName(data.displayName || null);
-        setAvatar(data.avatarUrl || null);
+          const data = await res.json();
+          console.log('User profile response:', data);
+          // Use data.user for all profile info
+          setEmail(data.user?.email || null);
+          setDisplayName(data.user?.displayName || null);
+          setAvatar(data.user?.avatarUrl || null);
+          setUserId(data.user?.id || data.user?._id || null);
       } catch (err: any) {
         setError(err.message || 'Failed to load profile');
       } finally {
@@ -58,7 +63,9 @@ export default function UserProfileScreen() {
     try {
       const token = await AsyncStorage.getItem('jwt');
       if (!token) throw new Error('Not authenticated');
-      const res = await fetch(`${config.apiUrl}/api/users/me`, {
+      if (!userId) throw new Error('User ID not found');
+      // PATCH to /api/users/:id
+      const res = await fetch(`${config.apiUrl}/api/users/${userId}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -82,9 +89,9 @@ export default function UserProfileScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, colorScheme === 'dark' && { backgroundColor: '#18181b' }]}> 
       <Stack.Screen options={{ title: t("profile.title") }} />
-      <View style={styles.card}>
+      <View style={[styles.card, colorScheme === 'dark' && { backgroundColor: '#23232a' }]}> 
         {loading ? (
           <ActivityIndicator size="large" color="#6366f1" />
         ) : (
@@ -95,8 +102,8 @@ export default function UserProfileScreen() {
                 style={styles.avatar}
               />
             </View>
-            <Text style={styles.name}>{displayName || t('profile.noDisplayName', 'N/A')}</Text>
-            <Text style={styles.email}>{email || t('profile.noEmail', 'N/A')}</Text>
+            <Text style={[styles.name, colorScheme === 'dark' && { color: '#fff' }]}>{displayName || t('profile.noDisplayName', 'N/A')}</Text>
+            <Text style={[styles.email, colorScheme === 'dark' && { color: '#d1d5db' }]}>{email || t('profile.noEmail', 'N/A')}</Text>
             <Pressable style={styles.editButton} onPress={openEditModal}>
               <Text style={styles.editButtonText}>{t('common.tapToEdit', 'Edit')}</Text>
             </Pressable>
@@ -106,25 +113,27 @@ export default function UserProfileScreen() {
       </View>
       <Modal
         visible={editModalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setEditModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('profile.title', 'Edit Profile')}</Text>
+          <View style={[styles.modalContent, colorScheme === 'dark' && { backgroundColor: '#23232a' }]}> 
+            <Text style={[styles.modalTitle, colorScheme === 'dark' && { color: '#fff' }]}>{t('profile.title', 'Edit Profile')}</Text>
             <TextInput
-              style={styles.input}
+              style={[styles.input, colorScheme === 'dark' && { backgroundColor: '#18181b', color: '#fff', borderColor: '#444' }]}
               value={editName}
               onChangeText={setEditName}
               placeholder={t('auth.displayName')}
+              placeholderTextColor={colorScheme === 'dark' ? '#888' : undefined}
               autoCapitalize="words"
             />
             <TextInput
-              style={styles.input}
+              style={[styles.input, colorScheme === 'dark' && { backgroundColor: '#18181b', color: '#fff', borderColor: '#444' }]}
               value={editAvatar}
               onChangeText={setEditAvatar}
               placeholder={t('profile.avatarUrl', 'Avatar URL')}
+              placeholderTextColor={colorScheme === 'dark' ? '#888' : undefined}
               autoCapitalize="none"
             />
             <View style={styles.modalActions}>
