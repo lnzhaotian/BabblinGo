@@ -7,6 +7,23 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 const resources = {
   en: {
     translation: {
+      "auth.email": "Email",
+      "auth.password": "Password",
+      "auth.displayName": "Display Name",
+  "auth.loginError": "Login failed: {{error}}",
+  "auth.loginSuccess": "Login successful!",
+  "auth.loggingIn": "Logging in...",
+  "auth.registrationError": "Registration failed: {{error}}",
+  "auth.registrationSuccess": "Registration successful! Check your email for verification.",
+  "auth.registering": "Registering...",
+  "auth.noAccount": "Don't have an account?",
+  "auth.alreadyHaveAccount": "Already have an account?",
+  "settings.login": "Log In",
+  "settings.register": "Register",
+  "settings.logout": "Log Out",
+  "profile.title": "User Profile",
+  "profile.noEmail": "N/A",
+  "profile.noDisplayName": "N/A",
       // Tabs
       "tabs.home": "BabblinGo",
       "tabs.tests": "Tests",
@@ -155,6 +172,23 @@ const resources = {
   },
   zh: {
     translation: {
+      "auth.email": "邮箱",
+      "auth.password": "密码",
+      "auth.displayName": "昵称",
+  "auth.loginError": "登录失败：{{error}}",
+  "auth.loginSuccess": "登录成功！",
+  "auth.loggingIn": "正在登录...",
+  "auth.registrationError": "注册失败：{{error}}",
+  "auth.registrationSuccess": "注册成功！请查收验证邮件。",
+  "auth.registering": "正在注册...",
+  "auth.noAccount": "还没有账号？",
+  "auth.alreadyHaveAccount": "已经有账号？",
+  "settings.login": "登录",
+  "settings.register": "注册",
+  "settings.logout": "退出登录",
+  "profile.title": "个人信息",
+  "profile.noEmail": "无",
+  "profile.noDisplayName": "无",
       // Tabs
       "tabs.home": "BabblinGo",
       "tabs.tests": "测试",
