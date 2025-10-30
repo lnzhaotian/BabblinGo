@@ -61,6 +61,32 @@ BabblinGo/
 
 This section tracks the step-by-step plan for implementing user authentication and server-side user data sync in BabblinGo. Refer to this roadmap if you need to resume or clarify the next steps during development.
 
+### Progress Update (as of 2025-10-30)
+**Backend:**
+- Users collection extended with display name, avatar, bio, and role fields
+- `auth: true` enabled for password-based authentication
+- Email verification, password reset, and forgot password flows are working (Aliyun SMTP tested)
+- Payload endpoints tested: `/api/users/register`, `/api/users/login`, `/api/users/me`, `/api/users/forgot-password`, `/api/users/reset-password`
+
+**Frontend:**
+- Ready for auth integration (screens/components for registration, login, logout, password reset to be built)
+- JWT storage and user context/provider planned
+- API calls to Payload endpoints to be implemented
+
+**Sync:**
+- Next: Create collections for user settings, logs, test results, etc. (with user reference)
+- Next: Implement authenticated API calls and server sync logic
+
+**Testing:**
+- Email flows tested and working
+- Next: Test full auth and sync flows, multi-device scenarios
+
+**Next Steps:**
+1. Backend: Add user data collections (settings, logs, results)
+2. Frontend: Build auth screens, implement JWT storage, add API methods, manage user state
+3. Sync: Implement server sync for settings/logs/results, migrate local data
+4. Testing: Test all flows, handle errors, verify multi-device sync
+
 ### 1. Backend: Users Collection & Auth Foundation
 - Extend the `Users` collection in Payload CMS:
   - Add fields: display name, avatar, etc. (as needed)
