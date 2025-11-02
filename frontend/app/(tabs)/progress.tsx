@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
-import { fetchLessonById } from "@/lib/payload"
+import { CourseDoc, fetchCourseById, fetchLessonById, resolveLocalizedField } from "@/lib/payload"
 import { useThemeMode } from "../theme-context"
 
 // Stored by lesson timer in lesson screen
@@ -19,6 +19,21 @@ interface SessionRecord {
   plannedSeconds: number
   speed: number
   finished?: boolean // true if session completed planned time, false if exited early
+}
+
+type LessonMeta = {
+  title: string
+  courseId?: string
+  courseSlug?: string
+  courseTitle?: string
+  levelKey?: string | null
+  levelLabel?: string
+}
+
+type ChartPoint = {
+  id: string
+  label: string
+  total: number
 }
 
 const secToHMM = (s: number) => {
@@ -35,6 +50,8 @@ const secToMMSS = (s: number) => {
   return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`
 }
 
+const BAR_MAX_HEIGHT = 120
+
 const isSameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 
 const withinLastNDays = (ms: number, days: number) => {
@@ -46,8 +63,8 @@ export default function ProgressScreen() {
   const { t, i18n } = useTranslation()
   const [sessions, setSessions] = useState<SessionRecord[]>([])
   const [timeframe, setTimeframe] = useState<"7d" | "30d" | "all">("7d")
-  const [lessonFilter, setLessonFilter] = useState<string | "all">("all")
-  const [titlesById, setTitlesById] = useState<Record<string, string>>({})
+  const [courseFilter, setCourseFilter] = useState<string | "all">("all")
+  const [lessonMetaById, setLessonMetaById] = useState<Record<string, LessonMeta>>({})
   const { colorScheme } = useThemeMode();
 
   const loadSessions = useCallback(async () => {
@@ -69,34 +86,94 @@ export default function ProgressScreen() {
 
   // Fetch localized lesson titles for current language
   useEffect(() => {
-    const loadTitles = async () => {
+    const loadMeta = async () => {
       try {
         const ids = Array.from(new Set(sessions.map((s) => s.lessonId)))
         if (ids.length === 0) {
-          setTitlesById({})
+          setLessonMetaById({})
           return
         }
+
+        const courseCache = new Map<string, CourseDoc>()
+
         const entries = await Promise.all(
           ids.map(async (id) => {
             try {
               const doc = await fetchLessonById(id, i18n.language)
-              return [id, doc.title as string] as const
+
+              let courseDoc: CourseDoc | undefined
+              let courseId: string | undefined
+              let courseSlug: string | undefined
+
+              if (doc.course && typeof doc.course === "object") {
+                courseDoc = doc.course as CourseDoc
+                courseId = courseDoc.id
+                courseSlug = courseDoc.slug
+              } else if (typeof doc.course === "string") {
+                courseId = doc.course
+                courseDoc = courseCache.get(courseId)
+                if (!courseDoc) {
+                  try {
+                    courseDoc = await fetchCourseById(courseId, i18n.language)
+                    courseCache.set(courseId, courseDoc)
+                  } catch {
+                    courseDoc = undefined
+                  }
+                }
+                courseSlug = courseDoc?.slug
+              }
+
+              const resolvedCourseTitle = courseDoc
+                ? resolveLocalizedField(courseDoc.title, i18n.language) ?? courseDoc.slug
+                : undefined
+
+              const levelKey = doc.level ?? null
+              let levelLabel: string | undefined
+              if (levelKey && courseDoc?.levels) {
+                const matched = courseDoc.levels.find((lvl) => lvl && lvl.key === levelKey)
+                if (matched) {
+                  levelLabel =
+                    resolveLocalizedField(matched.label ?? matched.key, i18n.language) ?? matched.key ?? undefined
+                }
+              }
+
+              return [
+                id,
+                {
+                  title: doc.title,
+                  courseId,
+                  courseSlug,
+                  courseTitle: resolvedCourseTitle,
+                  levelKey,
+                  levelLabel,
+                } satisfies LessonMeta,
+              ] as const
             } catch {
-              // Fallback to existing saved title from the latest session with that id
               const saved = sessions.find((s) => s.lessonId === id)?.lessonTitle || id
-              return [id, saved] as const
+              return [
+                id,
+                {
+                  title: saved,
+                } satisfies LessonMeta,
+              ] as const
             }
           })
         )
-        const map: Record<string, string> = {}
-        for (const [id, title] of entries) map[id] = title
-        setTitlesById(map)
+
+        const map: Record<string, LessonMeta> = {}
+        for (const [id, meta] of entries) {
+          map[id] = meta
+        }
+        setLessonMetaById(map)
       } catch {
         // ignore failures; fallbacks will handle
       }
     }
-    loadTitles()
+
+    loadMeta()
   }, [sessions, i18n.language])
+
+  const fallbackCourseName = t("home.untitledCourse")
 
   const summary = useMemo(() => {
     const now = new Date()
@@ -113,56 +190,191 @@ export default function ProgressScreen() {
     return { today, week, all }
   }, [sessions])
 
-  const uniqueLessons = useMemo(() => {
-    const map = new Map<string, string>()
+  const courseOptions = useMemo(() => {
+    const map = new Map<string, { title: string; count: number }>()
+
     sessions.forEach((s) => {
-      const title = titlesById[s.lessonId] || s.lessonTitle || s.lessonId
-      if (!map.has(s.lessonId)) map.set(s.lessonId, title)
+      const meta = lessonMetaById[s.lessonId]
+      if (!meta?.courseId) {
+        return
+      }
+
+      const displayTitle = meta.courseTitle && meta.courseTitle.trim().length > 0
+        ? meta.courseTitle
+        : fallbackCourseName
+
+      const existing = map.get(meta.courseId)
+      if (existing) {
+        existing.count += 1
+        if (meta.courseTitle && meta.courseTitle.trim().length > 0) {
+          existing.title = meta.courseTitle
+        }
+      } else {
+        map.set(meta.courseId, { title: displayTitle, count: 1 })
+      }
     })
-    return Array.from(map.entries()).map(([id, title]) => ({ id, title }))
-  }, [sessions, titlesById])
+
+    return Array.from(map.entries())
+      .map(([courseId, info]) => ({ courseId, title: info.title, count: info.count }))
+      .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: "base" }))
+  }, [sessions, lessonMetaById, fallbackCourseName])
+
+  useEffect(() => {
+    if (courseFilter === "all") {
+      return
+    }
+
+    const hasCourse = courseOptions.some((option) => option.courseId === courseFilter)
+    if (!hasCourse) {
+      setCourseFilter("all")
+    }
+  }, [courseFilter, courseOptions])
 
   const filteredSessions = useMemo(() => {
     let arr = sessions
     if (timeframe === "7d") arr = arr.filter((s) => withinLastNDays(s.startedAt, 7))
     else if (timeframe === "30d") arr = arr.filter((s) => withinLastNDays(s.startedAt, 30))
-    if (lessonFilter !== "all") arr = arr.filter((s) => s.lessonId === lessonFilter)
+    if (courseFilter !== "all") {
+      arr = arr.filter((s) => {
+        const meta = lessonMetaById[s.lessonId]
+        return meta?.courseId === courseFilter
+      })
+    }
     return arr
-  }, [sessions, timeframe, lessonFilter])
+  }, [sessions, timeframe, courseFilter, lessonMetaById])
 
-  // Weekly chart data (current week Monday -> Sunday). Respects lesson filter.
-  const weekly = useMemo(() => {
-    // Find Monday of current week
-    const base = new Date()
-    base.setHours(0, 0, 0, 0)
-    const dow = base.getDay() // 0=Sun..6=Sat
-    const daysFromMonday = (dow + 6) % 7 // 0 if Mon
-    const monday = new Date(base)
-    monday.setDate(base.getDate() - daysFromMonday)
-
-    const keys: ("mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun")[] = [
-      "mon",
-      "tue",
-      "wed",
-      "thu",
-      "fri",
-      "sat",
-      "sun",
-    ]
-
-    const days: { label: string; total: number }[] = keys.map((k, idx) => {
-      const d = new Date(monday)
-      d.setDate(monday.getDate() + idx)
-      const label = t(`common.weekdayShort.${k}`)
-      const total = filteredSessions
-        .filter((s) => isSameDay(new Date(s.startedAt), d))
-        .reduce((acc, s) => acc + Math.max(0, Math.round((s.endedAt - s.startedAt) / 1000)), 0)
-      return { label, total }
+  // Time-series chart data driven by current timeframe filter.
+  const chart = useMemo(() => {
+    const totalsByDay = new Map<number, number>()
+    filteredSessions.forEach((session) => {
+      const startDay = new Date(session.startedAt)
+      startDay.setHours(0, 0, 0, 0)
+      const key = startDay.getTime()
+      const duration = Math.max(0, Math.round((session.endedAt - session.startedAt) / 1000))
+      totalsByDay.set(key, (totalsByDay.get(key) ?? 0) + duration)
     })
 
-    const max = Math.max(1, ...days.map((d) => d.total))
-    return { days, max }
-  }, [filteredSessions, t])
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const formatWeekday = new Intl.DateTimeFormat(i18n.language, { weekday: "short" })
+    const formatMonthDay = new Intl.DateTimeFormat(i18n.language, { month: "short", day: "numeric" })
+    const formatMonth = new Intl.DateTimeFormat(i18n.language, { month: "short", year: "2-digit" })
+
+    const getTotalBetween = (startTime: number, endTime: number) => {
+      let sum = 0
+      totalsByDay.forEach((value, day) => {
+        if (day >= startTime && day <= endTime) {
+          sum += value
+        }
+      })
+      return sum
+    }
+
+    const points: ChartPoint[] = []
+
+    if (timeframe === "7d") {
+      for (let offset = 6; offset >= 0; offset -= 1) {
+        const day = new Date(today)
+        day.setDate(today.getDate() - offset)
+        const key = day.getTime()
+        const total = totalsByDay.get(key) ?? 0
+        points.push({ id: key.toString(), label: formatWeekday.format(day), total })
+      }
+    } else if (timeframe === "30d") {
+      const start = new Date(today)
+      start.setDate(today.getDate() - 29)
+      const cursor = new Date(start)
+      while (cursor <= today) {
+        const bucketStart = new Date(cursor)
+        const bucketEnd = new Date(cursor)
+        bucketEnd.setDate(bucketEnd.getDate() + 6)
+        if (bucketEnd > today) {
+          bucketEnd.setTime(today.getTime())
+        }
+
+        const startKey = bucketStart.getTime()
+        const endKey = bucketEnd.getTime()
+        const total = getTotalBetween(startKey, endKey)
+        const startLabel = formatMonthDay.format(bucketStart)
+        const endLabel = formatMonthDay.format(bucketEnd)
+        const label = startLabel === endLabel ? startLabel : `${startLabel}–${endLabel}`
+        points.push({ id: `${startKey}-${endKey}`, label, total })
+
+        cursor.setDate(cursor.getDate() + 7)
+      }
+    } else {
+      const dayKeys = Array.from(totalsByDay.keys()).sort((a, b) => a - b)
+      if (dayKeys.length === 0) {
+        return { points: [], max: 1, scrollable: false }
+      }
+
+      const initialStart = new Date(today)
+      initialStart.setMonth(initialStart.getMonth() - 11)
+      initialStart.setDate(1)
+      initialStart.setHours(0, 0, 0, 0)
+
+      const earliest = new Date(dayKeys[0])
+      earliest.setDate(1)
+      earliest.setHours(0, 0, 0, 0)
+
+      const start = earliest > initialStart ? earliest : initialStart
+      const cursor = new Date(start)
+      const limit = 12
+      while ((cursor <= today || points.length === 0) && points.length < limit) {
+        const bucketStart = new Date(cursor)
+        const nextMonth = new Date(bucketStart)
+        nextMonth.setMonth(nextMonth.getMonth() + 1)
+        nextMonth.setHours(0, 0, 0, 0)
+
+        const startMs = bucketStart.getTime()
+        const endMs = Math.min(nextMonth.getTime() - 1, today.getTime())
+        const total = getTotalBetween(startMs, endMs)
+        const label = formatMonth.format(bucketStart)
+        points.push({ id: `${bucketStart.getFullYear()}-${bucketStart.getMonth()}`, label, total })
+
+        cursor.setMonth(cursor.getMonth() + 1)
+        cursor.setDate(1)
+      }
+    }
+
+    const maxValue = points.reduce((acc, point) => Math.max(acc, point.total), 0)
+    const max = maxValue > 0 ? maxValue : 1
+    const scrollable = points.length > 8
+
+    return { points, max, scrollable }
+  }, [filteredSessions, timeframe, i18n.language])
+
+  const chartTitle =
+    timeframe === "7d"
+      ? t("progress.chartTitle7d")
+      : timeframe === "30d"
+      ? t("progress.chartTitle30d")
+      : t("progress.chartTitleAll")
+
+  const chartHasData = chart.points.some((point) => point.total > 0)
+
+  const chartBars = chart.points.map((point) => {
+    const normalized = chart.max > 0 ? point.total / chart.max : 0
+    const height = Math.max(4, Math.round(normalized * BAR_MAX_HEIGHT))
+    return (
+      <View key={point.id} style={{ alignItems: "center", justifyContent: "flex-end", width: 48 }}>
+        <View
+          style={{
+            width: 22,
+            height,
+            borderRadius: 8,
+            backgroundColor: colorScheme === 'dark' ? '#6366f1' : '#6366f1',
+          }}
+        />
+        <Text
+          style={{ marginTop: 6, fontSize: 12, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", textAlign: "center" }}
+          numberOfLines={2}
+        >
+          {point.label}
+        </Text>
+      </View>
+    )
+  })
 
   const sections = useMemo(() => {
     const now = new Date()
@@ -183,21 +395,6 @@ export default function ProgressScreen() {
     if (earlier.length) result.push({ title: "Earlier", data: earlier })
     return result
   }, [filteredSessions])
-
-  const perLessonRollups = useMemo(() => {
-    const map = new Map<string, { title: string; total: number; sessions: number }>()
-    for (const s of filteredSessions) {
-      const key = s.lessonId
-      const displayTitle = titlesById[key] || s.lessonTitle || s.lessonId
-      const prev = map.get(key) || { title: displayTitle, total: 0, sessions: 0 }
-      prev.total += Math.max(0, Math.round((s.endedAt - s.startedAt) / 1000))
-      prev.sessions += 1
-      map.set(key, prev)
-    }
-    const arr = Array.from(map.entries()).map(([lessonId, v]) => ({ lessonId, ...v }))
-    arr.sort((a, b) => b.total - a.total)
-    return arr
-  }, [filteredSessions, titlesById])
 
   const deleteSession = useCallback(async (id: string) => {
     try {
@@ -255,54 +452,34 @@ export default function ProgressScreen() {
         </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, marginTop: 8 }}>
           <Pressable
-            onPress={() => setLessonFilter("all")}
-            style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: lessonFilter === "all" ? (colorScheme === 'dark' ? '#18181b' : '#111827') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6') }}
+            onPress={() => setCourseFilter("all")}
+            style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: courseFilter === "all" ? (colorScheme === 'dark' ? '#18181b' : '#111827') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6') }}
           >
-            <Text style={{ color: lessonFilter === "all" ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'), fontWeight: "600" }}>{t("progress.allLessons")}</Text>
+            <Text style={{ color: courseFilter === "all" ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'), fontWeight: "600" }}>{t("progress.allCourses")}</Text>
           </Pressable>
-          {uniqueLessons.map((l) => (
+          {courseOptions.map((option) => (
             <Pressable
-              key={l.id}
-              onPress={() => setLessonFilter(l.id)}
-              style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: lessonFilter === l.id ? (colorScheme === 'dark' ? '#18181b' : '#111827') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6') }}
+              key={option.courseId}
+              onPress={() => setCourseFilter(option.courseId)}
+              style={{ paddingVertical: 8, paddingHorizontal: 12, borderRadius: 999, backgroundColor: courseFilter === option.courseId ? (colorScheme === 'dark' ? '#18181b' : '#111827') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6') }}
             >
-              <Text style={{ color: lessonFilter === l.id ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'), fontWeight: "600" }}>{l.title}</Text>
+              <Text style={{ color: courseFilter === option.courseId ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'), fontWeight: "600" }}>{option.title}</Text>
             </Pressable>
           ))}
         </ScrollView>
       </View>
 
-  {/* Weekly bar chart (last 7 days, respects lesson filter) */}
+  {/* Activity chart */}
   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
-        <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.weekly")}</Text>
-        <View style={{ flexDirection: "row", alignItems: "flex-end", height: 120, gap: 8 }}>
-          {weekly.days.map((d, idx) => {
-            const h = Math.round((d.total / weekly.max) * 100)
-            return (
-              <View key={idx} style={{ alignItems: "center", justifyContent: "flex-end", flex: 1 }}>
-                <View style={{ width: 20, height: `${h}%`, backgroundColor: colorScheme === 'dark' ? '#6366f1' : '#6366f1', borderRadius: 6 }} />
-                <Text style={{ marginTop: 6, fontSize: 12, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{d.label}</Text>
-              </View>
-            )
-          })}
-        </View>
-      </View>
-
-  {/* Per-lesson rollups */}
-  <View style={{ paddingHorizontal: 16, paddingTop: 16 }}>
-        <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700", marginBottom: 8 }}>{t("progress.topLessons")}</Text>
-        {perLessonRollups.length === 0 ? (
-          <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : "#9ca3af" }}>{t("progress.noData")}</Text>
+        <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700", marginBottom: 8 }}>{chartTitle}</Text>
+        {chart.points.length === 0 || !chartHasData ? (
+          <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : "#9ca3af", marginTop: 12 }}>{t("progress.chartEmpty")}</Text>
+        ) : chart.scrollable ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4, paddingRight: 16 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12 }}>{chartBars}</View>
+          </ScrollView>
         ) : (
-          perLessonRollups.slice(0, 6).map((r) => (
-            <View key={r.lessonId} style={{ paddingVertical: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#111827" }} numberOfLines={1}>{r.title}</Text>
-                <Text style={{ fontSize: 14, fontWeight: "800", color: colorScheme === 'dark' ? '#fff' : "#111827", marginLeft: 12 }}>{secToHMM(r.total)}</Text>
-              </View>
-              <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#9ca3af", marginTop: 2 }}>{t("progress.sessions", { count: r.sessions })}</Text>
-            </View>
-          ))
+          <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12, paddingVertical: 4 }}>{chartBars}</View>
         )}
       </View>
 
@@ -319,7 +496,14 @@ export default function ProgressScreen() {
           </View>
         )}
         renderSectionHeader={({ section: { title } }) => (
-          <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>
+          <View
+            style={{
+              paddingHorizontal: 16,
+              paddingTop: 12,
+              paddingBottom: 4,
+              backgroundColor: colorScheme === 'dark' ? "rgba(24, 24, 27, 0.92)" : "rgba(255, 255, 255, 0.92)",
+            }}
+          >
             <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700" }}>
               {title === "Today" ? t("progress.sectionToday") : title === "This Week" ? t("progress.sectionWeek") : t("progress.sectionEarlier")}
             </Text>
@@ -329,6 +513,14 @@ export default function ProgressScreen() {
           const actualSec = Math.max(0, Math.round((item.endedAt - item.startedAt) / 1000))
           const date = new Date(item.startedAt)
           const dateStr = date.toLocaleString()
+          const meta = lessonMetaById[item.lessonId]
+          const lessonTitle = meta?.title || item.lessonTitle || item.lessonId
+          const courseTitle = meta?.courseTitle && meta.courseTitle.trim().length > 0
+            ? meta.courseTitle
+            : meta?.courseId
+            ? fallbackCourseName
+            : undefined
+          const detailLine = [courseTitle, meta?.levelLabel].filter(Boolean).join(" • ")
           return (
             <Swipeable
               renderRightActions={() => (
@@ -343,20 +535,20 @@ export default function ProgressScreen() {
               )}
             >
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colorScheme === 'dark' ? '#23232a' : "#f1f5f9", backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Text style={{ flex: 1, fontSize: 16, fontWeight: "700", color: item.finished === false ? (colorScheme === 'dark' ? '#f59e42' : '#f59e42') : (colorScheme === 'dark' ? '#fff' : "#111827") }} numberOfLines={1}>
-                    {titlesById[item.lessonId] || item.lessonTitle || item.lessonId}
-                    {item.finished === false ? ` (${t('progress.unfinished')})` : ""}
-                  </Text>
-                  <Text style={{ fontSize: 14, fontWeight: "800", color: item.finished === false ? (colorScheme === 'dark' ? '#f59e42' : '#f59e42') : (colorScheme === 'dark' ? '#fff' : "#111827"), marginLeft: 12 }}>{t("progress.actual")} {secToMMSS(actualSec)}</Text>
+                <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 16, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#111827" }} numberOfLines={1}>
+                      {lessonTitle}
+                    </Text>
+                    {detailLine ? (
+                      <Text style={{ marginTop: 2, color: colorScheme === 'dark' ? '#a1a1aa' : "#6b7280" }} numberOfLines={1}>
+                        {detailLine}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colorScheme === 'dark' ? '#e5e7eb' : "#4b5563", marginLeft: 12 }}>{secToMMSS(actualSec)}</Text>
                 </View>
-                <View style={{ flexDirection: "row", marginTop: 4 }}>
-                  <Text style={{ flex: 1, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{dateStr}</Text>
-                  <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : "#9ca3af" }}>
-                    {item.finished === false ? `${t('progress.planned')} ${secToMMSS(item.plannedSeconds)}` : `${t('progress.planned')} ${secToMMSS(item.plannedSeconds)}`}
-                    • {item.speed.toFixed(1)}x
-                  </Text>
-                </View>
+                <Text style={{ marginTop: 6, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{dateStr}</Text>
               </View>
             </Swipeable>
           )
