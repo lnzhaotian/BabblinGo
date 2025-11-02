@@ -56,7 +56,7 @@ const resources = {
   "profile.bioTooLong": "Bio must be 500 characters or less",
   "profile.invalidUrl": "Please enter a valid URL",
       // Tabs
-      "tabs.home": "BabblinGo",
+  "tabs.home": "Courses",
       "tabs.tests": "Tests",
       "tabs.progress": "History",
       "tabs.settings": "Settings",
@@ -281,7 +281,7 @@ const resources = {
   "profile.bioTooLong": "个人简介不能超过500字",
   "profile.invalidUrl": "请输入有效的网址",
       // Tabs
-      "tabs.home": "BabblinGo",
+  "tabs.home": "课程",
       "tabs.tests": "测试",
       "tabs.progress": "记录",
       "tabs.settings": "设置",

@@ -13,6 +13,9 @@ export interface SessionRecord {
   plannedSeconds: number;
   speed: PlaybackSpeed;
   finished: boolean; // true if session completed planned time, false if exited early
+  runId?: string;
+  durationSeconds?: number;
+  segments?: number;
 }
 // ...existing code...
 
@@ -92,13 +95,13 @@ export async function saveLearningPreferences(
  */
 export async function saveLearningSession(record: Omit<SessionRecord, "id">): Promise<void> {
   try {
-    const duration = record.endedAt - record.startedAt;
-    const durationSeconds = Math.floor(duration / 1000);
+    const rawDurationMs = record.endedAt - record.startedAt;
+    const segmentDurationSeconds = Math.max(0, Math.floor(rawDurationMs / 1000));
 
     // Only save sessions that meet minimum duration
-    if (MIN_SESSION_DURATION > 0 && durationSeconds < MIN_SESSION_DURATION) {
+    if (MIN_SESSION_DURATION > 0 && segmentDurationSeconds < MIN_SESSION_DURATION) {
       console.log(
-        `Session too short (${durationSeconds}s), not saving (min: ${MIN_SESSION_DURATION}s)`
+        `Session too short (${segmentDurationSeconds}s), not saving (min: ${MIN_SESSION_DURATION}s)`
       );
       return;
     }
@@ -107,15 +110,48 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
     const raw = await AsyncStorage.getItem(key);
     const sessions: SessionRecord[] = raw ? JSON.parse(raw) : [];
 
-    const newSession: SessionRecord = {
+    const normalizedLessonTitle = record.lessonTitle?.trim().length ? record.lessonTitle : record.lessonId;
+    const baseSession: SessionRecord = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
       ...record,
+      lessonTitle: normalizedLessonTitle,
+      durationSeconds: segmentDurationSeconds,
+      segments: record.segments ?? 1,
     };
 
-    sessions.push(newSession);
+    if (record.runId) {
+      const existingIndex = sessions.findIndex((session) => session.runId === record.runId);
+      if (existingIndex >= 0) {
+        const existing = sessions[existingIndex];
+        const existingDuration = existing.durationSeconds ?? Math.max(0, Math.floor((existing.endedAt - existing.startedAt) / 1000));
+        const merged: SessionRecord = {
+          ...existing,
+          lessonTitle: normalizedLessonTitle,
+          startedAt: Math.min(existing.startedAt, record.startedAt),
+          endedAt: Math.max(existing.endedAt, record.endedAt),
+          plannedSeconds: (existing.plannedSeconds ?? 0) + (record.plannedSeconds ?? 0),
+          speed: record.speed,
+          finished: existing.finished && record.finished,
+          runId: record.runId,
+          durationSeconds: existingDuration + segmentDurationSeconds,
+          segments: (existing.segments ?? 1) + (record.segments ?? 1),
+        };
+
+        sessions[existingIndex] = merged;
+        await AsyncStorage.setItem(key, JSON.stringify(sessions));
+        console.log(
+          `Updated aggregated session ${record.runId}: +${segmentDurationSeconds}s (segments=${merged.segments}, total=${merged.durationSeconds}s)`
+        );
+        return;
+      }
+    }
+
+    sessions.push(baseSession);
     await AsyncStorage.setItem(key, JSON.stringify(sessions));
 
-    console.log(`Saved learning session: ${durationSeconds}s for ${record.lessonTitle} (finished: ${record.finished})`);
+    console.log(
+      `Saved learning session: ${segmentDurationSeconds}s for ${normalizedLessonTitle} (finished: ${record.finished}, runId: ${record.runId ?? "-"})`
+    );
   } catch (error) {
     console.error("Failed to save learning session:", error);
     // Don't throw - session saving is not critical

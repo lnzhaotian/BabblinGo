@@ -6,20 +6,8 @@ import { useFocusEffect } from "@react-navigation/native"
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
 import { CourseDoc, fetchCourseById, fetchLessonById, resolveLocalizedField } from "@/lib/payload"
+import type { SessionRecord } from "@/lib/session-manager"
 import { useThemeMode } from "../theme-context"
-
-// Stored by lesson timer in lesson screen
-// id, lessonId, lessonTitle, startedAt, endedAt, plannedSeconds, speed
-interface SessionRecord {
-  id: string
-  lessonId: string
-  lessonTitle: string
-  startedAt: number
-  endedAt: number
-  plannedSeconds: number
-  speed: number
-  finished?: boolean // true if session completed planned time, false if exited early
-}
 
 type LessonMeta = {
   title: string
@@ -51,6 +39,9 @@ const secToMMSS = (s: number) => {
 }
 
 const BAR_MAX_HEIGHT = 120
+
+const getSessionSeconds = (session: SessionRecord): number =>
+  session.durationSeconds ?? Math.max(0, Math.round((session.endedAt - session.startedAt) / 1000))
 
 const isSameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 
@@ -181,7 +172,7 @@ export default function ProgressScreen() {
     let week = 0
     let all = 0
     for (const s of sessions) {
-      const dur = Math.max(0, Math.round((s.endedAt - s.startedAt) / 1000))
+      const dur = getSessionSeconds(s)
       all += dur
       const started = new Date(s.startedAt)
       if (isSameDay(started, now)) today += dur
@@ -250,7 +241,7 @@ export default function ProgressScreen() {
       const startDay = new Date(session.startedAt)
       startDay.setHours(0, 0, 0, 0)
       const key = startDay.getTime()
-      const duration = Math.max(0, Math.round((session.endedAt - session.startedAt) / 1000))
+      const duration = getSessionSeconds(session)
       totalsByDay.set(key, (totalsByDay.get(key) ?? 0) + duration)
     })
 
@@ -510,7 +501,7 @@ export default function ProgressScreen() {
           </View>
         )}
         renderItem={({ item }) => {
-          const actualSec = Math.max(0, Math.round((item.endedAt - item.startedAt) / 1000))
+          const actualSec = getSessionSeconds(item)
           const date = new Date(item.startedAt)
           const dateStr = date.toLocaleString()
           const meta = lessonMetaById[item.lessonId]
