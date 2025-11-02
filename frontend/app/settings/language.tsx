@@ -1,17 +1,14 @@
 import React from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
-import { Stack } from "expo-router";
+// import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { changeLanguage } from "@/lib/i18n";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useThemeMode } from "../theme-context";
+import { ThemedHeader } from "../components/ThemedHeader";
 
-function LanguageHeaderTitle() {
-  const { t } = useTranslation();
-  const { colorScheme } = useThemeMode();
-  return <Text style={{ fontWeight: "700", fontSize: 18, color: colorScheme === 'dark' ? '#fff' : '#18181b' }}>{t("settings.language")}</Text>;
-}
+// Replaced by ThemedHeader
 
 export default function LanguageSettings() {
   const { t, i18n } = useTranslation();
@@ -37,11 +34,7 @@ export default function LanguageSettings() {
 
   return (
     <>
-      <Stack.Screen options={{
-        headerTitle: () => <LanguageHeaderTitle />,
-        headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
-        headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
-      }} />
+      <ThemedHeader titleKey="settings.language" />
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", marginBottom: 16 }}>

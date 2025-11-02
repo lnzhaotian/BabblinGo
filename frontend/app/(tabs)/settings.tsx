@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -22,6 +22,8 @@ export default function Settings() {
   const { t } = useTranslation();
   const router = useRouter();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userName, setUserName] = useState<string | null>(null);
   const { colorScheme } = useThemeMode();
 
   // Update auth state on screen focus and initial mount
@@ -31,9 +33,25 @@ export default function Settings() {
       (async () => {
         try {
           const token = await AsyncStorage.getItem('jwt');
-          if (!cancelled) setIsAuthenticated(!!token);
+          if (!cancelled) {
+            setIsAuthenticated(!!token);
+            if (token) {
+              // Fetch user profile
+              const email = await AsyncStorage.getItem('user_email');
+              const name = await AsyncStorage.getItem('user_displayName');
+              setUserEmail(email);
+              setUserName(name);
+            } else {
+              setUserEmail(null);
+              setUserName(null);
+            }
+          }
         } catch {
-          if (!cancelled) setIsAuthenticated(false);
+          if (!cancelled) {
+            setIsAuthenticated(false);
+            setUserEmail(null);
+            setUserName(null);
+          }
         }
       })();
       return () => {
@@ -48,25 +66,11 @@ export default function Settings() {
     await AsyncStorage.removeItem('user_email');
     await AsyncStorage.removeItem('user_displayName');
     setIsAuthenticated(false);
+    setUserEmail(null);
+    setUserName(null);
   };
 
-
-
-  const settingsItems: SettingItem[] = [
-    ...(
-      isAuthenticated
-        ? [
-            {
-              id: "profile",
-              icon: "person" as keyof typeof MaterialIcons.glyphMap,
-              iconColor: "#6366f1",
-              titleKey: "profile.title",
-              route: "/settings/profile",
-              showChevron: true,
-            },
-          ]
-        : []
-    ),
+  const preferencesSection: SettingItem[] = [
     {
       id: "language",
       icon: "language" as keyof typeof MaterialIcons.glyphMap,
@@ -95,14 +99,6 @@ export default function Settings() {
       showChevron: true,
     },
     {
-      id: "progress",
-      icon: "trending-up" as keyof typeof MaterialIcons.glyphMap,
-      iconColor: "#f59e0b",
-      titleKey: "settings.viewRecords",
-      route: "/(tabs)/progress",
-      showChevron: true,
-    },
-    {
       id: "theme",
       icon: "dark-mode" as keyof typeof MaterialIcons.glyphMap,
       iconColor: "#6366f1",
@@ -119,71 +115,11 @@ export default function Settings() {
       route: "/settings/about",
       showChevron: true,
     },
-    ...(!isAuthenticated ? [] : [
-      {
-        id: "logout",
-        icon: "logout" as keyof typeof MaterialIcons.glyphMap,
-        iconColor: "#ef4444",
-        titleKey: "settings.logout",
-        route: "",
-        showChevron: false,
-      },
-    ]),
   ];
 
   const renderSettingItem = (item: SettingItem) => {
     const title = t(item.titleKey);
     const description = item.descriptionKey ? t(item.descriptionKey) : undefined;
-
-    if (!isAuthenticated && item.id === 'login') {
-      return (
-        <View key={item.id} style={{ padding: 18 }}>
-          <Pressable
-            onPress={() => router.push({ pathname: '/auth/login', params: {}, presentation: 'modal' } as any)}
-            style={({ pressed }) => [{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? "#6366f1" : "#4f46e5",
-              borderRadius: 8,
-              paddingVertical: 14,
-              paddingHorizontal: 24,
-              marginHorizontal: 24,
-              marginBottom: 8,
-            }, colorScheme === 'dark' && { backgroundColor: pressed ? '#6366f1' : '#312e81' }]}
-          >
-            <MaterialIcons name={item.icon} size={24} color="#fff" style={{ marginRight: 10 }} />
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>{title}</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
-    if (item.id === 'logout') {
-      return (
-        <View key={item.id} style={{ padding: 18 }}>
-          <Pressable
-            onPress={handleLogout}
-            style={({ pressed }) => [{
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? "#ef4444" : "#dc2626",
-              borderRadius: 8,
-              paddingVertical: 14,
-              paddingHorizontal: 24,
-              marginHorizontal: 24,
-              marginBottom: 8,
-            }, colorScheme === 'dark' && { backgroundColor: pressed ? '#ef4444' : '#7f1d1d' }]}
-          >
-            <MaterialIcons name={item.icon} size={24} color="#fff" style={{ marginRight: 10 }} />
-            <Text style={{ color: '#fff', fontSize: 18, fontWeight: '600' }}>{title}</Text>
-          </Pressable>
-        </View>
-      );
-    }
-
-    // Theme item now navigates to dedicated theme settings page
 
     return (
       <Pressable
@@ -214,20 +150,173 @@ export default function Settings() {
     );
   };
 
+  const renderSectionHeader = (title: string) => (
+    <View style={{ 
+      paddingHorizontal: 16, 
+      paddingTop: 24, 
+      paddingBottom: 8,
+      backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb"
+    }}>
+      <Text style={{ 
+        fontSize: 13, 
+        fontWeight: '600', 
+        color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5
+      }}>
+        {title}
+      </Text>
+    </View>
+  );
+
+  const renderUserCard = () => (
+    <Pressable
+      onPress={() => router.push('/settings/profile')}
+      style={({ pressed }) => [{
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        backgroundColor: pressed ? "#f3f4f6" : "#fff",
+        borderBottomWidth: 1,
+        borderBottomColor: "#f3f4f6",
+      }, colorScheme === 'dark' && {
+        backgroundColor: pressed ? '#23232a' : '#18181b',
+        borderBottomColor: '#23232a',
+      }]}
+    >
+      <View style={{
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: colorScheme === 'dark' ? '#312e81' : '#e0e7ff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16
+      }}>
+        <MaterialIcons name="person" size={32} color="#6366f1" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ 
+          fontSize: 18, 
+          fontWeight: "600", 
+          color: colorScheme === 'dark' ? '#fff' : '#111827',
+          marginBottom: 2
+        }}>
+          {userName || t('profile.noDisplayName')}
+        </Text>
+        <Text style={{ 
+          fontSize: 14, 
+          color: colorScheme === 'dark' ? '#d1d5db' : '#6b7280' 
+        }}>
+          {userEmail || t('profile.noEmail')}
+        </Text>
+      </View>
+      <MaterialIcons name="chevron-right" size={24} color={colorScheme === 'dark' ? '#a1a1aa' : "#d1d5db"} />
+    </Pressable>
+  );
+
+  const renderAuthButtons = () => (
+    <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
+      <Pressable
+        onPress={() => router.push('/auth/login')}
+        style={({ pressed }) => [{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: pressed ? "#5b5fc7" : "#6366f1",
+          borderRadius: 12,
+          paddingVertical: 16,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.1,
+          shadowRadius: 4,
+          elevation: 2,
+        }]}
+      >
+        <MaterialIcons name="login" size={22} color="#fff" style={{ marginRight: 10 }} />
+        <Text style={{ color: '#fff', fontSize: 17, fontWeight: '600' }}>{t('settings.login')}</Text>
+      </Pressable>
+      
+      <Pressable
+        onPress={() => router.push('/auth/register')}
+        style={({ pressed }) => [{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff',
+          borderRadius: 12,
+          paddingVertical: 16,
+          borderWidth: 2,
+          borderColor: colorScheme === 'dark' ? '#3f3f46' : '#e5e7eb',
+          opacity: pressed ? 0.7 : 1
+        }]}
+      >
+        <MaterialIcons name="person-add" size={22} color={colorScheme === 'dark' ? '#a1a1aa' : '#6b7280'} style={{ marginRight: 10 }} />
+        <Text style={{ 
+          color: colorScheme === 'dark' ? '#d1d5db' : '#374151', 
+          fontSize: 17, 
+          fontWeight: '600' 
+        }}>
+          {t('settings.register')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+
+  const renderLogout = () => (
+    <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 24 }}>
+      <Pressable
+        onPress={handleLogout}
+        style={({ pressed }) => [{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: pressed ? "#dc2626" : colorScheme === 'dark' ? '#7f1d1d' : '#fee2e2',
+          borderRadius: 12,
+          paddingVertical: 16,
+          borderWidth: 1,
+          borderColor: colorScheme === 'dark' ? '#991b1b' : '#fecaca',
+        }]}
+      >
+        <MaterialIcons name="logout" size={22} color={colorScheme === 'dark' ? '#fca5a5' : '#dc2626'} style={{ marginRight: 10 }} />
+        <Text style={{ 
+          color: colorScheme === 'dark' ? '#fca5a5' : '#dc2626', 
+          fontSize: 17, 
+          fontWeight: '600' 
+        }}>
+          {t('settings.logout')}
+        </Text>
+      </Pressable>
+    </View>
+  );
+
   return (
     <>
-      <Stack.Screen options={{ title: t("settings.title") }} />
+  {/* Header handled by Tabs layout; avoid per-screen header overrides */}
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
         <ScrollView>
-          {settingsItems.map(renderSettingItem)}
-          {!isAuthenticated && renderSettingItem({
-            id: "login",
-            icon: "login" as keyof typeof MaterialIcons.glyphMap,
-            iconColor: "#6366f1",
-            titleKey: "settings.login",
-            route: "/auth/login",
-            showChevron: false,
-          })}
+          {/* Account Section */}
+          {renderSectionHeader(t('settings.accountSection'))}
+          {isAuthenticated ? (
+            renderUserCard()
+          ) : (
+            renderAuthButtons()
+          )}
+
+          {/* Preferences Section */}
+          {renderSectionHeader(t('settings.preferencesSection'))}
+          <View style={{
+            backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff',
+            borderTopWidth: 1,
+            borderBottomWidth: 1,
+            borderColor: colorScheme === 'dark' ? '#23232a' : '#f3f4f6',
+          }}>
+            {preferencesSection.map(renderSettingItem)}
+          </View>
+
+          {/* Logout Section */}
+          {isAuthenticated && renderLogout()}
         </ScrollView>
       </SafeAreaView>
     </>

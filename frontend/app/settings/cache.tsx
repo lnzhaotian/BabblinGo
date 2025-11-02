@@ -1,18 +1,15 @@
 import React from "react";
-import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator, useColorScheme } from "react-native";
-import { Stack } from "expo-router";
+import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from "react-native";
+// import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { getCacheStats, clearCache } from "@/lib/cache-manager";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useThemeMode } from "../theme-context";
+import { ThemedHeader } from "../components/ThemedHeader";
 
-function CacheHeaderTitle() {
-  const { t } = useTranslation();
-  const { colorScheme } = useThemeMode();
-  return <Text style={{ fontWeight: "700", fontSize: 18, color: colorScheme === 'dark' ? '#fff' : '#18181b' }}>{t("settings.language")}</Text>;
-}
+// Replaced by ThemedHeader
 
 export default function CacheSettings() {
   const { t } = useTranslation();
@@ -87,11 +84,7 @@ export default function CacheSettings() {
 
   return (
     <>
-      <Stack.Screen options={{
-        headerTitle: () => <CacheHeaderTitle />,
-        headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
-        headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b' }}
-      />
+      <ThemedHeader titleKey="settings.cache.title" />
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", marginBottom: 16 }}>

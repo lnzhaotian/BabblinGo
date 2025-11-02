@@ -8,11 +8,13 @@ const ThemeContext = createContext<{
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   colorScheme: 'light' | 'dark';
+  hydrated: boolean;
 } | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const systemColorScheme = useColorScheme();
   const [themeMode, setThemeModeState] = useState<ThemeMode>('system');
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -20,6 +22,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (stored === 'dark' || stored === 'light' || stored === 'system') {
         setThemeModeState(stored);
       }
+      setHydrated(true);
     })();
   }, []);
 
@@ -34,7 +37,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
 
   return (
-    <ThemeContext.Provider value={{ themeMode, setThemeMode, colorScheme }}>
+    <ThemeContext.Provider value={{ themeMode, setThemeMode, colorScheme, hydrated }}>
       {children}
     </ThemeContext.Provider>
   );

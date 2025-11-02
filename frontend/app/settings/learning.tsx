@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from "react"
 import { View, Text, Pressable, ScrollView, FlatList, Modal } from "react-native"
-import { Stack } from "expo-router"
+// import { Stack } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 import * as Haptics from "expo-haptics"
 import { useTranslation } from "react-i18next"
 import { useThemeMode } from "../theme-context"
+import { ThemedHeader } from "../components/ThemedHeader"
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import {
   loadLearningPreferences,
@@ -19,11 +20,7 @@ const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 2.0]
  * Learning preferences settings screen
  * Allows users to configure default session length and playback speed
  */
-function LearningHeaderTitle() {
-  const { t } = useTranslation();
-  const { colorScheme } = useThemeMode();
-  return <Text style={{ fontWeight: "700", fontSize: 18, color: colorScheme === 'dark' ? '#fff' : '#18181b' }}>{t("settings.learning.title")}</Text>;
-}
+// Replaced by ThemedHeader
 
 export default function LearningSettingsScreen() {
   const { t, i18n } = useTranslation()
@@ -31,7 +28,7 @@ export default function LearningSettingsScreen() {
 
   const [sessionLength, setSessionLength] = useState(600) // seconds
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
-  const [loading, setLoading] = useState(true)
+  // const [loading, setLoading] = useState(true)
   // Wheel selection state (minutes/seconds) for sessionLength
   const [selectedMinuteIndex, setSelectedMinuteIndex] = useState<number>(10)
   const [selectedSecondIndex, setSelectedSecondIndex] = useState<number>(0)
@@ -73,7 +70,7 @@ export default function LearningSettingsScreen() {
     } catch (error) {
       console.error("Failed to load preferences:", error)
     } finally {
-      setLoading(false)
+      // setLoading(false)
     }
   }, [])
 
@@ -122,11 +119,7 @@ export default function LearningSettingsScreen() {
 
   return (
     <>
-      <Stack.Screen options={{
-        headerTitle: () => <LearningHeaderTitle />,
-        headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
-        headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
-      }} />
+      <ThemedHeader titleKey="settings.learning.title" />
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 24 }}>
 

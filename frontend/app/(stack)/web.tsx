@@ -10,8 +10,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { useThemeMode } from "../theme-context";
+import { ThemedHeader } from "../components/ThemedHeader";
 
 export default function WebPage() {
   const { url, title } = useLocalSearchParams() as { url?: string; title?: string };
@@ -55,18 +56,13 @@ export default function WebPage() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: title ?? "Web",
-          headerBackButtonDisplayMode: "minimal",
-          headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
-          headerRight: () => (
-            <TouchableOpacity onPress={onReload} style={styles.iconButton} accessibilityLabel="Reload">
-              <MaterialIcons name="refresh" size={22} color={colorScheme === 'dark' ? "#fff" : "#18181b"} />
-            </TouchableOpacity>
-          ),
-          headerTitleStyle: { color: colorScheme === 'dark' ? "#fff" : "#18181b" },
-        }}
+      <ThemedHeader
+        overrideTitle={typeof title === 'string' ? title : 'Web'}
+        headerRight={() => (
+          <TouchableOpacity onPress={onReload} style={styles.iconButton} accessibilityLabel="Reload">
+            <MaterialIcons name="refresh" size={22} color={colorScheme === 'dark' ? "#fff" : "#18181b"} />
+          </TouchableOpacity>
+        )}
       />
       <View style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? "#18181b" : "#fff" }}>
         {WebViewComponent ? (

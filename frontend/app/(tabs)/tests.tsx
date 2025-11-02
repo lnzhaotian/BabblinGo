@@ -1,7 +1,7 @@
 import React from "react";
 import { Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useThemeMode } from "../theme-context";
 
@@ -16,7 +16,7 @@ export default function Tests() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("tests.title") }} />
+  {/* Header handled by Tabs layout; avoid per-screen header overrides */}
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f6f7fb" }} edges={["bottom"]}>
         <View style={{ flex: 1, padding: 16 }}>
           <TouchableOpacity

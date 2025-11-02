@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useRouter, Stack } from "expo-router";
+import { useRouter } from "expo-router";
 import { View, Text, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { registerUser } from '../../lib/auth';
 import { useTranslation } from 'react-i18next';
@@ -61,7 +61,7 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      <Stack.Screen options={{ title: t("settings.register") }} />
+  {/* No header for modal auth screens; header is hidden at layout level */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}> 

@@ -1,16 +1,13 @@
 import React from "react";
 import { View, Text, Pressable, ScrollView, Linking, Image } from "react-native";
-import { Stack } from "expo-router";
+// import { Stack } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useThemeMode } from "../theme-context";
+import { ThemedHeader } from "../components/ThemedHeader";
 
-function AboutHeaderTitle() {
-  const { t } = useTranslation();
-  const { colorScheme } = useThemeMode();
-  return <Text style={{ fontWeight: "700", fontSize: 18, color: colorScheme === 'dark' ? '#fff' : '#18181b' }}>{t("settings.about")}</Text>;
-}
+// Replaced by ThemedHeader
 
 export default function AboutSettings() {
   const { i18n } = useTranslation();
@@ -31,11 +28,7 @@ export default function AboutSettings() {
 
   return (
     <>
-      <Stack.Screen options={{
-        headerTitle: () => <AboutHeaderTitle />,
-        headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
-        headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
-      }} />
+      <ThemedHeader titleKey="settings.about" />
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         {/* App Info */}

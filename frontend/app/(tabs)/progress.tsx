@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
-import { Stack } from "expo-router"
+// Header handled by Tabs layout; avoid per-screen header overrides
 import { fetchLessonById } from "@/lib/payload"
 import { useThemeMode } from "../theme-context"
 
@@ -215,7 +215,7 @@ export default function ProgressScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("progress.title") }} />
+  {/* Header handled by Tabs layout; avoid per-screen header overrides */}
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
 

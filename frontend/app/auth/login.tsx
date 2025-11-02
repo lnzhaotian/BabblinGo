@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
-import { Stack, useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { loginUser } from '../../lib/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeMode } from "../theme-context";
+import { config } from '@/lib/config';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -49,6 +50,26 @@ export default function LoginScreen() {
       if (result?.token) {
         await AsyncStorage.setItem('jwt', result.token);
         await AsyncStorage.setItem('user_email', email);
+        
+        // Fetch user profile to get displayName
+        try {
+          const profileRes = await fetch(`${config.apiUrl}/api/users/me`, {
+            headers: {
+              Authorization: `Bearer ${result.token}`,
+              Accept: 'application/json',
+            },
+          });
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (profileData.user?.displayName) {
+              await AsyncStorage.setItem('user_displayName', profileData.user.displayName);
+            }
+          }
+        } catch (e) {
+          // Non-critical, continue with login
+          console.warn('Failed to fetch display name:', e);
+        }
+        
         setSuccess(true);
         // Go back after successful login and trigger settings refresh
         setTimeout(() => {
@@ -64,7 +85,7 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.bg }]}>
-      <Stack.Screen options={{ title: t("settings.login") }} />
+  {/* No header for modal auth screens; header is hidden at layout level */}
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           <View style={[styles.card, { backgroundColor: colors.card, shadowColor: colors.shadow }]}> 
@@ -125,7 +146,7 @@ export default function LoginScreen() {
             {error && <Text style={[styles.error, { color: colors.danger }]}>{t('auth.loginError', { error })}</Text>}
             {success && <Text style={[styles.success, { color: colors.success }]}>{t('auth.loginSuccess')}</Text>}
 
-            <Pressable onPress={() => router.push('/auth/forgot')} style={({ pressed }) => [{ alignSelf: 'flex-end', marginTop: 8, opacity: pressed ? 0.8 : 1 }]}>
+            <Pressable onPress={() => router.replace('/auth/forgot')} style={({ pressed }) => [{ alignSelf: 'flex-end', marginTop: 8, opacity: pressed ? 0.8 : 1 }]}>
               <Text style={{ color: colors.text, fontWeight: '600' }}>{t('auth.forgotPassword')}</Text>
             </Pressable>
 

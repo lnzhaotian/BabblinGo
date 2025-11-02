@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ActivityIndicator, FlatList, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
-import { Stack, useLocalSearchParams, useRouter } from "expo-router"
+import { useLocalSearchParams, useRouter } from "expo-router"
 import { useThemeMode } from "../../theme-context";
+import { ThemedHeader } from "../../components/ThemedHeader";
 
 import { extractModules, fetchLessonById, LessonDoc, resolveMediaUrl } from "@/lib/payload"
 // SingleTrackPlayer is wrapped by LessonAudioPlayer
@@ -174,23 +175,19 @@ const LessonDetail = () => {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: headerTitle,
-          headerBackButtonDisplayMode: "minimal",
-          headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
-          headerTitleStyle: { color: colorScheme === 'dark' ? '#fff' : '#18181b' },
-          headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
-          headerRight: () => (
-            mode === "landing" ? undefined : <LessonHeaderControls
+      <ThemedHeader
+        overrideTitle={headerTitle}
+        headerRight={() => (
+          mode === "landing" ? undefined : (
+            <LessonHeaderControls
               loopEnabled={loopEnabled}
               cachingInProgress={cachingInProgress}
               cacheStatus={lessonCacheStatus}
               onToggleLoop={() => setLoopEnabled(!loopEnabled)}
               onOpenCacheMenu={() => setCacheMenuVisible(true)}
             />
-          ),
-        }}
+          )
+        )}
       />
       {loading ? (
         <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }}>

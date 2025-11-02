@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Stack, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "@react-navigation/native";
@@ -201,7 +201,7 @@ export default function Index() {
 
   return (
     <>
-      <Stack.Screen options={{ title: t("home.title") }} />
+  {/* Header handled by Tabs layout; avoid per-screen header overrides */}
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={["bottom"]}>
         {error ? (
           <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
