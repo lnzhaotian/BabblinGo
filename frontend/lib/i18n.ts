@@ -67,6 +67,16 @@ const resources = {
       "home.noLessons": "No lessons found for the Novice level.",
       "home.loadError": "Unable to load lessons. Pull to refresh and try again.",
       "home.noDisplay": "No lessons to display.",
+  "home.noCourses": "No courses available yet.",
+  "home.loadCoursesError": "Unable to load courses. Pull to refresh and try again.",
+  "home.untitledCourse": "Untitled course",
+
+  // Course screen
+  "course.loading": "Loading course...",
+  "course.error": "Unable to load course. Try again later.",
+  "course.empty": "No lessons available yet.",
+  "course.defaultTitle": "Course",
+  "course.section.ungrouped": "Lessons",
 
       // Tests screen
       "tests.title": "Tests",
@@ -277,6 +287,9 @@ const resources = {
       "home.noLessons": "未找到初级课程。",
       "home.loadError": "无法加载课程。下拉刷新重试。",
       "home.noDisplay": "暂无课程。",
+  "home.noCourses": "暂无课程。",
+  "home.loadCoursesError": "无法加载课程。下拉刷新重试。",
+  "home.untitledCourse": "未命名课程",
 
       // Tests screen
       "tests.title": "测试",
@@ -311,6 +324,13 @@ const resources = {
       "lesson.timeSpent": "学习时长",
       "lesson.sessionTarget": "计划时长",
       "lesson.startAnother": "再来一次",
+
+  // Course screen
+  "course.loading": "正在加载课程...",
+  "course.error": "无法加载课程。请稍后重试。",
+  "course.empty": "暂无课程内容。",
+  "course.defaultTitle": "课程",
+  "course.section.ungrouped": "课程列表",
 
       // Timer
       "timer.set": "设置学习计时",
@@ -439,6 +459,7 @@ const initI18n = async () => {
   const systemLocale = Localization.getLocales()[0]?.languageCode || "en"
   const fallbackLng = systemLocale.startsWith("zh") ? "zh" : "en"
 
+  // eslint-disable-next-line import/no-named-as-default-member
   await i18n.use(initReactI18next).init({
     resources,
     lng: savedLanguage || fallbackLng,
@@ -452,6 +473,7 @@ const initI18n = async () => {
 
 // Change language and persist
 export const changeLanguage = async (lang: string) => {
+  // eslint-disable-next-line import/no-named-as-default-member
   await i18n.changeLanguage(lang)
   try {
     await AsyncStorage.setItem(STORAGE_KEY, lang)

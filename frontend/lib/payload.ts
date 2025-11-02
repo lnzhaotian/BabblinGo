@@ -27,14 +27,25 @@ export type ModuleDoc = {
   body?: unknown
 }
 
-type ModuleRelation = string | ModuleDoc | null
-
-export type LevelDoc = {
+export type CourseLevel = {
   id: string
-  slug: string
-  title: string
+  key: string
+  label?: string | Record<string, string | null> | null
   order?: number | null
 }
+
+export type CourseDoc = {
+  id: string
+  slug: string
+  title: string | Record<string, string | null>
+  description?: string | Record<string, string | null> | null
+  coverImage?: MediaDoc | string | null
+  order?: number | null
+  status?: string | null
+  levels?: CourseLevel[] | null
+}
+
+type ModuleRelation = string | ModuleDoc | null
 
 export type LessonDoc = {
   id: string
@@ -42,7 +53,8 @@ export type LessonDoc = {
   title: string
   summary?: string | null
   order?: number | null
-  level: string | LevelDoc
+  level?: string | null
+  course: string | CourseDoc
   modules?: ModuleRelation[] | null
   updatedAt?: string // Payload timestamp for version tracking
 }
@@ -86,6 +98,34 @@ const sortByOrder = <T extends MaybeWithOrder>(items: T[]): T[] =>
     return aOrder - bOrder
   })
 
+export const resolveLocalizedField = (
+  value: string | Record<string, string | null> | null | undefined,
+  locale: string
+): string | undefined => {
+  if (!value) {
+    return undefined
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : undefined
+  }
+
+  const direct = value[locale]
+  if (typeof direct === 'string') {
+    const trimmed = direct.trim()
+    if (trimmed.length > 0) {
+      return trimmed
+    }
+  }
+
+  const fallback = Object.values(value).find(
+    (entry): entry is string => typeof entry === 'string' && entry.trim().length > 0
+  )
+
+  return fallback
+}
+
 export const resolveMediaUrl = (media: MediaDoc | string | null | undefined): string | null => {
   if (!media) {
     return null
@@ -118,27 +158,48 @@ export const extractModules = (lesson: LessonDoc): ModuleDoc[] => {
   return sortByOrder(modules)
 }
 
-export const fetchLessonsByLevelSlug = async (levelSlug: string, locale?: string): Promise<LessonDoc[]> => {
-  const encodedSlug = encodeURIComponent(levelSlug)
-  const levelResponse = await fetchPayload<PayloadListResponse<LevelDoc>>(
-    `/api/levels?where[slug][equals]=${encodedSlug}&depth=0&limit=1`,
+export const fetchCourses = async (locale?: string): Promise<CourseDoc[]> => {
+  const params = new URLSearchParams({
+    'where[status][equals]': 'published',
+    depth: '1',
+    limit: '100',
+    sort: 'order',
+  })
+
+  const response = await fetchPayload<PayloadListResponse<CourseDoc>>(
+    `/api/courses?${params.toString()}`,
     undefined,
     locale
   )
 
-  const [level] = levelResponse.docs
+  return sortByOrder(response.docs)
+}
 
-  if (!level) {
-    return []
+export const fetchCourseById = async (courseId: string, locale?: string): Promise<CourseDoc> =>
+  fetchPayload<CourseDoc>(`/api/courses/${courseId}?depth=1`, undefined, locale)
+
+export const fetchLessonsByCourse = async (
+  courseId: string,
+  options?: { levelKey?: string; locale?: string }
+): Promise<LessonDoc[]> => {
+  const params = new URLSearchParams({
+    'where[course][equals]': courseId,
+    depth: '2',
+    limit: '100',
+    sort: 'order',
+  })
+
+  if (options?.levelKey) {
+    params.set('where[level][equals]', options.levelKey)
   }
 
-  const lessonsResponse = await fetchPayload<PayloadListResponse<LessonDoc>>(
-    `/api/lessons?where[level][equals]=${level.id}&depth=2&limit=100&sort=order`,
+  const response = await fetchPayload<PayloadListResponse<LessonDoc>>(
+    `/api/lessons?${params.toString()}`,
     undefined,
-    locale
+    options?.locale
   )
 
-  return sortByOrder(lessonsResponse.docs)
+  return sortByOrder(response.docs)
 }
 
 export const fetchLessonById = async (lessonId: string, locale?: string): Promise<LessonDoc> =>

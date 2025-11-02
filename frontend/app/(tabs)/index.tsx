@@ -1,68 +1,30 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { useFocusEffect } from "@react-navigation/native";
 
-import { extractModules, fetchLessonsByLevelSlug, LessonDoc, resolveMediaUrl } from "@/lib/payload";
-import type { ModuleDoc } from "@/lib/payload";
-import { getLessonCacheStatus, LessonCacheStatus } from "@/lib/cache-manager";
+import { CourseDoc, CourseLevel, fetchCourses, resolveLocalizedField, resolveMediaUrl } from "@/lib/payload";
 import { useThemeMode } from "../theme-context";
 
-const NOVICE_LEVEL_SLUG = "novice";
+const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>
+  [...items].sort((a, b) => {
+    const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = b.order ?? Number.MAX_SAFE_INTEGER;
+    return aOrder - bOrder;
+  });
 
 export default function Index() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
-  const [lessons, setLessons] = useState<LessonDoc[]>([]);
+  const [courses, setCourses] = useState<CourseDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [cacheStatuses, setCacheStatuses] = useState<Record<string, LessonCacheStatus>>({});
   const { colorScheme } = useThemeMode();
 
-  // Load cache status for all lessons
-  const loadCacheStatuses = useCallback(async (lessonsList: LessonDoc[]) => {
-    const statuses: Record<string, LessonCacheStatus> = {};
-
-    await Promise.all(
-      lessonsList.map(async (lesson) => {
-        if (!lesson.updatedAt) {
-          statuses[lesson.id] = 'none';
-          return;
-        }
-
-        const modules = extractModules(lesson);
-        const mediaUrls: string[] = [];
-
-        for (const module of modules) {
-          const imageUrl = resolveMediaUrl(module.image);
-          const audioUrl = resolveMediaUrl(module.audio);
-          if (imageUrl) mediaUrls.push(imageUrl);
-          if (audioUrl) mediaUrls.push(audioUrl);
-        }
-
-        if (mediaUrls.length === 0) {
-          statuses[lesson.id] = 'none';
-          return;
-        }
-
-        try {
-          const info = await getLessonCacheStatus(mediaUrls, lesson.updatedAt);
-          statuses[lesson.id] = info.status;
-        } catch (error) {
-          console.error(`Failed to get cache status for lesson ${lesson.id}:`, error);
-          statuses[lesson.id] = 'none';
-        }
-      })
-    );
-
-    setCacheStatuses(statuses);
-  }, []);
-
-  const loadLessons = useCallback(
+  const loadCourses = useCallback(
     async (skipLoading = false) => {
       if (!skipLoading) {
         setLoading(true);
@@ -70,123 +32,143 @@ export default function Index() {
 
       try {
         const locale = i18n.language;
-        const data = await fetchLessonsByLevelSlug(NOVICE_LEVEL_SLUG, locale);
-        setLessons(data);
-        setError(data.length === 0 ? t("home.noLessons") : null);
-
-        // Load cache statuses for all lessons
-        loadCacheStatuses(data);
+        const data = await fetchCourses(locale);
+        setCourses(data);
+        setError(null);
       } catch (err) {
-        console.error("Failed to load lessons", err);
-        setError(t("home.loadError"));
+        console.error("Failed to load courses", err);
+        setError(t("home.loadCoursesError"));
       } finally {
         if (!skipLoading) {
           setLoading(false);
         }
       }
     },
-    [t, i18n, loadCacheStatuses]
+    [t, i18n]
   );
 
   useEffect(() => {
-    loadLessons();
-  }, [loadLessons]);
-
-  // Reload cache statuses when screen comes into focus (e.g., after returning from lesson page)
-  useFocusEffect(
-    useCallback(() => {
-      if (lessons.length > 0) {
-        loadCacheStatuses(lessons);
-      }
-    }, [lessons, loadCacheStatuses])
-  );
+    loadCourses();
+  }, [loadCourses]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
-    await loadLessons(true);
+    await loadCourses(true);
     setRefreshing(false);
-  }, [loadLessons]);
+  }, [loadCourses]);
 
-  const handlePress = (lesson: LessonDoc, modules: ModuleDoc[]) => {
-    if (modules.length === 0) {
-      return;
-    }
-
+  const handlePressCourse = (course: CourseDoc, title: string) => {
     const target = {
-      pathname: "/lesson/[lessonId]",
-      params: { lessonId: lesson.id, title: lesson.title },
+      pathname: "/course/[courseId]",
+      params: { courseId: course.id, title },
     } as const;
 
     router.push(target as never);
   };
 
-  const renderItem = ({ item, index }: { item: LessonDoc; index: number }) => {
-    const position = typeof item.order === "number" ? item.order : index + 1;
-    const padded = String(position).padStart(2, "0");
-    const summary = item.summary?.trim();
-    const modules = extractModules(item);
-    const hasModules = modules.length > 0;
-    const cacheStatus = cacheStatuses[item.id] || 'none';
-
-    // Cache status icon and color
-    const getCacheIcon = () => {
-      switch (cacheStatus) {
-        case 'full':
-          return { name: 'cloud-done' as const, color: '#10b981' }; // Green cloud with check
-        case 'partial':
-          return { name: 'cloud-download' as const, color: '#f59e0b' }; // Amber
-        case 'downloading':
-          return { name: 'cloud-download' as const, color: '#3b82f6' }; // Blue
-        case 'none':
-        default:
-          return { name: 'cloud-queue' as const, color: '#9ca3af' }; // Gray
-      }
-    };
-
-    const cacheIcon = getCacheIcon();
+  const renderCourse = ({ item }: { item: CourseDoc }) => {
+    const locale = i18n.language;
+    const courseTitle = resolveLocalizedField(item.title, locale) ?? t("home.untitledCourse");
+    const description = resolveLocalizedField(item.description, locale);
+    const coverImageUrl = resolveMediaUrl(item.coverImage);
+    const sortedLevels = sortByOrder<CourseLevel>(item.levels ?? []);
+    const levelLabels = sortedLevels
+      .map((level) => resolveLocalizedField(level.label ?? level.key, locale) ?? level.key)
+      .filter((label) => label.trim().length > 0);
 
     return (
       <Pressable
-        onPress={() => handlePress(item, modules)}
-        android_ripple={{ color: "#f0f0f0" }}
+        onPress={() => handlePressCourse(item, courseTitle)}
+        android_ripple={{ color: "#e5e7eb" }}
         style={{
-          flexDirection: "row",
-          alignItems: "center",
-          paddingVertical: 12,
-          paddingHorizontal: 8,
-          borderBottomWidth: 1,
-          borderBottomColor: colorScheme === 'dark' ? '#23232a' : '#eee',
-          opacity: hasModules ? 1 : 0.6,
-          backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined,
+          marginHorizontal: 16,
+          marginBottom: 16,
+          borderRadius: 16,
+          overflow: "hidden",
+          backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
+          borderWidth: colorScheme === 'dark' ? 1 : 0,
+          borderColor: colorScheme === 'dark' ? '#2f2f36' : 'transparent',
+          shadowColor: colorScheme === 'dark' ? '#000' : '#000',
+          shadowOpacity: colorScheme === 'dark' ? 0.4 : 0.08,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 2,
         }}
       >
-        <View
-          style={{
-            width: 48,
-            height: 48,
-            borderRadius: 8,
-            backgroundColor: colorScheme === 'dark' ? '#23232a' : '#f0f0f0',
-            justifyContent: "center",
-            alignItems: "center",
-            marginRight: 12,
-          }}
-        >
-          <MaterialIcons name="menu-book" size={24} color={colorScheme === 'dark' ? '#fff' : '#333'} />
-        </View>
+        <View style={{ flexDirection: "row", padding: 16 }}>
+          <View
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 12,
+              backgroundColor: colorScheme === 'dark' ? '#18181b' : '#eef2ff',
+              justifyContent: "center",
+              alignItems: "center",
+              overflow: "hidden",
+              marginRight: 16,
+            }}
+          >
+            {coverImageUrl ? (
+              <Image
+                source={{ uri: coverImageUrl }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+              />
+            ) : (
+              <MaterialIcons name="menu-book" size={32} color={colorScheme === 'dark' ? '#6366f1' : '#4f46e5'} />
+            )}
+          </View>
 
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : undefined }}>{t("home.lesson", { number: padded })}</Text>
-          {summary ? <Text style={{ marginTop: 4, color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{summary}</Text> : null}
-        </View>
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: colorScheme === 'dark' ? '#fff' : '#111827',
+              }}
+            >
+              {courseTitle}
+            </Text>
+            {description ? (
+              <Text
+                style={{
+                  marginTop: 6,
+                  color: colorScheme === 'dark' ? '#d1d5db' : '#4b5563',
+                  lineHeight: 20,
+                }}
+                numberOfLines={3}
+              >
+                {description}
+              </Text>
+            ) : null}
 
-        {/* Cache status indicator */}
-        <View style={{ marginRight: 8 }}>
-          <MaterialIcons name={cacheIcon.name} size={20} color={cacheIcon.color} />
-        </View>
+            {levelLabels.length > 0 ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 12 }}>
+                {levelLabels.map((label, idx) => (
+                  <View
+                    key={`${item.id}-level-${idx}`}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 4,
+                      borderRadius: 999,
+                      backgroundColor: colorScheme === 'dark' ? '#312e81' : '#e0e7ff',
+                      marginRight: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    <Text style={{ color: colorScheme === 'dark' ? '#c7d2fe' : '#4338ca', fontSize: 12, fontWeight: "600" }}>
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
 
-        {hasModules ? (
-          <MaterialIcons name="chevron-right" size={28} color={colorScheme === 'dark' ? '#a1a1aa' : '#999'} />
-        ) : null}
+          <View style={{ justifyContent: "center", marginLeft: 8 }}>
+            <MaterialIcons name="chevron-right" size={28} color={colorScheme === 'dark' ? '#a1a1aa' : '#9ca3af'} />
+          </View>
+        </View>
       </Pressable>
     );
   };
@@ -202,26 +184,29 @@ export default function Index() {
   return (
     <>
   {/* Header handled by Tabs layout; avoid per-screen header overrides */}
-      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={['top', 'left', 'right']}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : '#f9fafb' }} edges={['top', 'left', 'right']}>
         {error ? (
           <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
             <Text style={{ color: colorScheme === 'dark' ? '#ef4444' : "#b71c1c", textAlign: "center" }}>{error}</Text>
           </View>
         ) : null}
         <FlatList
-          data={lessons}
+          data={courses}
           keyExtractor={(item) => item.id}
-          renderItem={renderItem}
+          renderItem={renderCourse}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           contentContainerStyle={{
-            backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff",
-            flexGrow: lessons.length === 0 ? 1 : undefined,
+            paddingVertical: 16,
+            backgroundColor: colorScheme === 'dark' ? '#18181b' : '#f9fafb',
+            flexGrow: courses.length === 0 ? 1 : undefined,
           }}
           style={{ flex: 1, backgroundColor: "transparent", paddingVertical: 8 }}
           ListEmptyComponent={
             !error ? (
               <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
-                <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{t("home.noDisplay")}</Text>
+                <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#4b5563", textAlign: "center", paddingHorizontal: 32 }}>
+                  {t("home.noCourses")}
+                </Text>
               </View>
             ) : null
           }

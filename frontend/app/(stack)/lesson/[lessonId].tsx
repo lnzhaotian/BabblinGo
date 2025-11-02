@@ -104,7 +104,7 @@ const LessonDetail = () => {
 
     try {
       setLoading(true)
-  const locale = i18n.language
+      const locale = i18n.language
       const data = await fetchLessonById(lessonId, locale)
       setLesson(data)
       setError(null)

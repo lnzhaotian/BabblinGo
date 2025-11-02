@@ -78,6 +78,12 @@ function AppNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="(stack)/course/[courseId]"
+        options={{
+          headerShown: false,
+        }}
+      />
       {/* Settings detail pages */}
       <Stack.Screen
         name="settings/language"
