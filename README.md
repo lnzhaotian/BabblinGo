@@ -69,23 +69,23 @@ Stack notes: We use Payload CMS for content. This plan introduces a first‑clas
 
 Scope and milestones:
 - Data model (Payload CMS)
-	- [ ] Create `courses` collection: `slug` (unique), `title` (i18n), `description` (i18n), `coverImage`, `order`, `status` (draft/published), timestamps
-	- [ ] Optional `levels` array on course: each with `{ key, label (i18n), order }`
-	- [ ] Update `lessons` collection: add `course` relation (required) and optional `level` (string; must match `levels[].key` if present)
-	- [ ] Indexes: unique index on `courses.slug`; index on `lessons.course`, `lessons.level`, and `lessons.order`
+	- [x] Create `courses` collection: `slug` (unique), `title` (i18n), `description` (i18n), `coverImage`, `order`, `status` (draft/published), timestamps
+	- [x] Optional `levels` array on course: each with `{ key, label (i18n), order }`
+	- [x] Update `lessons` collection: add `course` relation (required) and optional `level` (string; must match `levels[].key` if present)
+	- [ ] Indexes: unique index on `courses.slug`; index on `lessons.course`, `lessons.level`, and `lessons.order` *(course slug + course/level indexes landed; ordering index still pending)*
 - API surface (Payload REST)
-	- [ ] List courses: `GET /api/courses?where[status][equals]=published&locale=xx`
-	- [ ] Course detail: `GET /api/courses/:id` (includes `levels`)
-	- [ ] Lessons by course: `GET /api/lessons?where[course][equals]=:id&where[status][equals]=published` with optional `level` filter and `locale`
+	- [x] List courses: `GET /api/courses?where[status][equals]=published&locale=xx`
+	- [x] Course detail: `GET /api/courses/:id` (includes `levels`)
+	- [x] Lessons by course: `GET /api/lessons?where[course][equals]=:id&where[status][equals]=published` with optional `level` filter and `locale`
 	- [ ] Back‑compat shim: if older clients request by level slug, resolve to course+level server‑side temporarily (document and deprecate)
 - Migration
 	- [ ] Create a default “BabblinGo” course; backfill existing lessons with this `course` relation and appropriate `level`
 	- [ ] Idempotent script and rollback plan; apply indexes after backfill
 - Frontend work (Expo app)
-	- [ ] Refactor Home tab to list courses with cards (cover, title, optional lesson count/progress)
-	- [ ] Add Course Detail screen (`/course/[courseId]`) that lists lessons; group by level if defined, otherwise flat list
-	- [ ] Keep the existing lesson screen and cache indicators unchanged
-	- [ ] Data helpers: `fetchCourses(locale)`, `fetchLessonsByCourse(courseId, { level?, locale })`; deprecate `fetchLessonsByLevelSlug` with a thin wrapper during transition
+	- [x] Refactor Home tab to list courses with cards (cover, title, optional lesson count/progress)
+	- [x] Add Course Detail screen (`/course/[courseId]`) that lists lessons; group by level if defined, otherwise flat list
+	- [x] Keep the existing lesson screen and cache indicators unchanged
+	- [x] Data helpers: `fetchCourses(locale)`, `fetchLessonsByCourse(courseId, { level?, locale })`; deprecate `fetchLessonsByLevelSlug` with a thin wrapper during transition
 - Quality gates
 	- [ ] Backend e2e: courses listing, detail, lessons by course (with and without levels)
 	- [ ] Frontend tests: courses list rendering, navigation flows (Home → Course → Lesson), empty/loading/error states
@@ -96,7 +96,12 @@ Rationale and best practices:
 - Use Payload’s localization consistently (either fetch locale‑specific fields or handle fallback centrally)
 - Prefer cursor/pagination for courses list on mobile; cache with ETag where helpful
 
-Status: Planned — prioritized next. Development starts with CMS model + migration, then frontend Home refactor.
+Status: In progress — CMS schema and frontend experiences are live; remaining work covers migrations/back‑compat, additional indexes, and end-to-end testing.
+
+Immediate next steps:
+- Ship the migration/backfill script for existing lessons and apply the outstanding indexes (notably `lessons.order`).
+- Implement the temporary level-slug back-compat shim and document the deprecation path.
+- Add automated coverage (backend e2e + frontend navigation tests) and wire up analytics/monitoring for the new flows.
 
 See also: the living project tracker with checklists and acceptance criteria in [PROJECT_TRACKER.md](./PROJECT_TRACKER.md).
 
