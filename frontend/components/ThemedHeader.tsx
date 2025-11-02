@@ -1,7 +1,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useThemeMode } from '../theme-context';
+import { useThemeMode } from '../app/theme-context';
 
 /**
  * ThemedHeader

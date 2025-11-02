@@ -5,7 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import * as Haptics from "expo-haptics"
 import { useTranslation } from "react-i18next"
 import { useThemeMode } from "../theme-context"
-import { ThemedHeader } from "../components/ThemedHeader"
+import { ThemedHeader } from "@/components/ThemedHeader"
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import {
   loadLearningPreferences,

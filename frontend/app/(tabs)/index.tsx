@@ -191,9 +191,9 @@ export default function Index() {
     );
   };
 
-  if (loading && !refreshing) {
+  if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }}>
+      <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={[]}>
         <ActivityIndicator size="large" />
       </SafeAreaView>
     );
@@ -202,7 +202,7 @@ export default function Index() {
   return (
     <>
   {/* Header handled by Tabs layout; avoid per-screen header overrides */}
-      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={["bottom"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={[]}>
         {error ? (
           <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
             <Text style={{ color: colorScheme === 'dark' ? '#ef4444' : "#b71c1c", textAlign: "center" }}>{error}</Text>

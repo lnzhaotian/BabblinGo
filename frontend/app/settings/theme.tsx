@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useThemeMode } from "../theme-context";
-import { ThemedHeader } from "../components/ThemedHeader";
+import { ThemedHeader } from "@/components/ThemedHeader";
 
 // Replaced by ThemedHeader
 

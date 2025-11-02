@@ -22,9 +22,79 @@ export const Users: CollectionConfig = {
       label: 'Avatar',
     },
     {
+      name: 'avatarIcon',
+      type: 'text',
+      label: 'Avatar Icon',
+      admin: {
+        description: 'Material Icon name for avatar (e.g., person, face, school). Used when no avatar image is uploaded.',
+      },
+    },
+    {
       name: 'bio',
       type: 'textarea',
       label: 'Bio',
+       maxLength: 500,
+       admin: {
+         description: 'A short biography (max 500 characters)',
+       },
+     },
+     {
+       name: 'location',
+       type: 'text',
+       label: 'Location',
+       admin: {
+         description: 'City, country, or region',
+       },
+     },
+     {
+       name: 'website',
+       type: 'text',
+       label: 'Website',
+       admin: {
+         description: 'Personal website or social media profile URL',
+       },
+     },
+     {
+       name: 'dateOfBirth',
+       type: 'date',
+       label: 'Date of Birth',
+       admin: {
+         description: 'Used for age-appropriate content and analytics',
+       },
+     },
+     {
+       name: 'nativeLanguage',
+       type: 'text',
+       label: 'Native Language',
+       admin: {
+         description: 'User\'s native language',
+       },
+     },
+     {
+       name: 'learningLanguages',
+       type: 'array',
+       label: 'Learning Languages',
+       fields: [
+         {
+           name: 'language',
+           type: 'text',
+           required: true,
+         },
+         {
+           name: 'level',
+           type: 'select',
+           options: [
+             { label: 'Beginner', value: 'beginner' },
+             { label: 'Elementary', value: 'elementary' },
+             { label: 'Intermediate', value: 'intermediate' },
+             { label: 'Advanced', value: 'advanced' },
+             { label: 'Native', value: 'native' },
+           ],
+         },
+       ],
+       admin: {
+         description: 'Languages the user is currently learning',
+       },
     },
     {
       name: 'role',

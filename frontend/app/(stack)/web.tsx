@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams } from "expo-router";
 import { useThemeMode } from "../theme-context";
-import { ThemedHeader } from "../components/ThemedHeader";
+import { ThemedHeader } from "@/components/ThemedHeader";
 
 export default function WebPage() {
   const { url, title } = useLocalSearchParams() as { url?: string; title?: string };

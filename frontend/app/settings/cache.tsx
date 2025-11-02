@@ -7,7 +7,7 @@ import { getCacheStats, clearCache } from "@/lib/cache-manager";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useThemeMode } from "../theme-context";
-import { ThemedHeader } from "../components/ThemedHeader";
+import { ThemedHeader } from "@/components/ThemedHeader";
 
 // Replaced by ThemedHeader
 

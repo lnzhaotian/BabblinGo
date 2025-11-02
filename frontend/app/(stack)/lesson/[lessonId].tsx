@@ -3,7 +3,7 @@ import { ActivityIndicator, FlatList, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useLocalSearchParams, useRouter } from "expo-router"
 import { useThemeMode } from "../../theme-context";
-import { ThemedHeader } from "../../components/ThemedHeader";
+import { ThemedHeader } from "@/components/ThemedHeader";
 
 import { extractModules, fetchLessonById, LessonDoc, resolveMediaUrl } from "@/lib/payload"
 // SingleTrackPlayer is wrapped by LessonAudioPlayer

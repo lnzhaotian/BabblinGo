@@ -24,6 +24,7 @@ export default function Settings() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userAvatarIcon, setUserAvatarIcon] = useState<string>('person');
   const { colorScheme } = useThemeMode();
 
   // Update auth state on screen focus and initial mount
@@ -39,11 +40,14 @@ export default function Settings() {
               // Fetch user profile
               const email = await AsyncStorage.getItem('user_email');
               const name = await AsyncStorage.getItem('user_displayName');
+              const icon = await AsyncStorage.getItem('user_avatarIcon');
               setUserEmail(email);
               setUserName(name);
+              setUserAvatarIcon(icon || 'person');
             } else {
               setUserEmail(null);
               setUserName(null);
+              setUserAvatarIcon('person');
             }
           }
         } catch {
@@ -51,6 +55,7 @@ export default function Settings() {
             setIsAuthenticated(false);
             setUserEmail(null);
             setUserName(null);
+            setUserAvatarIcon('person');
           }
         }
       })();
@@ -65,9 +70,11 @@ export default function Settings() {
     await AsyncStorage.removeItem('jwt');
     await AsyncStorage.removeItem('user_email');
     await AsyncStorage.removeItem('user_displayName');
+    await AsyncStorage.removeItem('user_avatarIcon');
     setIsAuthenticated(false);
     setUserEmail(null);
     setUserName(null);
+    setUserAvatarIcon('person');
   };
 
   const preferencesSection: SettingItem[] = [
@@ -194,7 +201,7 @@ export default function Settings() {
         justifyContent: 'center',
         marginRight: 16
       }}>
-        <MaterialIcons name="person" size={32} color="#6366f1" />
+        <MaterialIcons name={userAvatarIcon as any} size={32} color="#6366f1" />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{ 
@@ -294,7 +301,7 @@ export default function Settings() {
   return (
     <>
   {/* Header handled by Tabs layout; avoid per-screen header overrides */}
-      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={[]}>
         <ScrollView>
           {/* Account Section */}
           {renderSectionHeader(t('settings.accountSection'))}
