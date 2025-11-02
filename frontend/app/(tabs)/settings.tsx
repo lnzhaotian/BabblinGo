@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { Stack, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useThemeMode } from "../theme-context";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 type SettingItem = {
   id: string;
@@ -23,6 +24,23 @@ export default function Settings() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const { colorScheme } = useThemeMode();
 
+  // Update auth state on screen focus and initial mount
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      (async () => {
+        try {
+          const token = await AsyncStorage.getItem('jwt');
+          if (!cancelled) setIsAuthenticated(!!token);
+        } catch {
+          if (!cancelled) setIsAuthenticated(false);
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
+    }, [])
+  );
 
 
   const handleLogout = async () => {
