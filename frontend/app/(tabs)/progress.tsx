@@ -5,7 +5,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
-// Header handled by Tabs layout; avoid per-screen header overrides
 import { fetchLessonById } from "@/lib/payload"
 import { useThemeMode } from "../theme-context"
 
@@ -43,7 +42,6 @@ const withinLastNDays = (ms: number, days: number) => {
   const start = now - days * 24 * 60 * 60 * 1000
   return ms >= start
 }
-
 export default function ProgressScreen() {
   const { t, i18n } = useTranslation()
   const [sessions, setSessions] = useState<SessionRecord[]>([])
@@ -217,7 +215,7 @@ export default function ProgressScreen() {
     <>
   {/* Header handled by Tabs layout; avoid per-screen header overrides */}
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <SafeAreaView edges={["bottom"]} style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
+        <SafeAreaView edges={["top", "left", "right"]} style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
 
   {/* Summary chips */}
   <View style={{ flexDirection: "row", justifyContent: "space-around", paddingHorizontal: 12, paddingVertical: 12 }}>

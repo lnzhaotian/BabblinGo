@@ -16,8 +16,7 @@ export default function Tests() {
 
   return (
     <>
-  {/* Header handled by Tabs layout; avoid per-screen header overrides */}
-      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f6f7fb" }} edges={[]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f6f7fb" }} edges={['top', 'left', 'right']}>
         <View style={{ flex: 1, padding: 16 }}>
           <TouchableOpacity
             onPress={() => open("https://babblinguide.cn/placement/", "Placement Test")}

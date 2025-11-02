@@ -301,7 +301,7 @@ export default function Settings() {
   return (
     <>
   {/* Header handled by Tabs layout; avoid per-screen header overrides */}
-      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={[]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={['top', 'left', 'right']}>
         <ScrollView>
           {/* Account Section */}
           {renderSectionHeader(t('settings.accountSection'))}

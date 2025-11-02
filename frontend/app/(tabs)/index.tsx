@@ -202,7 +202,7 @@ export default function Index() {
   return (
     <>
   {/* Header handled by Tabs layout; avoid per-screen header overrides */}
-      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={[]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={['top', 'left', 'right']}>
         {error ? (
           <View style={{ paddingHorizontal: 16, paddingVertical: 12 }}>
             <Text style={{ color: colorScheme === 'dark' ? '#ef4444' : "#b71c1c", textAlign: "center" }}>{error}</Text>
