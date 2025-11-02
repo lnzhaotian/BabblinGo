@@ -18,6 +18,7 @@ export function useLearningSession(
   const [remainingSeconds, setRemainingSeconds] = useState<number>(configuredSeconds)
   const [startedAt, setStartedAt] = useState<Date | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const [sessionReady, setSessionReady] = useState(false)
 
   // Load global default session length from learning.sessionLength (same key as settings page)
   useEffect(() => {
@@ -31,10 +32,14 @@ export function useLearningSession(
           setConfiguredSeconds(value)
           setRemainingSeconds(value)
         }
+        if (mounted) {
+          setSessionReady(true)
+        }
       } catch {
         if (mounted) {
           setConfiguredSeconds(opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS)
           setRemainingSeconds(opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS)
+          setSessionReady(true)
         }
       }
     })()
@@ -49,15 +54,15 @@ export function useLearningSession(
     }
   }, [])
 
-  const startSession = useCallback(() => {
+  const activateSession = useCallback(() => {
+    stopTimer()
+    const duration = configuredSeconds > 0 ? configuredSeconds : DEFAULT_SESSION_SECONDS
     setMode("active")
     setStartedAt(new Date())
-    setRemainingSeconds((s) => (s > 0 ? s : configuredSeconds))
-    stopTimer()
+    setRemainingSeconds(duration)
     timerRef.current = setInterval(() => {
       setRemainingSeconds((prev) => {
         if (prev <= 1) {
-          // time up
           clearInterval(timerRef.current as any)
           timerRef.current = null
           return 0
@@ -67,11 +72,12 @@ export function useLearningSession(
     }, 1000)
   }, [configuredSeconds, stopTimer])
 
-  // Allow changing configured seconds before starting (session-only, won't persist to global settings)
-  const updateConfiguredSeconds = useCallback((sec: number) => {
-    setConfiguredSeconds(sec)
-    setRemainingSeconds(sec)
-  }, [])
+  const startSession = useCallback(() => {
+    if (mode === "active") {
+      return
+    }
+    activateSession()
+  }, [activateSession, mode])
 
   // When countdown reaches 0, end the session
   useEffect(() => {
@@ -81,19 +87,9 @@ export function useLearningSession(
     }
   }, [mode, remainingSeconds, stopTimer])
 
-  const resetToLanding = useCallback(() => {
-    stopTimer()
-    setMode("landing")
-    setStartedAt(null)
-    setRemainingSeconds(configuredSeconds)
-  }, [configuredSeconds, stopTimer])
-
   const restartSession = useCallback(() => {
-    stopTimer()
-    setStartedAt(null)
-    setRemainingSeconds(configuredSeconds)
-    setMode("landing")
-  }, [configuredSeconds, stopTimer])
+    activateSession()
+  }, [activateSession])
 
   const elapsedSeconds = useMemo(() => {
     if (!startedAt) return 0
@@ -149,15 +145,20 @@ export function useLearningSession(
 
   useEffect(() => () => stopTimer(), [stopTimer])
 
+  useEffect(() => {
+    if (sessionReady && mode === "landing") {
+      startSession()
+    }
+  }, [sessionReady, mode, startSession])
+
   return {
     mode,
     configuredSeconds,
     remainingSeconds,
     elapsedSeconds,
     startSession,
-    resetToLanding,
     restartSession,
-    updateConfiguredSeconds,
+    sessionReady,
   }
 }
 

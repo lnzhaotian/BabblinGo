@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   Image,
   Pressable,
-  SectionList,
-  SectionListData,
   Text,
   View,
 } from "react-native";
@@ -35,12 +34,6 @@ const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] 
     return aOrder - bOrder;
   });
 
-interface LessonSection {
-  key: string;
-  title: string;
-  data: LessonDoc[];
-}
-
 const CourseDetail = () => {
   const { courseId, title: routeTitle } = useLocalSearchParams<{ courseId?: string; title?: string }>();
   const router = useRouter();
@@ -53,6 +46,7 @@ const CourseDetail = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [cacheStatuses, setCacheStatuses] = useState<Record<string, LessonCacheStatus>>({});
+  const [selectedLevelKey, setSelectedLevelKey] = useState<string | null>(null);
 
   const locale = i18n.language;
   const resolvedCourseId = courseId ? String(courseId) : undefined;
@@ -139,6 +133,21 @@ const CourseDetail = () => {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (!course) {
+      setSelectedLevelKey(null);
+      return;
+    }
+
+    const sorted = sortByOrder<CourseLevel>(course.levels ?? []);
+    if (sorted.length === 0) {
+      setSelectedLevelKey(null);
+      return;
+    }
+
+    setSelectedLevelKey((prev) => (prev && sorted.some((level) => level.key === prev) ? prev : sorted[0].key));
+  }, [course]);
+
   useFocusEffect(
     useCallback(() => {
       if (lessons.length > 0) {
@@ -166,71 +175,34 @@ const CourseDetail = () => {
     return t("course.defaultTitle");
   }, [course, routeTitle, locale, t]);
 
-  const sections = useMemo(() => {
-    if (!lessons.length) {
-      return [];
+  const hasLevels = Boolean(course?.levels && course.levels.length > 0);
+
+  const sortedLevels = useMemo(() => (hasLevels ? sortByOrder<CourseLevel>(course!.levels!) : []), [course, hasLevels]);
+
+  const sortedLessons = useMemo(() => sortByOrder(lessons), [lessons]);
+
+  const filteredLessons = useMemo(() => {
+    if (!hasLevels || !selectedLevelKey) {
+      return sortedLessons;
+    }
+    return sortedLessons.filter((lesson) => lesson.level === selectedLevelKey);
+  }, [hasLevels, selectedLevelKey, sortedLessons]);
+
+  useEffect(() => {
+    if (!hasLevels || sortedLevels.length === 0) {
+      return;
     }
 
-    const sortedLessons = sortByOrder(lessons);
-
-    if (!course?.levels || course.levels.length === 0) {
-      return [
-        {
-          key: "all",
-          title: t("course.section.ungrouped"),
-          data: sortedLessons,
-        },
-      ];
+    const hasSelectedLessons = sortedLessons.some((lesson) => lesson.level === selectedLevelKey);
+    if (hasSelectedLessons) {
+      return;
     }
 
-    const sortedLevels = sortByOrder<CourseLevel>(course.levels);
-    const grouped = new Map<string, LessonDoc[]>(sortedLevels.map((level) => [level.key, []]));
-    const ungrouped: LessonDoc[] = [];
-
-    for (const lesson of sortedLessons) {
-      if (lesson.level && grouped.has(lesson.level)) {
-        grouped.get(lesson.level)!.push(lesson);
-      } else {
-        ungrouped.push(lesson);
-      }
+    const fallback = sortedLevels.find((level) => sortedLessons.some((lesson) => lesson.level === level.key));
+    if (fallback) {
+      setSelectedLevelKey(fallback.key);
     }
-
-    const derivedSections: LessonSection[] = [];
-
-    for (const level of sortedLevels) {
-      const data = grouped.get(level.key) ?? [];
-      if (!data.length) {
-        continue;
-      }
-
-      const title = resolveLocalizedField(level.label ?? level.key, locale) ?? level.key;
-      derivedSections.push({
-        key: `level-${level.id ?? level.key}`,
-        title,
-        data,
-      });
-    }
-
-    if (ungrouped.length > 0) {
-      derivedSections.push({
-        key: "ungrouped",
-        title: t("course.section.ungrouped"),
-        data: ungrouped,
-      });
-    }
-
-    if (!derivedSections.length) {
-      return [
-        {
-          key: "all",
-          title: t("course.section.ungrouped"),
-          data: sortedLessons,
-        },
-      ];
-    }
-
-    return derivedSections;
-  }, [course, lessons, locale, t]);
+  }, [hasLevels, sortedLevels, sortedLessons, selectedLevelKey]);
 
   const handleLessonPress = useCallback(
     (lesson: LessonDoc) => {
@@ -323,23 +295,6 @@ const CourseDetail = () => {
     [cacheStatuses, colorScheme, handleLessonPress, t],
   );
 
-  const renderSectionHeader = useCallback(
-    ({ section }: { section: SectionListData<LessonDoc, LessonSection> }) => (
-      <View
-        style={{
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          backgroundColor: colorScheme === "dark" ? "#111827" : "#f3f4f6",
-        }}
-      >
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colorScheme === "dark" ? "#e5e7eb" : "#4b5563" }}>
-          {section.title}
-        </Text>
-      </View>
-    ),
-    [colorScheme],
-  );
-
   const listHeader = useMemo(() => {
     if (!course) {
       return null;
@@ -347,11 +302,12 @@ const CourseDetail = () => {
 
     const description = resolveLocalizedField(course.description, locale);
     const coverImageUrl = resolveMediaUrl(course.coverImage);
-    const levelLabels = sortByOrder<CourseLevel>(course.levels ?? [])
-      .map((level) => resolveLocalizedField(level.label ?? level.key, locale) ?? level.key)
-      .filter((label) => label.trim().length > 0);
+    const levels = sortedLevels.map((level) => ({
+      key: level.key,
+      label: resolveLocalizedField(level.label ?? level.key, locale) ?? level.key,
+    }));
 
-    if (!coverImageUrl && !description && levelLabels.length === 0) {
+    if (!coverImageUrl && !description && levels.length === 0) {
       return null;
     }
 
@@ -381,30 +337,44 @@ const CourseDetail = () => {
           </Text>
         ) : null}
 
-        {levelLabels.length > 0 ? (
+        {levels.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 16 }}>
-            {levelLabels.map((label, idx) => (
-              <View
-                key={`${course.id}-chip-${idx}`}
-                style={{
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                  borderRadius: 999,
-                  backgroundColor: colorScheme === "dark" ? "#312e81" : "#e0e7ff",
-                  marginRight: 8,
-                  marginBottom: 8,
-                }}
-              >
-                <Text style={{ color: colorScheme === "dark" ? "#c7d2fe" : "#4338ca", fontSize: 12, fontWeight: "600" }}>
-                  {label}
-                </Text>
-              </View>
-            ))}
+            {levels.map((level) => {
+              const isSelected = level.key === selectedLevelKey;
+              return (
+                <Pressable
+                  key={`${course.id}-chip-${level.key}`}
+                  onPress={() => setSelectedLevelKey(level.key)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    marginRight: 8,
+                    marginBottom: 8,
+                    backgroundColor: isSelected
+                      ? colorScheme === "dark" ? "#4338ca" : "#4f46e5"
+                      : colorScheme === "dark" ? "#312e81" : "#e0e7ff",
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: isSelected
+                        ? "#fff"
+                        : colorScheme === "dark" ? "#c7d2fe" : "#4338ca",
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {level.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
       </View>
     );
-  }, [course, colorScheme, locale]);
+  }, [course, colorScheme, locale, selectedLevelKey, sortedLevels]);
 
   return (
     <>
@@ -429,23 +399,21 @@ const CourseDetail = () => {
           style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#18181b" : "#f9fafb" }}
           edges={["left", "right", "bottom"]}
         >
-          <SectionList<LessonDoc, LessonSection>
-            sections={sections}
+          <FlatList
+            data={filteredLessons}
             keyExtractor={(item) => item.id}
             renderItem={renderLesson}
-            renderSectionHeader={renderSectionHeader}
             ListHeaderComponent={listHeader}
-            stickySectionHeadersEnabled={false}
             refreshing={refreshing}
             onRefresh={handleRefresh}
             contentContainerStyle={{
               paddingTop: 16,
               paddingBottom: 32,
               backgroundColor: colorScheme === "dark" ? "#18181b" : "#f9fafb",
-              flexGrow: sections.length === 0 ? 1 : undefined,
+              flexGrow: filteredLessons.length === 0 ? 1 : undefined,
             }}
             ListEmptyComponent={
-              !sections.length ? (
+              filteredLessons.length === 0 ? (
                 <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}>
                   <Text style={{ color: colorScheme === "dark" ? "#d1d5db" : "#4b5563", textAlign: "center" }}>
                     {t("course.empty")}

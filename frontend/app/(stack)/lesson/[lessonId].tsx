@@ -19,8 +19,6 @@ import { LessonAudioPlayer } from "@/components/LessonAudioPlayer"
 import { useSlideAudio } from "@/hooks/useSlideAudio"
 import { LessonHeaderControls } from "@/components/LessonHeaderControls"
 import { useLearningSession } from "@/hooks/useLearningSession"
-import { LessonLandingCard } from "@/components/LessonLandingCard"
-import { LessonCountdownTimer } from "@/components/LessonCountdownTimer"
 import { LessonSessionResult } from "@/components/LessonSessionResult"
 // useRouter imported above with Stack
 
@@ -165,12 +163,9 @@ const LessonDetail = () => {
   const {
     mode,
     configuredSeconds,
-    remainingSeconds,
     elapsedSeconds,
-    startSession,
-    // resetToLanding,
     restartSession,
-    updateConfiguredSeconds,
+    sessionReady,
   } = useLearningSession(lessonId, lesson?.title, { speed: playerSpeed, loop: loopEnabled })
 
   return (
@@ -202,17 +197,6 @@ const LessonDetail = () => {
         <SafeAreaView edges={["bottom"]} style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16, backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }}>
           <Text style={{ textAlign: "center", color: colorScheme === 'dark' ? '#d1d5db' : undefined }}>{t("lesson.notFound")}</Text>
         </SafeAreaView>
-      ) : mode === "landing" ? (
-        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }} edges={["bottom"]}>
-          <LessonLandingCard
-            summary={lesson.summary}
-            sessionSeconds={configuredSeconds}
-            speed={playerSpeed}
-            onSessionSecondsChange={updateConfiguredSeconds}
-            onSpeedChange={setPlayerSpeed}
-            onStart={startSession}
-          />
-        </SafeAreaView>
       ) : mode === "results" ? (
         <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }} edges={["bottom"]}>
           <LessonSessionResult
@@ -227,61 +211,67 @@ const LessonDetail = () => {
         </SafeAreaView>
       ) : (
         <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }} edges={["bottom"]}>
-          <View style={{ flex: 1 }}>
-            <LessonCountdownTimer remaining={remainingSeconds} />
-            {modulesWithContent.length === 0 ? (
-              <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
-                <Text style={{ textAlign: "center", color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{t("lesson.noModules")}</Text>
+          {(!sessionReady || mode === "landing") ? (
+            <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
+              <ActivityIndicator size="large" />
+              <Text style={{ marginTop: 12, color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{t("lesson.loading")}</Text>
+            </View>
+          ) : (
+            <>
+              <View style={{ flex: 1 }}>
+                {modulesWithContent.length === 0 ? (
+                  <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 16 }}>
+                    <Text style={{ textAlign: "center", color: colorScheme === 'dark' ? '#d1d5db' : "#666" }}>{t("lesson.noModules")}</Text>
+                  </View>
+                ) : (
+                  <>
+                    <FlatList
+                      ref={flatListRef}
+                      data={modulesWithContent}
+                      keyExtractor={(item) => item.id}
+                      renderItem={renderModuleSlide}
+                      horizontal
+                      pagingEnabled
+                      showsHorizontalScrollIndicator={false}
+                      onMomentumScrollEnd={onSlideScroll}
+                      scrollEnabled={true}
+                      getItemLayout={(_, index) => ({
+                        length: screenWidth,
+                        offset: screenWidth * index,
+                        index,
+                      })}
+                    />
+
+                    <PaginationDots
+                      total={modulesWithContent.length}
+                      currentIndex={currentSlideIndex}
+                    />
+                  </>
+                )}
               </View>
-            ) : (
-              <>
-                <FlatList
-                  ref={flatListRef}
-                  data={modulesWithContent}
-                  keyExtractor={(item) => item.id}
-                  renderItem={renderModuleSlide}
-                  horizontal
-                  pagingEnabled
-                  showsHorizontalScrollIndicator={false}
-                  onMomentumScrollEnd={onSlideScroll}
-                  scrollEnabled={true}
-                  getItemLayout={(_, index) => ({
-                    length: screenWidth,
-                    offset: screenWidth * index,
-                    index,
-                  })}
+
+              {(showAudioPlayer || modules.length > 1) ? (
+                <LessonAudioPlayer
+                  track={slideAudio[currentSlideIndex]?.audioUrl ? { id: slideAudio[currentSlideIndex].id, title: (slideAudio[currentSlideIndex].title ?? "") as string, audioUrl: slideAudio[currentSlideIndex].audioUrl as string } : null}
+                  playerSpeed={playerSpeed}
+                  loopEnabled={loopEnabled}
+                  hasPrev={currentSlideIndex > 0 || loopEnabled}
+                  hasNext={currentSlideIndex < modules.length - 1 || loopEnabled}
+                  onSpeedChange={setPlayerSpeed}
+                  onNavigate={handleNavigate}
+                  onFinish={handleTrackFinish}
                 />
+              ) : null}
+            </>
+          )}
 
-                <PaginationDots
-                  total={modulesWithContent.length}
-                  currentIndex={currentSlideIndex}
-                />
-              </>
-            )}
-          </View>
-
-      {mode === "active" && (showAudioPlayer || modules.length > 1) ? (
-        <LessonAudioPlayer
-          track={slideAudio[currentSlideIndex]?.audioUrl ? { id: slideAudio[currentSlideIndex].id, title: (slideAudio[currentSlideIndex].title ?? "") as string, audioUrl: slideAudio[currentSlideIndex].audioUrl as string } : null}
-          playerSpeed={playerSpeed}
-          loopEnabled={loopEnabled}
-          hasPrev={currentSlideIndex > 0 || loopEnabled}
-          hasNext={currentSlideIndex < modules.length - 1 || loopEnabled}
-          onSpeedChange={setPlayerSpeed}
-          onNavigate={handleNavigate}
-          onFinish={handleTrackFinish}
-        />
-      ) : null}
-      {/* Timer removed */}
-
-      {/* Cache management modal */}
-      <CacheMenuModal
-        visible={cacheMenuVisible}
-        onClose={() => setCacheMenuVisible(false)}
-        cacheStatus={lessonCacheStatus}
-        onRedownload={handleRedownload}
-        onClear={handleClearCache}
-      />
+          <CacheMenuModal
+            visible={cacheMenuVisible}
+            onClose={() => setCacheMenuVisible(false)}
+            cacheStatus={lessonCacheStatus}
+            onRedownload={handleRedownload}
+            onClear={handleClearCache}
+          />
         </SafeAreaView>
       )}
     </>
