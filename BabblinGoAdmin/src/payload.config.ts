@@ -11,7 +11,7 @@ import { fileURLToPath } from 'url'
 import sharp from 'sharp'
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer';
 
-import { Levels } from './collections/Levels'
+import Courses from './collections/Courses'
 import { Lessons } from './collections/Lessons'
 import { Media } from './collections/Media'
 import { Modules } from './collections/Modules'
@@ -27,7 +27,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Levels, Lessons, Modules, Media],
+  collections: [Users, Courses, Lessons, Modules, Media],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   i18n: {

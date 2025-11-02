@@ -68,7 +68,7 @@ export interface Config {
   blocks: {};
   collections: {
     users: User;
-    levels: Level;
+    courses: Course;
     lessons: Lesson;
     modules: Module;
     media: Media;
@@ -79,7 +79,7 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
-    levels: LevelsSelect<false> | LevelsSelect<true>;
+    courses: CoursesSelect<false> | CoursesSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     modules: ModulesSelect<false> | ModulesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -127,7 +127,40 @@ export interface User {
   id: string;
   displayName: string;
   avatar?: (string | null) | Media;
+  /**
+   * Material Icon name for avatar (e.g., person, face, school). Used when no avatar image is uploaded.
+   */
+  avatarIcon?: string | null;
+  /**
+   * A short biography (max 500 characters)
+   */
   bio?: string | null;
+  /**
+   * City, country, or region
+   */
+  location?: string | null;
+  /**
+   * Personal website or social media profile URL
+   */
+  website?: string | null;
+  /**
+   * Used for age-appropriate content and analytics
+   */
+  dateOfBirth?: string | null;
+  /**
+   * User's native language
+   */
+  nativeLanguage?: string | null;
+  /**
+   * Languages the user is currently learning
+   */
+  learningLanguages?:
+    | {
+        language: string;
+        level?: ('beginner' | 'elementary' | 'intermediate' | 'advanced' | 'native') | null;
+        id?: string | null;
+      }[]
+    | null;
   role: 'user' | 'editor' | 'manager';
   updatedAt: string;
   createdAt: string;
@@ -167,29 +200,30 @@ export interface Media {
   focalY?: number | null;
 }
 /**
- * Levels group lessons within the BabblinGo curriculum.
- *
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "levels".
+ * via the `definition` "courses".
  */
-export interface Level {
+export interface Course {
   id: string;
-  title: string;
   slug: string;
-  /**
-   * Optional numeric position used to sort levels.
-   */
+  title: string;
+  description?: string | null;
+  coverImage?: (string | null) | Media;
   order?: number | null;
-  summary?: string | null;
-  /**
-   * This list auto-populates when lessons are assigned to this level.
-   */
-  lessons?: (string | Lesson)[] | null;
+  status: 'draft' | 'published';
+  levels?:
+    | {
+        key: string;
+        label: string;
+        order?: number | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
- * Lessons sit within levels and contain multiple modules.
+ * Lessons belong to a course and contain multiple modules. Optional level key groups lessons within a course.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "lessons".
@@ -199,11 +233,18 @@ export interface Lesson {
   title: string;
   slug: string;
   /**
-   * Optional numeric position used to sort lessons within a level.
+   * Optional numeric position used to sort lessons within the course.
    */
   order?: number | null;
   summary?: string | null;
-  level: string | Level;
+  /**
+   * Course this lesson belongs to.
+   */
+  course: string | Course;
+  /**
+   * Optional level key (string) for grouping lessons within a course.
+   */
+  level?: string | null;
   /**
    * Modules linked to this lesson sync automatically based on each module configuration.
    */
@@ -274,8 +315,8 @@ export interface PayloadLockedDocument {
         value: string | User;
       } | null)
     | ({
-        relationTo: 'levels';
-        value: string | Level;
+        relationTo: 'courses';
+        value: string | Course;
       } | null)
     | ({
         relationTo: 'lessons';
@@ -338,7 +379,19 @@ export interface PayloadMigration {
 export interface UsersSelect<T extends boolean = true> {
   displayName?: T;
   avatar?: T;
+  avatarIcon?: T;
   bio?: T;
+  location?: T;
+  website?: T;
+  dateOfBirth?: T;
+  nativeLanguage?: T;
+  learningLanguages?:
+    | T
+    | {
+        language?: T;
+        level?: T;
+        id?: T;
+      };
   role?: T;
   updatedAt?: T;
   createdAt?: T;
@@ -359,14 +412,23 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "levels_select".
+ * via the `definition` "courses_select".
  */
-export interface LevelsSelect<T extends boolean = true> {
-  title?: T;
+export interface CoursesSelect<T extends boolean = true> {
   slug?: T;
+  title?: T;
+  description?: T;
+  coverImage?: T;
   order?: T;
-  summary?: T;
-  lessons?: T;
+  status?: T;
+  levels?:
+    | T
+    | {
+        key?: T;
+        label?: T;
+        order?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -379,6 +441,7 @@ export interface LessonsSelect<T extends boolean = true> {
   slug?: T;
   order?: T;
   summary?: T;
+  course?: T;
   level?: T;
   modules?: T;
   updatedAt?: T;

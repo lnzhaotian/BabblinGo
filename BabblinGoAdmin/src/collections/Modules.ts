@@ -72,7 +72,7 @@ const syncModulesOnLessons = async (
 export const Modules: CollectionConfig = {
   slug: 'modules',
   admin: {
-    group: 'BabblinGo',
+    group: 'Course Management',
     useAsTitle: 'title',
     defaultColumns: ['title', 'lesson', 'order'],
     description: 'Modules are the lowest level of content and can include media and transcripts.',
