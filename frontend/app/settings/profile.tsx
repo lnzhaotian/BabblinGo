@@ -22,6 +22,21 @@ const LEVEL_OPTIONS = [
 
 type LearningLang = { language: string; level?: string };
 
+// Helpers for DOB normalization
+function extractDateOnly(input?: string | null): string {
+  if (!input) return '';
+  const m = String(input).match(/^(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : '';
+}
+
+function toDateOrNull(dateOnly: string): Date | null {
+  if (!dateOnly) return null;
+  // Construct Date from YYYY-MM-DD safely
+  const [y, m, d] = dateOnly.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
 export default function UserProfileScreen() {
   const { t, i18n } = useTranslation();
   const { colorScheme } = useThemeMode();
@@ -113,7 +128,9 @@ export default function UserProfileScreen() {
         setBio(u.bio || '');
         setLocation(u.location || '');
         setWebsite(u.website || '');
-        setDateOfBirth(u.dateOfBirth || '');
+  // Normalize DOB to date-only string for display (avoid time portion from backend)
+  const dobOnly = extractDateOnly(u.dateOfBirth);
+  setDateOfBirth(dobOnly);
         setNativeLanguage(u.nativeLanguage || '');
         setLearningLanguages(u.learningLanguages || []);
         setEditName(u.displayName || '');
@@ -122,11 +139,7 @@ export default function UserProfileScreen() {
         setEditWebsite(u.website || '');
         
         // Parse date string to Date object for picker
-        if (u.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(u.dateOfBirth)) {
-          setEditDateOfBirth(new Date(u.dateOfBirth));
-        } else {
-          setEditDateOfBirth(null);
-        }
+        setEditDateOfBirth(toDateOrNull(dobOnly));
         setEditNativeLanguage(u.nativeLanguage || '');
         setEditLearningLanguages(u.learningLanguages || []);
         setUserId(u.id || u._id || null);
@@ -154,11 +167,7 @@ export default function UserProfileScreen() {
     setEditWebsite(website || '');
     
     // Restore DOB from stored string
-    if (dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
-      setEditDateOfBirth(new Date(dateOfBirth));
-    } else {
-      setEditDateOfBirth(null);
-    }
+    setEditDateOfBirth(toDateOrNull(extractDateOnly(dateOfBirth)));
     setEditNativeLanguage(nativeLanguage || '');
     setEditLearningLanguages(learningLanguages || []);
     setFieldErrors({});
@@ -206,16 +215,17 @@ export default function UserProfileScreen() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
+  const data = await res.json();
       const u = data.doc || {};
       setDisplayName(u.displayName ?? editName);
       setBio(u.bio ?? editBio ?? '');
       setLocation(u.location ?? editLocation ?? '');
       setWebsite(u.website ?? editWebsite ?? '');
-      setDateOfBirth(u.dateOfBirth ?? dateString ?? '');
-      if (u.dateOfBirth && /^\d{4}-\d{2}-\d{2}$/.test(u.dateOfBirth)) {
-        setEditDateOfBirth(new Date(u.dateOfBirth));
-      }
+      // Normalize server DOB to date-only string; fall back to what we sent
+      const serverDob = (u.dateOfBirth ?? dateString ?? '') as string;
+      const normalizedDob = extractDateOnly(serverDob);
+      setDateOfBirth(normalizedDob);
+      setEditDateOfBirth(toDateOrNull(normalizedDob));
       setNativeLanguage(u.nativeLanguage ?? editNativeLanguage ?? '');
       setLearningLanguages(u.learningLanguages ?? editLearningLanguages ?? []);
       await AsyncStorage.setItem('user_displayName', u.displayName ?? editName);
@@ -247,7 +257,23 @@ export default function UserProfileScreen() {
 
   return (
     <>
-      <ThemedHeader titleKey="profile.title" />
+      <ThemedHeader
+        titleKey="profile.title"
+        headerRight={isEditing ? () => (
+          <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
+            <Pressable onPress={cancelEdit} disabled={saving} style={{ paddingVertical: 6, paddingHorizontal: 8, opacity: saving ? 0.6 : 1 }}>
+              <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>{t('profile.cancel')}</Text>
+            </Pressable>
+            <Pressable onPress={saveProfile} disabled={saving || !isFormValid} style={{ paddingVertical: 8, paddingHorizontal: 12, backgroundColor: (!saving && isFormValid) ? colors.primary : colors.inputBorder, borderRadius: 8 }}>
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={{ color: '#fff', fontSize: 14, fontWeight: '700' }}>{t('profile.save')}</Text>
+              )}
+            </Pressable>
+          </View>
+        ) : undefined}
+      />
       <SafeAreaView edges={['bottom', 'left', 'right']} style={{ flex: 1, backgroundColor: colors.bg }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
           <ScrollView contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
@@ -428,21 +454,7 @@ export default function UserProfileScreen() {
               )}
             </View>
 
-            {/* Action Buttons */}
-            {isEditing && (
-              <View style={{ flexDirection: 'row', gap: 12 }}>
-                <Pressable onPress={cancelEdit} disabled={saving} style={{ flex: 1, backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder, paddingVertical: 16, borderRadius: 12, alignItems: 'center' }}>
-                  <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700' }}>{t('profile.cancel')}</Text>
-                </Pressable>
-                <Pressable onPress={saveProfile} disabled={saving || !isFormValid} style={{ flex: 1, backgroundColor: (!saving && isFormValid) ? colors.primary : colors.inputBorder, paddingVertical: 16, borderRadius: 12, alignItems: 'center' }}>
-                  {saving ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={{ color: '#fff', fontSize: 16, fontWeight: '700' }}>{t('profile.save')}</Text>
-                  )}
-                </Pressable>
-              </View>
-            )}
+            {/* Action Buttons moved to header when editing */}
 
             {/* Invalid summary hint */}
             {isEditing && !isFormValid && (

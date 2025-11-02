@@ -28,7 +28,8 @@ export function ThemedHeader({ titleKey, overrideTitle, headerRight }: { titleKe
               headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
               headerBackButtonDisplayMode: 'minimal',
               headerBackVisible: true,
-              ...(headerRight ? { headerRight } : {}),
+              // Always set headerRight; when not provided, clear any previous actions
+              headerRight: headerRight ?? (() => null),
             }
           : {
               headerShown: true,
@@ -37,6 +38,7 @@ export function ThemedHeader({ titleKey, overrideTitle, headerRight }: { titleKe
               headerStyle: { backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' },
               headerTintColor: colorScheme === 'dark' ? '#fff' : '#18181b',
               headerBackVisible: false,
+              headerRight: () => null,
             }
       }
     />
