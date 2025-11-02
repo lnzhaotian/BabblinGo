@@ -57,35 +57,79 @@ BabblinGo/
 - Commit secrets to `.env` files only through a secure secrets manager—never to Git.
 - Run `docker compose down` inside `BabblinGoAdmin` when you are done to stop local containers.
 
+## Roadmap (high level)
+
+This section captures active product/engineering initiatives so we can pause/resume without losing context. Each area lists current status and next steps.
+
+### 1) Courses: multi‑course architecture and UX
+
+Goal: Refactor the current Home (BabblinGo) tab into an “All Courses” view that supports multiple courses. Each course can optionally define levels (variable depth). Course detail shows lessons for that course, grouped by level when applicable. Lesson page stays unchanged.
+
+Stack notes: We use Payload CMS for content. This plan introduces a first‑class `courses` collection, relates lessons to courses, and exposes list/detail endpoints via Payload’s REST API.
+
+Scope and milestones:
+- Data model (Payload CMS)
+	- [ ] Create `courses` collection: `slug` (unique), `title` (i18n), `description` (i18n), `coverImage`, `order`, `status` (draft/published), timestamps
+	- [ ] Optional `levels` array on course: each with `{ key, label (i18n), order }`
+	- [ ] Update `lessons` collection: add `course` relation (required) and optional `level` (string; must match `levels[].key` if present)
+	- [ ] Indexes: unique index on `courses.slug`; index on `lessons.course`, `lessons.level`, and `lessons.order`
+- API surface (Payload REST)
+	- [ ] List courses: `GET /api/courses?where[status][equals]=published&locale=xx`
+	- [ ] Course detail: `GET /api/courses/:id` (includes `levels`)
+	- [ ] Lessons by course: `GET /api/lessons?where[course][equals]=:id&where[status][equals]=published` with optional `level` filter and `locale`
+	- [ ] Back‑compat shim: if older clients request by level slug, resolve to course+level server‑side temporarily (document and deprecate)
+- Migration
+	- [ ] Create a default “BabblinGo” course; backfill existing lessons with this `course` relation and appropriate `level`
+	- [ ] Idempotent script and rollback plan; apply indexes after backfill
+- Frontend work (Expo app)
+	- [ ] Refactor Home tab to list courses with cards (cover, title, optional lesson count/progress)
+	- [ ] Add Course Detail screen (`/course/[courseId]`) that lists lessons; group by level if defined, otherwise flat list
+	- [ ] Keep the existing lesson screen and cache indicators unchanged
+	- [ ] Data helpers: `fetchCourses(locale)`, `fetchLessonsByCourse(courseId, { level?, locale })`; deprecate `fetchLessonsByLevelSlug` with a thin wrapper during transition
+- Quality gates
+	- [ ] Backend e2e: courses listing, detail, lessons by course (with and without levels)
+	- [ ] Frontend tests: courses list rendering, navigation flows (Home → Course → Lesson), empty/loading/error states
+	- [ ] Observability: basic analytics (course_viewed, lesson_opened), monitoring, rollback plan
+
+Rationale and best practices:
+- Keep lessons self‑contained; only add `course` relation and optional `level` string for flexibility
+- Use Payload’s localization consistently (either fetch locale‑specific fields or handle fallback centrally)
+- Prefer cursor/pagination for courses list on mobile; cache with ETag where helpful
+
+Status: Planned — prioritized next. Development starts with CMS model + migration, then frontend Home refactor.
+
+See also: the living project tracker with checklists and acceptance criteria in [PROJECT_TRACKER.md](./PROJECT_TRACKER.md).
+
 ## User Authentication & Sync Roadmap
 
 This section tracks the step-by-step plan for implementing user authentication and server-side user data sync in BabblinGo. Refer to this roadmap if you need to resume or clarify the next steps during development.
 
-### Progress Update (as of 2025-10-30)
+### Progress Update (as of 2025-11-02)
 **Backend:**
-- Users collection extended with display name, avatar, bio, and role fields
+- Users collection extended with display name, avatar, bio, location, website, dateOfBirth, and languages
 - `auth: true` enabled for password-based authentication
-- Email verification, password reset, and forgot password flows are working (Aliyun SMTP tested)
-- Payload endpoints tested: `/api/users/register`, `/api/users/login`, `/api/users/me`, `/api/users/forgot-password`, `/api/users/reset-password`
+- Email verification, password reset, and forgot password flows working (Aliyun SMTP tested)
+- Payload endpoints verified: `/api/users/register`, `/api/users/login`, `/api/users/me`, `/api/users/forgot-password`, `/api/users/reset-password`
 
 **Frontend:**
-- Ready for auth integration (screens/components for registration, login, logout, password reset to be built)
-- JWT storage and user context/provider planned
-- API calls to Payload endpoints to be implemented
+- Auth screens wired (login/register/forgot) and JWT stored in AsyncStorage
+- Profile page implemented with validation, avatar picker, and new fields (bio, location, website, DOB, native/learning languages)
+- Native date picker (iOS/Android) with date‑only normalization; persistent across edits
+- Header actions for Save/Cancel during edit; safe‑area and layout polish across tabs
 
 **Sync:**
-- Next: Create collections for user settings, logs, test results, etc. (with user reference)
-- Next: Implement authenticated API calls and server sync logic
+- Profile field edits persist to backend via authenticated requests
+- Next: Add collections for user settings/logs/results with `user` reference and wire sync flows
 
 **Testing:**
 - Email flows tested and working
-- Next: Test full auth and sync flows, multi-device scenarios
+- Next: Broaden E2E auth coverage; test multi‑device scenarios and error handling
 
 **Next Steps:**
-1. Backend: Add user data collections (settings, logs, results)
-2. Frontend: Build auth screens, implement JWT storage, add API methods, manage user state
-3. Sync: Implement server sync for settings/logs/results, migrate local data
-4. Testing: Test all flows, handle errors, verify multi-device sync
+1. Backend: Add user data collections (settings, logs, results) with access control
+2. Frontend: Expand account settings (security, delete account), improve error states
+3. Sync: Implement server sync for settings/logs/results; add migration path from local data
+4. Testing: E2E auth + sync tests, multi‑device verification
 
 ### 1. Backend: Users Collection & Auth Foundation
 - Extend the `Users` collection in Payload CMS:
@@ -121,4 +165,5 @@ This section tracks the step-by-step plan for implementing user authentication a
 - Multi-device sync and conflict resolution
 
 **Refer to this roadmap to resume work or clarify next steps if you get stuck.**
+
 
