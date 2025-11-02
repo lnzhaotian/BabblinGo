@@ -64,8 +64,8 @@ export const Users: CollectionConfig = {
       if (user.role === 'manager') return true;
       return user.id === id;
     },
-    create: ({ req: { user } }) => {
-      return !!user && user.role === 'manager';
-    },
+    // Allow public self-registration via POST /api/users
+    // Password hashing and auth handling are managed by Payload when auth: true
+    create: () => true,
   },
 }

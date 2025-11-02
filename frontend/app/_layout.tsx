@@ -27,6 +27,13 @@ export default function RootLayout() {
             }}
           />
           <Stack.Screen
+            name="auth/forgot"
+            options={{
+              headerShown: true,
+              headerBackButtonDisplayMode: "minimal",
+            }}
+          />
+          <Stack.Screen
             name="settings/profile"
             options={{
               headerShown: true,

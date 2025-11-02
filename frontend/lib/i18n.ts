@@ -173,6 +173,13 @@ const resources = {
       "common.weekdayShort.fri": "Fr",
       "common.weekdayShort.sat": "Sa",
       "common.weekdayShort.sun": "Su",
+      // Auth - Forgot Password
+      "auth.forgotPassword": "Forgot password",
+      "auth.sendReset": "Send reset link",
+      "auth.resetSent": "If an account exists for that email, a reset link has been sent.",
+      "auth.resetError": "Failed to send reset email: {{error}}",
+      "auth.resetInstructions": "Enter your email and we'll send you a link to reset your password.",
+      "auth.backToLogin": "Back to login",
     },
   },
   zh: {
@@ -343,6 +350,13 @@ const resources = {
       "common.weekdayShort.fri": "周五",
       "common.weekdayShort.sat": "周六",
       "common.weekdayShort.sun": "周日",
+      // Auth - Forgot Password
+      "auth.forgotPassword": "忘记密码",
+      "auth.sendReset": "发送重置链接",
+      "auth.resetSent": "如果该邮箱有账号，我们已发送密码重置邮件。",
+      "auth.resetError": "发送重置邮件失败：{{error}}",
+      "auth.resetInstructions": "请输入您的邮箱，我们会发送密码重置链接。",
+      "auth.backToLogin": "返回登录",
     },
   },
 }
