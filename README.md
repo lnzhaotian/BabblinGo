@@ -61,6 +61,34 @@ BabblinGo/
 
 This section captures active product/engineering initiatives so we can pause/resume without losing context. Each area lists current status and next steps.
 
+### 0) Lessons: module type expansion
+
+Goal: Generalize lesson modules so editors can choose between multiple content experiences (e.g., audio slideshow, video, rich post, audio-only) while the app renders each appropriately.
+
+Naming and structure:
+- Default legacy content to `type: "audioSlideshow"`; treat missing values as this type during migration.
+- Model modules as a discriminated union: shared base fields (id, order, title, summary) plus type-specific payload buckets (e.g., `audioSlideshow.slides[]`, `video.streamUrl`, `richPost.blocks`, `audio.tracks`).
+- Persist type-specific content in Payload CMS with dedicated nested objects; keep validation per type.
+
+Backend / CMS tasks:
+- Add a `type` enum to the Module schema with options (`audioSlideshow`, `video`, `richPost`, `audio` ...).
+- Create type-scoped fields and editor UI fragments so authors only see relevant inputs.
+- Write a migration that back-fills `type: "audioSlideshow"` and reshapes existing data into the new structure.
+- Expose the new shape via REST (and GraphQL if used) and bump generated typings.
+
+Frontend tasks:
+- Update `ModuleDoc` typings under `frontend/lib/payload.ts` with the discriminated union.
+- Provide a renderer registry that maps module `type` to a dedicated component (re-using current slideshow/audio experience for `audioSlideshow`).
+- Update lesson detail, caching hooks, and session logic to respect module type capabilities (e.g., audio player only when type supplies audio).
+- Extend caching inference to gather media per type and adjust navigation for heterogeneous module sequences.
+
+Quality gates:
+- Add fixture lessons covering each module type and automated tests for rendering and caching.
+- Verify CMS editor validation per type and migration idempotency.
+- Roll out backend migration before shipping the frontend change; ensure legacy clients treat missing `type` as `audioSlideshow`.
+
+Status: Planning. Implementation details captured here to avoid losing context while we design the schema and renderer refactor.
+
 ### 1) Courses: multi‑course architecture and UX
 
 Goal: Refactor the current Home (BabblinGo) tab into an “All Courses” view that supports multiple courses. Each course can optionally define levels (variable depth). Course detail shows lessons for that course, grouped by level when applicable. Lesson page stays unchanged.
