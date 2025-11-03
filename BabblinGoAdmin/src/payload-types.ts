@@ -253,7 +253,7 @@ export interface Lesson {
   createdAt: string;
 }
 /**
- * Modules are the lowest level of content and can include media and transcripts.
+ * Modules are the lowest level of lesson content. Select a module type, then provide the matching media and copy.
  *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "modules".
@@ -268,27 +268,204 @@ export interface Module {
   order?: number | null;
   lesson: string | Lesson;
   /**
-   * Primary visual used when presenting this module.
+   * Determines how the lesson module is rendered for learners.
    */
-  image?: (string | null) | Media;
+  type: 'audioSlideshow' | 'video' | 'richPost' | 'audio';
   /**
-   * Narration or audio file associated with this module.
+   * Optional short summary that appears in lesson overviews.
    */
-  audio?: (string | null) | Media;
-  body: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
+  summary?: string | null;
+  /**
+   * Slides with imagery and per-slide audio clips. Works with the existing slideshow + audio player.
+   */
+  audioSlideshow?: {
+    /**
+     * Ordered slides presented alongside narration. At least one slide is required.
+     */
+    slides: {
+      /**
+       * Optional slide title displayed in the player and analytics.
+       */
+      title?: string | null;
+      /**
+       * Primary visual for the slide. Required when no video is present.
+       */
+      image?: (string | null) | Media;
+      /**
+       * Optional slide-specific audio narration.
+       */
+      audio?: (string | null) | Media;
+      /**
+       * Optional rich text copy that appears beneath the image.
+       */
+      body?: {
+        root: {
+          type: string;
+          children: {
+            type: any;
+            version: number;
+            [k: string]: unknown;
+          }[];
+          direction: ('ltr' | 'rtl') | null;
+          format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+          indent: number;
+          version: number;
+        };
         [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
+      } | null;
+      id?: string | null;
+    }[];
+    /**
+     * Optional transcript or extended notes for the module.
+     */
+    transcript?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
+  };
+  /**
+   * Upload a video or provide an external streaming URL with supporting copy.
+   */
+  video?: {
+    /**
+     * Upload a hosted video file (MP4, MOV, etc.).
+     */
+    videoFile?: (string | null) | Media;
+    /**
+     * External streaming URL (e.g., Mux, Vimeo, S3). Use when not uploading a file.
+     */
+    streamUrl?: string | null;
+    /**
+     * Optional poster image displayed before playback.
+     */
+    posterImage?: (string | null) | Media;
+    /**
+     * Optional caption/subtitle files (WebVTT).
+     */
+    captions?:
+      | {
+          label: string;
+          file: string | Media;
+          /**
+           * BCP-47 language tag (e.g., en, en-US, zh-CN).
+           */
+          language?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+    /**
+     * Optional transcript or supporting copy for the video.
+     */
+    transcript?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
+  };
+  /**
+   * Long-form lesson content combining text and media blocks.
+   */
+  richPost?: {
+    body: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
     };
-    [k: string]: unknown;
+    /**
+     * Optional supporting images or documents embedded in the post.
+     */
+    mediaGallery?:
+      | {
+          media: string | Media;
+          caption?: string | null;
+          id?: string | null;
+        }[]
+      | null;
+  };
+  /**
+   * One or more audio tracks presented without slides.
+   */
+  audio?: {
+    tracks: {
+      title: string;
+      audio: string | Media;
+      /**
+       * Optional cover art for this track.
+       */
+      image?: (string | null) | Media;
+      /**
+       * Optional duration in seconds (used for progress estimates).
+       */
+      durationSeconds?: number | null;
+      /**
+       * Optional per-track transcript or notes.
+       */
+      transcript?: {
+        root: {
+          type: string;
+          children: {
+            type: any;
+            version: number;
+            [k: string]: unknown;
+          }[];
+          direction: ('ltr' | 'rtl') | null;
+          format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+          indent: number;
+          version: number;
+        };
+        [k: string]: unknown;
+      } | null;
+      id?: string | null;
+    }[];
+    /**
+     * Optional introduction shown before the playlist.
+     */
+    introduction?: {
+      root: {
+        type: string;
+        children: {
+          type: any;
+          version: number;
+          [k: string]: unknown;
+        }[];
+        direction: ('ltr' | 'rtl') | null;
+        format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+        indent: number;
+        version: number;
+      };
+      [k: string]: unknown;
+    } | null;
   };
   /**
    * Optional supporting links or downloads for the module.
@@ -456,9 +633,65 @@ export interface ModulesSelect<T extends boolean = true> {
   slug?: T;
   order?: T;
   lesson?: T;
-  image?: T;
-  audio?: T;
-  body?: T;
+  type?: T;
+  summary?: T;
+  audioSlideshow?:
+    | T
+    | {
+        slides?:
+          | T
+          | {
+              title?: T;
+              image?: T;
+              audio?: T;
+              body?: T;
+              id?: T;
+            };
+        transcript?: T;
+      };
+  video?:
+    | T
+    | {
+        videoFile?: T;
+        streamUrl?: T;
+        posterImage?: T;
+        captions?:
+          | T
+          | {
+              label?: T;
+              file?: T;
+              language?: T;
+              id?: T;
+            };
+        transcript?: T;
+      };
+  richPost?:
+    | T
+    | {
+        body?: T;
+        mediaGallery?:
+          | T
+          | {
+              media?: T;
+              caption?: T;
+              id?: T;
+            };
+      };
+  audio?:
+    | T
+    | {
+        tracks?:
+          | T
+          | {
+              title?: T;
+              audio?: T;
+              image?: T;
+              durationSeconds?: T;
+              transcript?: T;
+              id?: T;
+            };
+        introduction?: T;
+      };
   resources?:
     | T
     | {

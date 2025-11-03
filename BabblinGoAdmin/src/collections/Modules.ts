@@ -74,8 +74,9 @@ export const Modules: CollectionConfig = {
   admin: {
     group: 'Course Management',
     useAsTitle: 'title',
-    defaultColumns: ['title', 'lesson', 'order'],
-    description: 'Modules are the lowest level of content and can include media and transcripts.',
+    defaultColumns: ['title', 'type', 'lesson', 'order'],
+    description:
+      'Modules are the lowest level of lesson content. Select a module type, then provide the matching media and copy.',
   },
   access: {
     read: () => true,
@@ -139,26 +140,263 @@ export const Modules: CollectionConfig = {
       required: true,
     },
     {
-      name: 'image',
-      type: 'upload',
-      relationTo: 'media',
+      name: 'type',
+      type: 'select',
+      required: true,
+      defaultValue: 'audioSlideshow',
+      options: [
+        {
+          label: 'Audio Slideshow',
+          value: 'audioSlideshow',
+        },
+        {
+          label: 'Video',
+          value: 'video',
+        },
+        {
+          label: 'Rich Post',
+          value: 'richPost',
+        },
+        {
+          label: 'Audio (Playlist)',
+          value: 'audio',
+        },
+      ],
       admin: {
-        description: 'Primary visual used when presenting this module.',
+        description: 'Determines how the lesson module is rendered for learners.',
       },
+    },
+    {
+      name: 'summary',
+      type: 'textarea',
+      admin: {
+        description: 'Optional short summary that appears in lesson overviews.',
+      },
+    },
+    {
+      name: 'audioSlideshow',
+      label: 'Audio Slideshow Content',
+      type: 'group',
+      admin: {
+        condition: (_, siblingData) => siblingData?.type === 'audioSlideshow',
+        description: 'Slides with imagery and per-slide audio clips. Works with the existing slideshow + audio player.',
+      },
+      fields: [
+        {
+          name: 'slides',
+          type: 'array',
+          required: true,
+          minRows: 1,
+          admin: {
+            description: 'Ordered slides presented alongside narration. At least one slide is required.',
+          },
+          fields: [
+            {
+              name: 'title',
+              type: 'text',
+              admin: {
+                description: 'Optional slide title displayed in the player and analytics.',
+              },
+            },
+            {
+              name: 'image',
+              type: 'upload',
+              relationTo: 'media',
+              admin: {
+                description: 'Primary visual for the slide. Required when no video is present.',
+              },
+            },
+            {
+              name: 'audio',
+              type: 'upload',
+              relationTo: 'media',
+              admin: {
+                description: 'Optional slide-specific audio narration.',
+              },
+            },
+            {
+              name: 'body',
+              label: 'Slide Body',
+              type: 'richText',
+              admin: {
+                description: 'Optional rich text copy that appears beneath the image.',
+              },
+            },
+          ],
+        },
+        {
+          name: 'transcript',
+          label: 'Module Transcript',
+          type: 'richText',
+          admin: {
+            description: 'Optional transcript or extended notes for the module.',
+          },
+        },
+      ],
+    },
+    {
+      name: 'video',
+      label: 'Video Content',
+      type: 'group',
+      admin: {
+        condition: (_, siblingData) => siblingData?.type === 'video',
+        description: 'Upload a video or provide an external streaming URL with supporting copy.',
+      },
+      fields: [
+        {
+          name: 'videoFile',
+          type: 'upload',
+          relationTo: 'media',
+          admin: {
+            description: 'Upload a hosted video file (MP4, MOV, etc.).',
+          },
+        },
+        {
+          name: 'streamUrl',
+          type: 'text',
+          admin: {
+            description: 'External streaming URL (e.g., Mux, Vimeo, S3). Use when not uploading a file.',
+            placeholder: 'https://example.com/video.m3u8',
+          },
+        },
+        {
+          name: 'posterImage',
+          type: 'upload',
+          relationTo: 'media',
+          admin: {
+            description: 'Optional poster image displayed before playback.',
+          },
+        },
+        {
+          name: 'captions',
+          type: 'array',
+          admin: {
+            description: 'Optional caption/subtitle files (WebVTT).',
+          },
+          fields: [
+            {
+              name: 'label',
+              type: 'text',
+              required: true,
+            },
+            {
+              name: 'file',
+              type: 'upload',
+              relationTo: 'media',
+              required: true,
+            },
+            {
+              name: 'language',
+              type: 'text',
+              admin: {
+                description: 'BCP-47 language tag (e.g., en, en-US, zh-CN).',
+              },
+            },
+          ],
+        },
+        {
+          name: 'transcript',
+          type: 'richText',
+          admin: {
+            description: 'Optional transcript or supporting copy for the video.',
+          },
+        },
+      ],
+    },
+    {
+      name: 'richPost',
+      label: 'Rich Post Content',
+      type: 'group',
+      admin: {
+        condition: (_, siblingData) => siblingData?.type === 'richPost',
+        description: 'Long-form lesson content combining text and media blocks.',
+      },
+      fields: [
+        {
+          name: 'body',
+          label: 'Post Body',
+          type: 'richText',
+          required: true,
+        },
+        {
+          name: 'mediaGallery',
+          type: 'array',
+          admin: {
+            description: 'Optional supporting images or documents embedded in the post.',
+          },
+          fields: [
+            {
+              name: 'media',
+              type: 'upload',
+              relationTo: 'media',
+              required: true,
+            },
+            {
+              name: 'caption',
+              type: 'text',
+            },
+          ],
+        },
+      ],
     },
     {
       name: 'audio',
-      type: 'upload',
-      relationTo: 'media',
+      label: 'Audio Playlist Content',
+      type: 'group',
       admin: {
-        description: 'Narration or audio file associated with this module.',
+        condition: (_, siblingData) => siblingData?.type === 'audio',
+        description: 'One or more audio tracks presented without slides.',
       },
-    },
-    {
-      name: 'body',
-      label: 'Module Content',
-      type: 'richText',
-      required: true,
+      fields: [
+        {
+          name: 'tracks',
+          type: 'array',
+          required: true,
+          minRows: 1,
+          fields: [
+            {
+              name: 'title',
+              type: 'text',
+              required: true,
+            },
+            {
+              name: 'audio',
+              type: 'upload',
+              relationTo: 'media',
+              required: true,
+            },
+            {
+              name: 'image',
+              type: 'upload',
+              relationTo: 'media',
+              admin: {
+                description: 'Optional cover art for this track.',
+              },
+            },
+            {
+              name: 'durationSeconds',
+              type: 'number',
+              admin: {
+                description: 'Optional duration in seconds (used for progress estimates).',
+              },
+            },
+            {
+              name: 'transcript',
+              type: 'richText',
+              admin: {
+                description: 'Optional per-track transcript or notes.',
+              },
+            },
+          ],
+        },
+        {
+          name: 'introduction',
+          type: 'richText',
+          admin: {
+            description: 'Optional introduction shown before the playlist.',
+          },
+        },
+      ],
     },
     {
       name: 'resources',
