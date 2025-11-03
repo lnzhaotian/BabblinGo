@@ -28,7 +28,7 @@ getCacheStats()
 deleteCachedFile(url)
 ```
 
-### 2. Lesson Screen Integration (`app/(stack)/lesson/[lessonId].tsx`)
+### 2. Lesson Screen Integration (`app/(stack)/lesson/[lessonId]/module/[moduleId].tsx`)
 
 #### Added Features:
 - **Automatic media caching**: Downloads images and audio when lesson loads
@@ -253,7 +253,7 @@ await deleteCachedFile(imageUrl)
 - ✅ `lib/CACHE_USAGE.md` - Usage documentation
 
 ### Modified:
-- ✅ `app/(stack)/lesson/[lessonId].tsx` - Integrated caching
+- ✅ `app/(stack)/lesson/[lessonId]/module/[moduleId].tsx` - Integrated caching
 - ✅ `app/(tabs)/settings.tsx` - Added cache management UI
 - ✅ `lib/payload.ts` - Added updatedAt to LessonDoc type
 - ✅ `lib/i18n.ts` - Added cache translations

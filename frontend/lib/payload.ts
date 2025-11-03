@@ -147,6 +147,9 @@ export type LessonModuleSlide = {
   image?: MediaDoc | string | null
   audio?: MediaDoc | string | null
   transcript?: LexicalRichText | null
+  video?: VideoContent | null
+  richPost?: RichPostContent | null
+  audioPlaylist?: AudioContent | null
 }
 
 const buildUrl = (path: string): string => {
@@ -250,30 +253,18 @@ const normalizeSlideTitle = (slide: AudioSlideshowSlideDoc | undefined, fallback
 const isAudioContent = (value: ModuleDoc['audio']): value is AudioContent =>
   Boolean(value && typeof value === 'object' && 'tracks' in value)
 
-export const extractModules = (lesson: LessonDoc): LessonModuleSlide[] => {
-  if (!Array.isArray(lesson.modules)) {
-    return []
-  }
+const normalizeModuleSlides = (module: ModuleDoc): LessonModuleSlide[] => {
+  const moduleType: LessonModuleType = module.type ?? 'audioSlideshow'
 
-  const modules = lesson.modules.filter(
-    (module): module is ModuleDoc => Boolean(module) && typeof module === 'object'
-  )
+  if (moduleType === 'audioSlideshow') {
+    const slideshowSlides = module.audioSlideshow?.slides ?? []
 
-  const sortedModules = sortByOrder(modules)
+    if (slideshowSlides.length === 0) {
+      // Fallback to legacy structure where media lived directly on the module
+      const legacyAudio = isAudioContent(module.audio) ? null : module.audio ?? null
 
-  const slides: LessonModuleSlide[] = []
-
-  sortedModules.forEach((module) => {
-    const moduleType: LessonModuleType = module.type ?? 'audioSlideshow'
-
-    if (moduleType === 'audioSlideshow') {
-      const slideshowSlides = module.audioSlideshow?.slides ?? []
-
-      if (slideshowSlides.length === 0) {
-        // Fallback to legacy structure where media lived directly on the module
-        const legacyAudio = isAudioContent(module.audio) ? null : module.audio ?? null
-
-        slides.push({
+      return [
+        {
           id: module.id,
           moduleId: module.id,
           slideId: module.id,
@@ -286,35 +277,110 @@ export const extractModules = (lesson: LessonDoc): LessonModuleSlide[] => {
           image: module.image ?? null,
           audio: legacyAudio,
           transcript: module.audioSlideshow?.transcript ?? null,
-        })
-        return
-      }
-
-      slideshowSlides.forEach((slide, index) => {
-        const slideId = (typeof slide?.id === 'string' && slide.id) ? slide.id : defaultSlideId(module.id, index)
-
-        slides.push({
-          id: `${module.id}__${slideId}`,
-          moduleId: module.id,
-          slideId,
-          type: 'audioSlideshow',
-          order: module.order,
-          slideOrder: index,
-          title: normalizeSlideTitle(slide, module.title),
-          summary: module.summary ?? null,
-          body: slide?.body ?? null,
-          image: slide?.image ?? null,
-          audio: slide?.audio ?? null,
-          transcript: module.audioSlideshow?.transcript ?? null,
-        })
-      })
-
-      return
+        },
+      ]
     }
 
-    // Other module types are not yet supported in the lesson player;
-    // keep a placeholder entry so the lesson still registers content.
-    slides.push({
+    return slideshowSlides.map((slide, index) => {
+      const slideId = (typeof slide?.id === 'string' && slide.id) ? slide.id : defaultSlideId(module.id, index)
+
+      return {
+        id: `${module.id}__${slideId}`,
+        moduleId: module.id,
+        slideId,
+        type: 'audioSlideshow',
+        order: module.order,
+        slideOrder: index,
+        title: normalizeSlideTitle(slide, module.title),
+        summary: module.summary ?? null,
+        body: slide?.body ?? null,
+        image: slide?.image ?? null,
+        audio: slide?.audio ?? null,
+        transcript: module.audioSlideshow?.transcript ?? null,
+      }
+    })
+  }
+
+  if (moduleType === 'video') {
+    const videoContent = module.video ?? null
+    const poster = videoContent?.posterImage ?? null
+
+    return [
+      {
+        id: module.id,
+        moduleId: module.id,
+        slideId: module.id,
+        type: 'video',
+        order: module.order,
+        slideOrder: 0,
+        title: module.title,
+        summary: module.summary ?? null,
+        body: videoContent?.transcript ?? null,
+        image: poster,
+        audio: null,
+        transcript: videoContent?.transcript ?? null,
+        video: videoContent,
+        richPost: null,
+        audioPlaylist: null,
+      },
+    ]
+  }
+
+  if (moduleType === 'richPost') {
+    const content = module.richPost ?? null
+    const firstMedia = content?.mediaGallery?.[0]?.media ?? null
+
+    return [
+      {
+        id: module.id,
+        moduleId: module.id,
+        slideId: module.id,
+        type: 'richPost',
+        order: module.order,
+        slideOrder: 0,
+        title: module.title,
+        summary: module.summary ?? null,
+        body: content?.body ?? null,
+        image: firstMedia,
+        audio: null,
+        transcript: null,
+        video: null,
+        richPost: content,
+        audioPlaylist: null,
+      },
+    ]
+  }
+
+  if (moduleType === 'audio' && isAudioContent(module.audio)) {
+    const playlist = module.audio ?? null
+    const playableTrack = playlist?.tracks?.find((track) => Boolean(track?.audio)) ?? null
+    const intro = playlist?.introduction ?? null
+
+    return [
+      {
+        id: module.id,
+        moduleId: module.id,
+        slideId: module.id,
+        type: 'audio',
+        order: module.order,
+        slideOrder: 0,
+        title: module.title,
+        summary: module.summary ?? null,
+        body: intro ?? null,
+        image: playableTrack?.image ?? null,
+        audio: playableTrack?.audio ?? null,
+        transcript: intro,
+        video: null,
+        richPost: null,
+        audioPlaylist: playlist,
+      },
+    ]
+  }
+
+  // Other module types are not yet supported in the lesson player;
+  // keep a placeholder entry so the lesson still registers content.
+  return [
+    {
       id: module.id,
       moduleId: module.id,
       slideId: module.id,
@@ -327,15 +393,67 @@ export const extractModules = (lesson: LessonDoc): LessonModuleSlide[] => {
       image: null,
       audio: null,
       transcript: null,
+      video: null,
+      richPost: null,
+      audioPlaylist: null,
+    },
+  ]
+}
+
+const normalizeLessonModules = (lesson: LessonDoc): ModuleDoc[] => {
+  if (!Array.isArray(lesson.modules)) {
+    return []
+  }
+
+  const modules = lesson.modules.filter(
+    (module): module is ModuleDoc => Boolean(module) && typeof module === 'object'
+  )
+
+  return sortByOrder(modules)
+}
+
+type SlideWithSortMeta = LessonModuleSlide & {
+  __moduleOrderKey: number
+  __moduleIndex: number
+}
+
+export const extractModuleSlides = (module: ModuleDoc): LessonModuleSlide[] => normalizeModuleSlides(module)
+
+export const getLessonModules = (lesson: LessonDoc): ModuleDoc[] => normalizeLessonModules(lesson)
+
+export const extractModules = (lesson: LessonDoc): LessonModuleSlide[] => {
+  const sortedModules = normalizeLessonModules(lesson)
+
+  const slides: SlideWithSortMeta[] = []
+
+  sortedModules.forEach((module, moduleIndex) => {
+    const moduleOrderKey = module.order ?? Number.MAX_SAFE_INTEGER
+    const moduleSlides = normalizeModuleSlides(module)
+
+    moduleSlides.forEach((slide) => {
+      slides.push({
+        ...slide,
+        __moduleOrderKey: moduleOrderKey,
+        __moduleIndex: moduleIndex,
+      })
     })
   })
 
-  return slides.sort((a, b) => {
-    const orderCompare = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)
+  const sortedSlides = slides.sort((a, b) => {
+    const orderCompare = a.__moduleOrderKey - b.__moduleOrderKey
     if (orderCompare !== 0) {
       return orderCompare
     }
+    const moduleIndexCompare = a.__moduleIndex - b.__moduleIndex
+    if (moduleIndexCompare !== 0) {
+      return moduleIndexCompare
+    }
     return a.slideOrder - b.slideOrder
+  })
+
+  return sortedSlides.map((slide) => {
+    const { __moduleOrderKey, __moduleIndex, ...rest } = slide
+    return rest
   })
 }
 

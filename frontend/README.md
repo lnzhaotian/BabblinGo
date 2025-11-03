@@ -55,7 +55,7 @@ Why this design
 
 Key ideas
 - Parent controls all state (single source of truth):
-   - `loopEnabled` and `playerSpeed` live in the lesson screen: `app/(stack)/lesson/[lessonId].tsx`.
+   - `loopEnabled` and `playerSpeed` live in the audio slideshow screen: `app/(stack)/lesson/[lessonId]/module/[moduleId].tsx`.
    - The player is a “dumb” view that receives these via props and emits events.
 - Remount-per-slide audio:
    - The player is rendered with `key={slideId}` so changing slides destroys the old instance and mounts a new one.
@@ -71,8 +71,8 @@ Key ideas
    - If the current track finished (e.g., last slide with loop off), pressing play will seek to the start and replay without remounting.
 
 Where to look
-- Lesson screen (parent-controlled state, scroll logic):
-   - `frontend/app/(stack)/lesson/[lessonId].tsx`
+- Lesson audio module (parent-controlled state, scroll logic):
+   - `frontend/app/(stack)/lesson/[lessonId]/module/[moduleId].tsx`
 - Single-track player (one audio per slide):
    - `frontend/components/SingleTrackPlayer.tsx`
 

@@ -9,6 +9,7 @@ export type LessonHeaderControlsProps = {
   cacheStatus: LessonCacheStatus
   onToggleLoop: () => void
   onOpenCacheMenu: () => void
+  showLoopToggle?: boolean
 }
 
 export function LessonHeaderControls({
@@ -17,6 +18,7 @@ export function LessonHeaderControls({
   cacheStatus,
   onToggleLoop,
   onOpenCacheMenu,
+  showLoopToggle = true,
 }: LessonHeaderControlsProps) {
   const pulseValue = useRef(new Animated.Value(1)).current
   const activeAnimation = useRef<Animated.CompositeAnimation | null>(null)
@@ -79,19 +81,21 @@ export function LessonHeaderControls({
 
   return (
     <View style={{ flexDirection: "row", alignItems: "center" }}>
-      <Pressable
-        onPress={onToggleLoop}
-        accessibilityLabel="Toggle loop"
-        hitSlop={8}
-        style={{ padding: 4, marginLeft: 8 }}
-      >
-        <MaterialIcons name="repeat" size={22} color={loopEnabled ? "#6366f1" : "#9ca3af"} />
-      </Pressable>
+      {showLoopToggle ? (
+        <Pressable
+          onPress={onToggleLoop}
+          accessibilityLabel="Toggle loop"
+          hitSlop={8}
+          style={{ padding: 4, marginLeft: 8 }}
+        >
+          <MaterialIcons name="repeat" size={22} color={loopEnabled ? "#6366f1" : "#9ca3af"} />
+        </Pressable>
+      ) : null}
       <Pressable
         onPress={onOpenCacheMenu}
         accessibilityLabel="Cache options"
         hitSlop={8}
-        style={{ padding: 4, marginLeft: 8 }}
+        style={{ padding: 4, marginLeft: showLoopToggle ? 8 : 0 }}
       >
         <Animated.View style={animatedStyle}>
           <MaterialIcons name={iconName} size={22} color={iconColor} />

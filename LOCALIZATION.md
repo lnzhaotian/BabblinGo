@@ -41,7 +41,7 @@ const lessons = await fetchLessonsByLevelSlug('novice', locale);
 - `lib/i18n.ts` - i18n configuration and translations
 - `lib/payload.ts` - API functions now accept locale parameter
 - `app/(tabs)/index.tsx` - Home screen passes locale when fetching lessons
-- `app/(stack)/lesson/[lessonId].tsx` - Lesson screen passes locale when fetching lesson details
+- `app/(stack)/lesson/[lessonId]/module/[moduleId].tsx` - Lesson module screens pass locale when fetching lesson details
 - `app/(tabs)/settings.tsx` - Language picker
 - All other screen files - Extracted strings to translations
 

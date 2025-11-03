@@ -111,6 +111,13 @@ const resources = {
       "lesson.timeSpent": "Time spent",
       "lesson.sessionTarget": "Session target",
       "lesson.startAnother": "Start another session",
+  "lesson.modules.audioSlideshow": "Audio Slideshow",
+  "lesson.modules.video": "Video",
+  "lesson.modules.richPost": "Reading",
+  "lesson.modules.audio": "Audio Playlist",
+  "lesson.modules.position": "Module {{index}}",
+  "lesson.modules.unsupported": "This module type is not supported yet.",
+  "lesson.modules.backToList": "Back to modules",
 
       // Timer
       "timer.set": "Set session timer",
@@ -329,6 +336,13 @@ const resources = {
       "lesson.timeSpent": "学习时长",
       "lesson.sessionTarget": "计划时长",
       "lesson.startAnother": "再来一次",
+  "lesson.modules.audioSlideshow": "音频幻灯片",
+  "lesson.modules.video": "视频",
+  "lesson.modules.richPost": "阅读",
+  "lesson.modules.audio": "音频播放列表",
+  "lesson.modules.position": "第 {{index}} 个模块",
+  "lesson.modules.unsupported": "该模块类型尚未支持。",
+  "lesson.modules.backToList": "返回模块列表",
 
   // Course screen
   "course.loading": "正在加载课程...",

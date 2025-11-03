@@ -20,6 +20,7 @@ import {
   extractModules,
   fetchCourseById,
   fetchLessonsByCourse,
+  getLessonModules,
   resolveLocalizedField,
   resolveMediaUrl,
 } from "@/lib/payload";
@@ -208,8 +209,22 @@ const CourseDetail = () => {
 
   const handleLessonPress = useCallback(
     (lesson: LessonDoc) => {
-      const modules = extractModules(lesson);
-      if (modules.length === 0) {
+      const moduleDocs = getLessonModules(lesson);
+      if (moduleDocs.length === 0) {
+        return;
+      }
+
+      if (moduleDocs.length === 1) {
+        router.push({
+          pathname: "/lesson/[lessonId]/module/[moduleId]",
+          params: {
+            lessonId: lesson.id,
+            moduleId: moduleDocs[0].id,
+            moduleTitle: moduleDocs[0].title,
+            lessonTitle: lesson.title,
+            isSingleModuleLesson: "true",
+          },
+        } as never);
         return;
       }
 
@@ -226,8 +241,8 @@ const CourseDetail = () => {
       const displayOrder = typeof item.order === "number" ? item.order : index + 1;
       const padded = String(displayOrder).padStart(2, "0");
       const summary = item.summary?.trim();
-      const modules = extractModules(item);
-      const hasModules = modules.length > 0;
+      const moduleDocs = getLessonModules(item);
+      const hasModules = moduleDocs.length > 0;
       const cacheStatus = cacheStatuses[item.id] ?? "none";
 
       const cacheIcon = (() => {

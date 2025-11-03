@@ -14,14 +14,17 @@ const createRunId = (lessonId?: string) =>
 export function useLearningSession(
   lessonId: string | undefined,
   lessonTitle: string | undefined,
-  opts?: { defaultSeconds?: number; speed?: PlaybackSpeed; loop?: boolean }
+  opts?: { defaultSeconds?: number; speed?: PlaybackSpeed; loop?: boolean; enabled?: boolean }
 ) {
-  const [mode, setMode] = useState<LearningSessionMode>("landing")
-  const [configuredSeconds, setConfiguredSeconds] = useState<number>(opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS)
-  const [remainingSeconds, setRemainingSeconds] = useState<number>(configuredSeconds)
+  const enabled = opts?.enabled ?? true
+  const defaultSeconds = opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS
+
+  const [mode, setMode] = useState<LearningSessionMode>(enabled ? "landing" : "active")
+  const [configuredSeconds, setConfiguredSeconds] = useState<number>(defaultSeconds)
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(enabled ? defaultSeconds : 0)
   const [startedAt, setStartedAt] = useState<Date | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const [sessionReady, setSessionReady] = useState(false)
+  const [sessionReady, setSessionReady] = useState(enabled ? false : true)
   const lessonIdRef = useRef<string | undefined>(lessonId)
   const runIdRef = useRef<string | null>(null)
   const finishingRef = useRef(false)
@@ -54,12 +57,16 @@ export function useLearningSession(
 
   // Load global default session length from learning.sessionLength (same key as settings page)
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     let mounted = true
     ;(async () => {
       try {
         const raw = await AsyncStorage.getItem(SESSION_LENGTH_KEY)
         const n = raw ? Number(raw) : NaN
-        const value = Number.isFinite(n) && n > 0 ? n : (opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS)
+        const value = Number.isFinite(n) && n > 0 ? n : defaultSeconds
         if (mounted) {
           setConfiguredSeconds(value)
           setRemainingSeconds(value)
@@ -69,15 +76,14 @@ export function useLearningSession(
         }
       } catch {
         if (mounted) {
-          setConfiguredSeconds(opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS)
-          setRemainingSeconds(opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS)
+          setConfiguredSeconds(defaultSeconds)
+          setRemainingSeconds(defaultSeconds)
           setSessionReady(true)
         }
       }
     })()
     return () => { mounted = false }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [enabled, defaultSeconds])
 
   const stopTimer = useCallback(() => {
     if (timerRef.current) {
@@ -86,17 +92,38 @@ export function useLearningSession(
     }
   }, [])
 
+  useEffect(() => {
+    if (!enabled) {
+      setMode("active")
+      setConfiguredSeconds(defaultSeconds)
+      setRemainingSeconds(0)
+      setSessionReady(true)
+      stopTimer()
+      return
+    }
+
+    setMode("landing")
+    setSessionReady(false)
+    setConfiguredSeconds(defaultSeconds)
+    setRemainingSeconds(defaultSeconds)
+    stopTimer()
+  }, [enabled, defaultSeconds, stopTimer])
+
   const activateSession = useCallback(() => {
+    if (!enabled) {
+      return
+    }
+
     stopTimer()
     if (!runIdRef.current) {
       runIdRef.current = createRunId(lessonId)
     }
     finishingRef.current = false
-  const duration = configuredSeconds > 0 ? configuredSeconds : DEFAULT_SESSION_SECONDS
-  const startTime = new Date()
+    const duration = configuredSeconds > 0 ? configuredSeconds : DEFAULT_SESSION_SECONDS
+    const startTime = new Date()
     setMode("active")
-  setStartedAt(startTime)
-  startedAtRef.current = startTime
+    setStartedAt(startTime)
+    startedAtRef.current = startTime
     setRemainingSeconds(duration)
     timerRef.current = setInterval(() => {
       setRemainingSeconds((prev) => {
@@ -108,27 +135,38 @@ export function useLearningSession(
         return prev - 1
       })
     }, 1000)
-  }, [configuredSeconds, lessonId, stopTimer])
+  }, [configuredSeconds, lessonId, stopTimer, enabled])
 
   const startSession = useCallback(() => {
+    if (!enabled) {
+      return
+    }
+
     if (mode === "active") {
       return
     }
     activateSession()
-  }, [activateSession, mode])
+  }, [activateSession, mode, enabled])
 
   // When countdown reaches 0, end the session
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     if (mode === "active" && remainingSeconds === 0) {
       finishingRef.current = true
       stopTimer()
       setMode("results")
     }
-  }, [mode, remainingSeconds, stopTimer])
+  }, [mode, remainingSeconds, stopTimer, enabled])
 
   const restartSession = useCallback(() => {
+    if (!enabled) {
+      return
+    }
     activateSession()
-  }, [activateSession])
+  }, [activateSession, enabled])
 
   const elapsedSeconds = useMemo(() => {
     if (!startedAt) return 0
@@ -172,6 +210,10 @@ export function useLearningSession(
   // On results mode entry, persist session once
   const hasSavedRef = useRef(false)
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     if (mode === "results" && !hasSavedRef.current) {
       hasSavedRef.current = true
       // If session ended naturally, finished=true
@@ -180,10 +222,13 @@ export function useLearningSession(
     if (mode !== "results") {
       hasSavedRef.current = false
     }
-  }, [mode, persistSession, remainingSeconds])
+  }, [mode, persistSession, remainingSeconds, enabled])
 
   // Save session on manual exit (unfinished)
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
     if (mode === "active") {
       return () => {
         if (startedAtRef.current) {
@@ -196,7 +241,7 @@ export function useLearningSession(
       }
     }
     return undefined
-  }, [mode, persistSession])
+  }, [mode, persistSession, enabled])
 
   useEffect(() => () => stopTimer(), [stopTimer])
 
@@ -210,19 +255,23 @@ export function useLearningSession(
   )
 
   useEffect(() => {
+    if (!enabled) {
+      return
+    }
+
     if (sessionReady && mode === "landing") {
       startSession()
     }
-  }, [sessionReady, mode, startSession])
+  }, [sessionReady, mode, startSession, enabled])
 
   return {
-    mode,
+    mode: enabled ? mode : "active",
     configuredSeconds,
-    remainingSeconds,
-    elapsedSeconds,
-    startSession,
-    restartSession,
-    sessionReady,
+    remainingSeconds: enabled ? remainingSeconds : 0,
+    elapsedSeconds: enabled ? elapsedSeconds : 0,
+    startSession: enabled ? startSession : () => {},
+    restartSession: enabled ? restartSession : () => {},
+    sessionReady: enabled ? sessionReady : true,
   }
 }
 
