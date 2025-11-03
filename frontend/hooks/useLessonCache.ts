@@ -36,19 +36,19 @@ export function useLessonCache(lesson: LessonDoc | null) {
     const cached: Record<string, string> = {}
 
     // Collect all media URLs
-    const mediaUrls: { url: string; type: "image" | "audio" }[] = []
+  const mediaUrls = new Set<string>()
 
     for (const module of modulesList) {
       const imageUrl = resolveMediaUrl(module.image)
       const audioUrl = resolveMediaUrl(module.audio)
 
-      if (imageUrl) mediaUrls.push({ url: imageUrl, type: "image" })
-      if (audioUrl) mediaUrls.push({ url: audioUrl, type: "audio" })
+      if (imageUrl) mediaUrls.add(imageUrl)
+      if (audioUrl) mediaUrls.add(audioUrl)
     }
 
     // Download all files in parallel
     await Promise.all(
-      mediaUrls.map(async ({ url }) => {
+      Array.from(mediaUrls).map(async (url) => {
         try {
           const localPath = await getOrDownloadFile(
             url,
@@ -75,9 +75,11 @@ export function useLessonCache(lesson: LessonDoc | null) {
     setCachingInProgress(false)
 
     // Update cache status
-    if (mediaUrls.length > 0) {
+    const allUrls = Array.from(mediaUrls)
+
+    if (allUrls.length > 0) {
       try {
-        const status = await getLessonCacheStatus(mediaUrls.map((m) => m.url), version)
+        const status = await getLessonCacheStatus(allUrls, version)
         setLessonCacheStatus(status.status)
       } catch (error) {
         console.error("Failed to get cache status:", error)
@@ -100,16 +102,16 @@ export function useLessonCache(lesson: LessonDoc | null) {
           onPress: async () => {
             try {
               const modulesList = extractModules(lesson)
-              const mediaUrls: string[] = []
+              const mediaUrls = new Set<string>()
 
               for (const module of modulesList) {
                 const imageUrl = resolveMediaUrl(module.image)
                 const audioUrl = resolveMediaUrl(module.audio)
-                if (imageUrl) mediaUrls.push(imageUrl)
-                if (audioUrl) mediaUrls.push(audioUrl)
+                if (imageUrl) mediaUrls.add(imageUrl)
+                if (audioUrl) mediaUrls.add(audioUrl)
               }
 
-              await clearLessonCache(mediaUrls)
+              await clearLessonCache(Array.from(mediaUrls))
               setCachedMedia({})
               setLessonCacheStatus("none")
               setCacheMenuVisible(false)
@@ -149,16 +151,16 @@ export function useLessonCache(lesson: LessonDoc | null) {
               setLessonCacheStatus("downloading")
 
               const modulesList = extractModules(lesson)
-              const mediaUrls: string[] = []
+              const mediaUrls = new Set<string>()
 
               for (const module of modulesList) {
                 const imageUrl = resolveMediaUrl(module.image)
                 const audioUrl = resolveMediaUrl(module.audio)
-                if (imageUrl) mediaUrls.push(imageUrl)
-                if (audioUrl) mediaUrls.push(audioUrl)
+                if (imageUrl) mediaUrls.add(imageUrl)
+                if (audioUrl) mediaUrls.add(audioUrl)
               }
 
-              await redownloadLessonMedia(mediaUrls, lesson.updatedAt!, (url, progress) => {
+              await redownloadLessonMedia(Array.from(mediaUrls), lesson.updatedAt!, (url, progress) => {
                 setDownloadProgress((prev) => ({ ...prev, [url]: progress }))
               })
 

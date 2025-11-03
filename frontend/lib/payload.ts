@@ -8,12 +8,77 @@ type MaybeWithOrder = {
   order?: number | null
 }
 
+export type LexicalRichText = {
+  root: {
+    type: string
+    children: { type: any; version: number; [key: string]: unknown }[]
+    direction: ('ltr' | 'rtl') | null
+    format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | ''
+    indent: number
+    version: number
+  }
+  [key: string]: unknown
+}
+
 export type MediaDoc = {
   id: string
   url?: string | null
   filename?: string | null
   mimeType?: string | null
 }
+
+export type AudioSlideshowSlideDoc = {
+  id?: string | null
+  title?: string | null
+  image?: MediaDoc | string | null
+  audio?: MediaDoc | string | null
+  body?: LexicalRichText | null
+}
+
+export type AudioSlideshowContent = {
+  slides?: AudioSlideshowSlideDoc[] | null
+  transcript?: LexicalRichText | null
+}
+
+export type VideoCaptionDoc = {
+  label: string
+  file: string | MediaDoc
+  language?: string | null
+  id?: string | null
+}
+
+export type VideoContent = {
+  videoFile?: string | MediaDoc | null
+  streamUrl?: string | null
+  posterImage?: string | MediaDoc | null
+  captions?: VideoCaptionDoc[] | null
+  transcript?: LexicalRichText | null
+}
+
+export type RichPostContent = {
+  body: LexicalRichText
+  mediaGallery?: {
+    media: string | MediaDoc
+    caption?: string | null
+    id?: string | null
+  }[] | null
+}
+
+export type AudioTrackDoc = {
+  title: string
+  audio: string | MediaDoc
+  image?: string | MediaDoc | null
+  durationSeconds?: number | null
+  transcript?: LexicalRichText | null
+  id?: string | null
+}
+
+export type AudioContent = {
+  tracks?: AudioTrackDoc[] | null
+  introduction?: LexicalRichText | null
+}
+
+export type LessonModuleType = 'audioSlideshow' | 'video' | 'richPost' | 'audio'
 
 export type ModuleDoc = {
   id: string
@@ -22,8 +87,18 @@ export type ModuleDoc = {
   summary?: string | null
   order?: number | null
   lesson: string | LessonDoc
+  type?: LessonModuleType | null
+  audioSlideshow?: AudioSlideshowContent | null
+  video?: VideoContent | null
+  richPost?: RichPostContent | null
+  audio?: AudioContent | MediaDoc | string | null
+  resources?: {
+    label: string
+    url: string
+    id?: string | null
+  }[] | null
+  /** Legacy fields retained for backward compatibility */
   image?: MediaDoc | string | null
-  audio?: MediaDoc | string | null
   body?: unknown
 }
 
@@ -57,6 +132,21 @@ export type LessonDoc = {
   course: string | CourseDoc
   modules?: ModuleRelation[] | null
   updatedAt?: string // Payload timestamp for version tracking
+}
+
+export type LessonModuleSlide = {
+  id: string
+  moduleId: string
+  slideId: string
+  type: LessonModuleType
+  order?: number | null
+  slideOrder: number
+  title: string
+  summary?: string | null
+  body?: LexicalRichText | null
+  image?: MediaDoc | string | null
+  audio?: MediaDoc | string | null
+  transcript?: LexicalRichText | null
 }
 
 const buildUrl = (path: string): string => {
@@ -146,7 +236,21 @@ export const resolveMediaUrl = (media: MediaDoc | string | null | undefined): st
   return null
 }
 
-export const extractModules = (lesson: LessonDoc): ModuleDoc[] => {
+const defaultSlideId = (moduleId: string, index: number): string => `${moduleId}-slide-${index}`
+
+const normalizeSlideTitle = (slide: AudioSlideshowSlideDoc | undefined, fallback: string): string => {
+  if (!slide?.title) {
+    return fallback
+  }
+
+  const trimmed = slide.title.trim()
+  return trimmed.length > 0 ? trimmed : fallback
+}
+
+const isAudioContent = (value: ModuleDoc['audio']): value is AudioContent =>
+  Boolean(value && typeof value === 'object' && 'tracks' in value)
+
+export const extractModules = (lesson: LessonDoc): LessonModuleSlide[] => {
   if (!Array.isArray(lesson.modules)) {
     return []
   }
@@ -155,7 +259,84 @@ export const extractModules = (lesson: LessonDoc): ModuleDoc[] => {
     (module): module is ModuleDoc => Boolean(module) && typeof module === 'object'
   )
 
-  return sortByOrder(modules)
+  const sortedModules = sortByOrder(modules)
+
+  const slides: LessonModuleSlide[] = []
+
+  sortedModules.forEach((module) => {
+    const moduleType: LessonModuleType = module.type ?? 'audioSlideshow'
+
+    if (moduleType === 'audioSlideshow') {
+      const slideshowSlides = module.audioSlideshow?.slides ?? []
+
+      if (slideshowSlides.length === 0) {
+        // Fallback to legacy structure where media lived directly on the module
+        const legacyAudio = isAudioContent(module.audio) ? null : module.audio ?? null
+
+        slides.push({
+          id: module.id,
+          moduleId: module.id,
+          slideId: module.id,
+          type: 'audioSlideshow',
+          order: module.order,
+          slideOrder: 0,
+          title: module.title,
+          summary: module.summary ?? null,
+          body: (module.body ?? null) as LexicalRichText | null,
+          image: module.image ?? null,
+          audio: legacyAudio,
+          transcript: module.audioSlideshow?.transcript ?? null,
+        })
+        return
+      }
+
+      slideshowSlides.forEach((slide, index) => {
+        const slideId = (typeof slide?.id === 'string' && slide.id) ? slide.id : defaultSlideId(module.id, index)
+
+        slides.push({
+          id: `${module.id}__${slideId}`,
+          moduleId: module.id,
+          slideId,
+          type: 'audioSlideshow',
+          order: module.order,
+          slideOrder: index,
+          title: normalizeSlideTitle(slide, module.title),
+          summary: module.summary ?? null,
+          body: slide?.body ?? null,
+          image: slide?.image ?? null,
+          audio: slide?.audio ?? null,
+          transcript: module.audioSlideshow?.transcript ?? null,
+        })
+      })
+
+      return
+    }
+
+    // Other module types are not yet supported in the lesson player;
+    // keep a placeholder entry so the lesson still registers content.
+    slides.push({
+      id: module.id,
+      moduleId: module.id,
+      slideId: module.id,
+      type: moduleType,
+      order: module.order,
+      slideOrder: 0,
+      title: module.title,
+      summary: module.summary ?? null,
+      body: null,
+      image: null,
+      audio: null,
+      transcript: null,
+    })
+  })
+
+  return slides.sort((a, b) => {
+    const orderCompare = (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER)
+    if (orderCompare !== 0) {
+      return orderCompare
+    }
+    return a.slideOrder - b.slideOrder
+  })
 }
 
 export const fetchCourses = async (locale?: string): Promise<CourseDoc[]> => {

@@ -1,18 +1,12 @@
 import React from "react"
 import { View, Image, Text, ActivityIndicator, useColorScheme } from "react-native"
 import { useTranslation } from "react-i18next"
-import type { MediaDoc } from "@/lib/payload"
+import type { LessonModuleSlide } from "@/lib/payload"
 import { extractParagraphs, formatOrder, isMediaDoc } from "@/lib/lesson-helpers"
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface LessonSlideProps {
-  item: {
-    id: string
-    order?: number | null
-    title: string
-    body?: unknown
-    image?: MediaDoc | string | null
-  }
+  item: LessonModuleSlide
   index: number
   screenWidth: number
   imageUrl: string | null

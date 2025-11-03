@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { resolveMediaUrl } from "@/lib/payload"
+import { resolveMediaUrl, type LessonModuleSlide } from "@/lib/payload"
 import { computeHasAudio as _computeHasAudio, computeSlideAudio as _computeSlideAudio } from "@/hooks/slide-audio-helpers"
 
 export type SlideAudioItem = {
@@ -11,7 +11,7 @@ export type SlideAudioItem = {
 export { _computeHasAudio as computeHasAudio, _computeSlideAudio as computeSlideAudio }
 
 export function useSlideAudio(
-  modules: { id: string; title?: string; audio?: unknown }[],
+  modules: LessonModuleSlide[],
   cachedMedia: Record<string, string>
 ) {
   const hasAudio = useMemo(() => _computeHasAudio(modules, resolveMediaUrl), [modules])

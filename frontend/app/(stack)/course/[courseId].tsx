@@ -67,23 +67,25 @@ const CourseDetail = () => {
         }
 
         const modules = extractModules(lesson);
-        const mediaUrls: string[] = [];
+        const mediaUrls = new Set<string>();
 
         for (const module of modules) {
           const imageUrl = resolveMediaUrl(module.image);
           const audioUrl = resolveMediaUrl(module.audio);
 
-          if (imageUrl) mediaUrls.push(imageUrl);
-          if (audioUrl) mediaUrls.push(audioUrl);
+          if (imageUrl) mediaUrls.add(imageUrl);
+          if (audioUrl) mediaUrls.add(audioUrl);
         }
 
-        if (mediaUrls.length === 0) {
+        const uniqueMedia = Array.from(mediaUrls);
+
+        if (uniqueMedia.length === 0) {
           result[lesson.id] = "none";
           return;
         }
 
         try {
-          const info = await getLessonCacheStatus(mediaUrls, lesson.updatedAt);
+          const info = await getLessonCacheStatus(uniqueMedia, lesson.updatedAt);
           result[lesson.id] = info.status;
         } catch (statusError) {
           console.error(`Failed to compute cache status for lesson ${lesson.id}`, statusError);
