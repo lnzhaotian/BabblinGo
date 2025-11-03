@@ -108,6 +108,44 @@ export default function UserProfileScreen() {
 
   const isFormValid = isNameValid && isBioValid && isUrlValid && isDobValid && areLearningLangsValid;
   
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [cachedEmail, cachedName, cachedIcon] = await Promise.all([
+          AsyncStorage.getItem('user_email'),
+          AsyncStorage.getItem('user_displayName'),
+          AsyncStorage.getItem('user_avatarIcon'),
+        ]);
+
+        if (cancelled) {
+          return;
+        }
+
+        const normalizedEmail = cachedEmail && cachedEmail.trim().length ? cachedEmail : null;
+        const normalizedName = cachedName && cachedName.trim().length ? cachedName : null;
+        const normalizedIcon = cachedIcon && cachedIcon.trim().length ? cachedIcon : undefined;
+
+        if (normalizedEmail !== null) {
+          setEmail(normalizedEmail);
+        }
+        if (normalizedName !== null) {
+          setDisplayName(normalizedName);
+          setEditName(normalizedName);
+        }
+        if (normalizedIcon) {
+          setAvatarIcon(normalizedIcon);
+        }
+      } catch {
+        // ignore cache hydration errors
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Fetch user
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -121,31 +159,58 @@ export default function UserProfileScreen() {
         });
         if (!res.ok) throw new Error(await res.text());
         const data = await res.json();
-        const u = data.user || {};
-        setEmail(u.email || null);
-        setDisplayName(u.displayName || null);
-        setAvatarIcon(u.avatarIcon || 'person');
-        setBio(u.bio || '');
-        setLocation(u.location || '');
-        setWebsite(u.website || '');
-  // Normalize DOB to date-only string for display (avoid time portion from backend)
-  const dobOnly = extractDateOnly(u.dateOfBirth);
-  setDateOfBirth(dobOnly);
-        setNativeLanguage(u.nativeLanguage || '');
-        setLearningLanguages(u.learningLanguages || []);
-        setEditName(u.displayName || '');
-        setEditBio(u.bio || '');
-        setEditLocation(u.location || '');
-        setEditWebsite(u.website || '');
-        
-        // Parse date string to Date object for picker
+        const rawUser = (data && typeof data === 'object') ? (data.user ?? data.doc ?? data) : null;
+        if (!rawUser || typeof rawUser !== 'object') {
+          throw new Error('Invalid profile response');
+        }
+
+        const u = rawUser as Record<string, any>;
+        const nextEmail = typeof u.email === 'string' && u.email.trim().length ? u.email : null;
+        const nextDisplayName = typeof u.displayName === 'string' && u.displayName.trim().length
+          ? u.displayName
+          : null;
+        const nextAvatarIcon = typeof u.avatarIcon === 'string' && u.avatarIcon.trim().length
+          ? u.avatarIcon
+          : 'person';
+
+        setEmail(nextEmail);
+        setDisplayName(nextDisplayName);
+        setAvatarIcon(nextAvatarIcon);
+        setBio(typeof u.bio === 'string' ? u.bio : '');
+        setLocation(typeof u.location === 'string' ? u.location : '');
+        setWebsite(typeof u.website === 'string' ? u.website : '');
+
+        const dobOnly = extractDateOnly(u.dateOfBirth);
+        setDateOfBirth(dobOnly);
+
+        const nativeLang = typeof u.nativeLanguage === 'string' ? u.nativeLanguage : '';
+        const learningLangs = Array.isArray(u.learningLanguages) ? u.learningLanguages : [];
+        setNativeLanguage(nativeLang);
+        setLearningLanguages(learningLangs);
+
+        setEditName(nextDisplayName ?? '');
+        setEditBio(typeof u.bio === 'string' ? u.bio : '');
+        setEditLocation(typeof u.location === 'string' ? u.location : '');
+        setEditWebsite(typeof u.website === 'string' ? u.website : '');
+
         setEditDateOfBirth(toDateOrNull(dobOnly));
-        setEditNativeLanguage(u.nativeLanguage || '');
-        setEditLearningLanguages(u.learningLanguages || []);
-        setUserId(u.id || u._id || null);
-        await AsyncStorage.setItem('user_email', u.email || '');
-        await AsyncStorage.setItem('user_displayName', u.displayName || '');
-        await AsyncStorage.setItem('user_avatarIcon', u.avatarIcon || 'person');
+        setEditNativeLanguage(nativeLang);
+        setEditLearningLanguages(learningLangs);
+        setUserId((typeof u.id === 'string' && u.id) || (typeof u._id === 'string' && u._id) || null);
+
+        if (nextEmail !== null) {
+          await AsyncStorage.setItem('user_email', nextEmail);
+        } else {
+          await AsyncStorage.removeItem('user_email');
+        }
+
+        if (nextDisplayName !== null) {
+          await AsyncStorage.setItem('user_displayName', nextDisplayName);
+        } else {
+          await AsyncStorage.removeItem('user_displayName');
+        }
+
+        await AsyncStorage.setItem('user_avatarIcon', nextAvatarIcon || 'person');
       } catch (err: any) {
         setError(err.message || 'Failed to load profile');
       } finally {
