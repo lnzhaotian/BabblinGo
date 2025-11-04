@@ -45,7 +45,7 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 - A4 Testing & Rollout
   - [x] Backend e2e: courses list/detail, lessons-by-course (with and without levels)
   - [x] Frontend tests: instrumentation coverage for course/lesson analytics
-  - [ ] Rollout plan: flag/toggle for Home refactor, monitoring, rollback
+  - [x] Rollout plan: documented staged launch, monitoring hooks, and rollback steps (see below)
 
 ### Acceptance Criteria
 - Home lists all courses (i18n title, cover) with pagination if needed
@@ -111,6 +111,24 @@ Goal: Complete user-facing auth flows and profile management, then add server sy
 - Accessibility: announce course titles and counts; maintain focus order
 - Analytics: add minimal event set for validation; avoid PII
 - Security: never commit secrets; follow Payload access control for user data
+
+### Rollout Plan — Epic A Courses (Drafted 2025-11-04)
+
+1. **Pre-launch checks**
+  - Keep the multi-course UI behind the existing code path until production sign-off; no feature flag is required because the new list screens are already merged but unpublished content can stay hidden.
+  - Seed at least one published course and a handful of lessons in Payload Cloud; confirm course-level ordering and localized fields are populated.
+  - Run `pnpm run test:int` (admin) and `npm run test` (frontend) on the release branch to verify schema/API coverage.
+2. **Staged rollout**
+  - Deploy Payload CMS and Expo client updates to the staging environment; smoke test Home → Course → Lesson flows, cache indicators, and localized text.
+  - Enable `EXPO_PUBLIC_ANALYTICS_DEBUG=true` in staging to confirm `course_viewed` and `lesson_opened` payloads reach the analytics sink.
+  - Schedule production deploy during a low-traffic window (~30 min) with one engineer on-call for rollback.
+3. **Launch actions**
+  - Publish the curated course catalog in Payload; verify Home tab renders the expected cards in production.
+  - Disable analytics debug flag once payload ingestion is verified.
+  - Announce availability to support/channels with guidance on expected behavior.
+4. **Monitoring & rollback**
+  - Watch analytics dashboards (course views vs. baseline, lesson opens, error logs) during the first 24 h.
+  - If severe regressions occur, unpublish the multi-course content set in Payload (reverting Home to an empty-state) and redeploy the prior mobile build if necessary; follow up by triaging root cause before re-enabling content.
 
 ---
 

@@ -56,6 +56,7 @@ BabblinGo/
 - The legacy NestJS backend has been removed in favor of Payload CMS.
 - Commit secrets to `.env` files only through a secure secrets manager—never to Git.
 - Run `docker compose down` inside `BabblinGoAdmin` when you are done to stop local containers.
+- Integration tests for `BabblinGoAdmin` run outside Docker. Ensure the Mongo container is up (`docker compose up mongo -d`), then execute `pnpm run test:int`. The suite uses `test.env` to override `DATABASE_URI` to `mongodb://127.0.0.1:27017/BabblinGoAdmin`, so keep that file in sync with your local environment.
 
 ## Roadmap (high level)
 
