@@ -9,6 +9,7 @@ import { MaterialIcons } from "@expo/vector-icons"
 import { LessonDoc, ModuleDoc, extractModuleSlides, resolveMediaUrl } from "@/lib/payload"
 import { extractParagraphs } from "@/lib/lesson-helpers"
 import { useThemeMode } from "@/app/theme-context"
+import { useLearningSession } from "@/hooks/useLearningSession"
 
 export type VideoModuleViewProps = {
   lesson: LessonDoc
@@ -25,6 +26,8 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
   const [playerError, setPlayerError] = useState<PlayerError | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
   const [playbackRate, setPlaybackRate] = useState(1)
+
+  useLearningSession(lesson.id, lesson.title, { enabled: false })
 
   const slide = useMemo(() => {
     const slides = extractModuleSlides(module)

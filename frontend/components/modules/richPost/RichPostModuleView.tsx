@@ -7,6 +7,7 @@ import { Image } from "expo-image"
 import { LessonDoc, ModuleDoc, MediaDoc, extractModuleSlides, resolveMediaUrl } from "@/lib/payload"
 import { useThemeMode } from "@/app/theme-context"
 import type { LexicalRichText } from "@/lib/payload"
+import { useLearningSession } from "@/hooks/useLearningSession"
 
 export type RichPostModuleViewProps = {
   lesson: LessonDoc
@@ -19,6 +20,8 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
 }) => {
   const { t } = useTranslation()
   const { colorScheme } = useThemeMode()
+
+  useLearningSession(lesson.id, lesson.title, { enabled: false })
 
   const slide = useMemo(() => {
     const slides = extractModuleSlides(module)

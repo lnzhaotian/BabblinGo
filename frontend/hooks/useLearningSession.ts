@@ -11,13 +11,21 @@ const SESSION_LENGTH_KEY = "learning.sessionLength"
 const createRunId = (lessonId?: string) =>
   `${lessonId ?? "lesson"}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
 
+type LearningSessionOptions = {
+  defaultSeconds?: number
+  speed?: PlaybackSpeed
+  loop?: boolean
+  enabled?: boolean
+}
+
 export function useLearningSession(
   lessonId: string | undefined,
   lessonTitle: string | undefined,
-  opts?: { defaultSeconds?: number; speed?: PlaybackSpeed; loop?: boolean; enabled?: boolean }
+  opts?: LearningSessionOptions
 ) {
   const enabled = opts?.enabled ?? true
   const defaultSeconds = opts?.defaultSeconds ?? DEFAULT_SESSION_SECONDS
+  const passiveMode = !enabled
 
   const [mode, setMode] = useState<LearningSessionMode>(enabled ? "landing" : "active")
   const [configuredSeconds, setConfiguredSeconds] = useState<number>(defaultSeconds)
@@ -95,7 +103,7 @@ export function useLearningSession(
   useEffect(() => {
     if (!enabled) {
       setMode("active")
-      setConfiguredSeconds(defaultSeconds)
+      setConfiguredSeconds(0)
       setRemainingSeconds(0)
       setSessionReady(true)
       stopTimer()
@@ -178,7 +186,7 @@ export function useLearningSession(
     return Math.min(planned, Math.max(0, Math.round((Date.now() - startedAt.getTime()) / 1000)))
   }, [startedAt, mode, configuredSeconds])
 
-  const persistSession = useCallback(async (finished: boolean) => {
+  const persistSession = useCallback(async (finished: boolean, overrides?: { plannedSeconds?: number }) => {
     const currentLessonId = lessonIdRef.current
     const segmentStart = startedAtRef.current
     if (!currentLessonId || !segmentStart) return
@@ -191,7 +199,7 @@ export function useLearningSession(
     const fallbackTitle = lessonTitleRef.current?.trim()?.length
       ? (lessonTitleRef.current as string)
       : currentLessonId
-    const plannedSeconds = configuredSecondsRef.current ?? DEFAULT_SESSION_SECONDS
+    const plannedSeconds = overrides?.plannedSeconds ?? configuredSecondsRef.current ?? DEFAULT_SESSION_SECONDS
     const speed = speedRef.current ?? ((1.0 as PlaybackSpeed))
 
     await saveLearningSession({
@@ -210,11 +218,7 @@ export function useLearningSession(
   // On results mode entry, persist session once
   const hasSavedRef = useRef(false)
   useEffect(() => {
-    if (!enabled) {
-      return
-    }
-
-    if (mode === "results" && !hasSavedRef.current) {
+    if (enabled && mode === "results" && !hasSavedRef.current) {
       hasSavedRef.current = true
       // If session ended naturally, finished=true
       persistSession(remainingSeconds === 0)
@@ -226,9 +230,6 @@ export function useLearningSession(
 
   // Save session on manual exit (unfinished)
   useEffect(() => {
-    if (!enabled) {
-      return
-    }
     if (mode === "active") {
       return () => {
         if (startedAtRef.current) {
@@ -236,7 +237,9 @@ export function useLearningSession(
             finishingRef.current = false
             return
           }
-          void persistSession(false)
+          const elapsed = Math.max(0, Math.round((Date.now() - startedAtRef.current.getTime()) / 1000))
+          const planned = enabled ? undefined : elapsed
+          void persistSession(false, planned != null ? { plannedSeconds: planned } : undefined)
         }
       }
     }
@@ -264,11 +267,28 @@ export function useLearningSession(
     }
   }, [sessionReady, mode, startSession, enabled])
 
+  useEffect(() => {
+    if (!passiveMode) {
+      return
+    }
+    if (!lessonIdRef.current && lessonId) {
+      lessonIdRef.current = lessonId
+    }
+    if (!runIdRef.current && lessonIdRef.current) {
+      runIdRef.current = createRunId(lessonIdRef.current)
+    }
+    if (!startedAtRef.current) {
+      const startTime = new Date()
+      startedAtRef.current = startTime
+      setStartedAt(startTime)
+    }
+  }, [passiveMode, lessonId])
+
   return {
     mode: enabled ? mode : "active",
     configuredSeconds,
     remainingSeconds: enabled ? remainingSeconds : 0,
-    elapsedSeconds: enabled ? elapsedSeconds : 0,
+    elapsedSeconds: enabled ? elapsedSeconds : (startedAt ? Math.max(0, Math.round((Date.now() - startedAt.getTime()) / 1000)) : 0),
     startSession: enabled ? startSession : () => {},
     restartSession: enabled ? restartSession : () => {},
     sessionReady: enabled ? sessionReady : true,

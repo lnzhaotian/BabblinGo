@@ -13,6 +13,7 @@ import { useLessonCache } from "@/hooks/useLessonCache"
 import { LessonDoc, ModuleDoc, extractModuleSlides, resolveMediaUrl } from "@/lib/payload"
 import { extractParagraphs } from "@/lib/lesson-helpers"
 import { useThemeMode } from "@/app/theme-context"
+import { useLearningSession } from "@/hooks/useLearningSession"
 
 export type AudioPlaylistModuleViewProps = {
   lesson: LessonDoc
@@ -49,6 +50,11 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
     loopEnabled,
     setLoopEnabled,
   } = useLessonPreferences()
+
+  useLearningSession(lesson.id, lesson.title, {
+    enabled: false,
+    speed: playerSpeed,
+  })
 
   const introductionParagraphs = useMemo(() => {
     const preferred = slide?.body ?? slide?.audioPlaylist?.introduction ?? null
