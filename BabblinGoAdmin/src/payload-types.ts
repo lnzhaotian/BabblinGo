@@ -72,6 +72,7 @@ export interface Config {
     lessons: Lesson;
     modules: Module;
     media: Media;
+    'learning-records': LearningRecord;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -83,6 +84,7 @@ export interface Config {
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     modules: ModulesSelect<false> | ModulesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'learning-records': LearningRecordsSelect<false> | LearningRecordsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -482,6 +484,27 @@ export interface Module {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "learning-records".
+ */
+export interface LearningRecord {
+  id: string;
+  user: string | User;
+  clientId: string;
+  lessonId: string;
+  lessonTitle?: string | null;
+  runId?: string | null;
+  startedAt: string;
+  endedAt: string;
+  plannedSeconds: number;
+  durationSeconds?: number | null;
+  speed?: number | null;
+  finished?: boolean | null;
+  segments?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -506,6 +529,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'learning-records';
+        value: string | LearningRecord;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -719,6 +746,26 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "learning-records_select".
+ */
+export interface LearningRecordsSelect<T extends boolean = true> {
+  user?: T;
+  clientId?: T;
+  lessonId?: T;
+  lessonTitle?: T;
+  runId?: T;
+  startedAt?: T;
+  endedAt?: T;
+  plannedSeconds?: T;
+  durationSeconds?: T;
+  speed?: T;
+  finished?: T;
+  segments?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

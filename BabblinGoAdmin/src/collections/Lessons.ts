@@ -24,6 +24,7 @@ export const Lessons: CollectionConfig = {
     {
       name: 'order',
       type: 'number',
+      index: true,
       admin: {
         position: 'sidebar',
         description: 'Optional numeric position used to sort lessons within the course.',

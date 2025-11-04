@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -24,6 +24,7 @@ import {
   resolveLocalizedField,
   resolveMediaUrl,
 } from "@/lib/payload";
+import { recordCourseView, recordLessonOpened } from "@/lib/analytics";
 import { getLessonCacheStatus, LessonCacheStatus } from "@/lib/cache-manager";
 import { ThemedHeader } from "@/components/ThemedHeader";
 import { useThemeMode } from "../../theme-context";
@@ -48,6 +49,7 @@ const CourseDetail = () => {
   const [error, setError] = useState<string | null>(null);
   const [cacheStatuses, setCacheStatuses] = useState<Record<string, LessonCacheStatus>>({});
   const [selectedLevelKey, setSelectedLevelKey] = useState<string | null>(null);
+  const lastTrackedCourseRef = useRef<string | null>(null);
 
   const locale = i18n.language;
   const resolvedCourseId = courseId ? String(courseId) : undefined;
@@ -138,6 +140,21 @@ const CourseDetail = () => {
 
   useEffect(() => {
     if (!course) {
+      lastTrackedCourseRef.current = null;
+      return;
+    }
+
+    const trackingKey = `${course.id}:${lessons.length}`;
+    if (lastTrackedCourseRef.current === trackingKey) {
+      return;
+    }
+
+    recordCourseView(course, { locale, lessonCount: lessons.length });
+    lastTrackedCourseRef.current = trackingKey;
+  }, [course, lessons.length, locale]);
+
+  useEffect(() => {
+    if (!course) {
       setSelectedLevelKey(null);
       return;
     }
@@ -214,6 +231,8 @@ const CourseDetail = () => {
         return;
       }
 
+      recordLessonOpened(lesson, { locale, courseId: course?.id ?? resolvedCourseId ?? null });
+
       if (moduleDocs.length === 1) {
         router.push({
           pathname: "/lesson/[lessonId]/module/[moduleId]",
@@ -233,7 +252,7 @@ const CourseDetail = () => {
         params: { lessonId: lesson.id, title: lesson.title },
       } as never);
     },
-    [router],
+    [course?.id, locale, resolvedCourseId, router],
   );
 
   const renderLesson = useCallback(

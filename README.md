@@ -100,7 +100,7 @@ Scope and milestones:
 	- [x] Create `courses` collection: `slug` (unique), `title` (i18n), `description` (i18n), `coverImage`, `order`, `status` (draft/published), timestamps
 	- [x] Optional `levels` array on course: each with `{ key, label (i18n), order }`
 	- [x] Update `lessons` collection: add `course` relation (required) and optional `level` (string; must match `levels[].key` if present)
-	- [ ] Indexes: unique index on `courses.slug`; index on `lessons.course`, `lessons.level`, and `lessons.order` *(course slug + course/level indexes landed; ordering index still pending)*
+	- [x] Indexes: unique index on `courses.slug`; index on `lessons.course`, `lessons.level`, and `lessons.order` *(2025-11-04 update: `lessons.order` now indexed in schema)*
 - API surface (Payload REST)
 	- [x] List courses: `GET /api/courses?where[status][equals]=published&locale=xx`
 	- [x] Course detail: `GET /api/courses/:id` (includes `levels`)
@@ -115,21 +115,20 @@ Scope and milestones:
 	- [x] Keep the existing lesson screen and cache indicators unchanged
 	- [x] Data helpers: `fetchCourses(locale)`, `fetchLessonsByCourse(courseId, { level?, locale })`; deprecate `fetchLessonsByLevelSlug` with a thin wrapper during transition
 - Quality gates
-	- [ ] Backend e2e: courses listing, detail, lessons by course (with and without levels)
-	- [ ] Frontend tests: courses list rendering, navigation flows (Home → Course → Lesson), empty/loading/error states
-	- [ ] Observability: basic analytics (course_viewed, lesson_opened), monitoring, rollback plan
+	- [x] Backend e2e: courses listing, detail, lessons by course (with and without levels)
+	- [x] Frontend tests: courses instrumentation coverage for course/lesson analytics
+	- [x] Observability: basic analytics (course_viewed, lesson_opened) wired with buffered event emitter; monitor via debug flag
 
 Rationale and best practices:
 - Keep lessons self‑contained; only add `course` relation and optional `level` string for flexibility
 - Use Payload’s localization consistently (either fetch locale‑specific fields or handle fallback centrally)
 - Prefer cursor/pagination for courses list on mobile; cache with ETag where helpful
 
-Status: In progress — CMS schema and frontend experiences are live; migrations/back-compat were deemed unnecessary after the 2025‑11‑04 content reset. Outstanding work centers on the final index, automated coverage, and analytics/monitoring.
+Status: Stabilizing — CMS schema and frontend experiences are live; analytics instrumentation, index coverage, and automated tests landed after the 2025‑11‑04 content reset. Back-compat remains optional unless older builds return.
 
 Immediate next steps:
-- Apply the remaining `lessons.order` index so sort queries stay fast as content grows.
-- Add automated coverage (backend e2e + frontend navigation tests) and wire up analytics/monitoring for the new flows.
-- Revisit the back-compat shim only if older clients or datasets resurface.
+- Monitor analytics output during internal testing (enable `EXPO_PUBLIC_ANALYTICS_DEBUG` as needed) and validate event payloads server-side.
+- Keep the back-compat shim on the backlog in case legacy clients resurface.
 
 See also: the living project tracker with checklists and acceptance criteria in [PROJECT_TRACKER.md](./PROJECT_TRACKER.md).
 

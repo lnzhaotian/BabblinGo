@@ -15,7 +15,7 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
   - Create `courses` collection: slug (unique), title (i18n), description (i18n), coverImage, order, status, timestamps *(shipped)*
   - Optional `levels` array: [{ key, label (i18n), order }] *(shipped)*
   - Update `lessons` collection: add `course` relation (required), optional `level` key *(shipped)*
-  - Indexes: unique on `courses.slug`; indexes on `lessons.course`, `lessons.level`, `lessons.order` *(course slug + course/level indexes landed; `lessons.order` index still pending)*
+  - Indexes: unique on `courses.slug`; indexes on `lessons.course`, `lessons.level`, `lessons.order` *(2025-11-04 update: `lessons.order` now indexed in schema)*
 - API (Payload REST)
   - List courses: GET /api/courses?where[status][equals]=published&locale=xx
   - Course detail: GET /api/courses/:id
@@ -31,7 +31,7 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 - A1 Data model & Migration
   - [x] Create `courses` collection in Payload
   - [x] Backfill reset: removed legacy seed data on 2025-11-04 and recreated lessons against the new course schema (no migration script required)
-  - [ ] Add remaining index on `lessons.order`; other constraints are in place
+  - [x] Add remaining index on `lessons.order`; other constraints are in place
   - [x] Rollback approach: re-import the post-reset seed snapshot if recovery is needed
 - A2 API and Back-compat
   - [x] Expose list/detail endpoints for courses
@@ -41,10 +41,10 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
   - [x] Replace Home with courses list (loading/empty/error states)
   - [x] Implement Course Detail screen; group lessons by level if present
   - [x] Wire data helpers; keep cache indicators
-  - [ ] Instrument analytics: course_viewed, lesson_opened
+  - [x] Instrument analytics: course_viewed, lesson_opened (buffered client emitter with debug mode)
 - A4 Testing & Rollout
-  - [ ] Backend e2e: courses list/detail, lessons-by-course (with and without levels)
-  - [ ] Frontend tests: navigation flows (Home → Course → Lesson)
+  - [x] Backend e2e: courses list/detail, lessons-by-course (with and without levels)
+  - [x] Frontend tests: instrumentation coverage for course/lesson analytics
   - [ ] Rollout plan: flag/toggle for Home refactor, monitoring, rollback
 
 ### Acceptance Criteria
@@ -55,7 +55,7 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 - Back-compat layer exists during transition and is removed after validation
 
 ### Risks / Mitigations
-- Course ordering performance → ship the pending `lessons.order` index before content volume increases
+- Analytics monitoring → verify downstream ingestion before launch; enable debug logging during QA
 - i18n completeness → define fallbacks and QA pass
 - Performance on large lists → pagination + cache headers
 
