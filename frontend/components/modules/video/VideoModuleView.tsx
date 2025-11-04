@@ -253,16 +253,6 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
     } catch {}
   }, [controlsDisabled, player])
 
-  const handleStop = useCallback(() => {
-    if (controlsDisabled) return
-    try { player.pause() } catch {}
-    try {
-      player.currentTime = 0
-      setPlaybackMetrics((prev) => ({ ...prev, currentTime: 0 }))
-    } catch {}
-    setIsPlaying(false)
-  }, [controlsDisabled, player])
-
   const handleSeek = useCallback((seconds: number) => {
     if (controlsDisabled) return
     try { player.seekBy(seconds) } catch {}
@@ -499,13 +489,6 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
                   variant="primary"
                 />
                 <CircleButton
-                  icon="stop"
-                  onPress={handleStop}
-                  disabled={controlsDisabled}
-                  accessibilityLabel={t("lesson.video.controls.stop", { defaultValue: "Stop" })}
-                  variant="secondary"
-                />
-                <CircleButton
                   icon="forward-10"
                   onPress={() => handleSeek(10)}
                   disabled={controlsDisabled}
@@ -534,9 +517,6 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
               </View>
 
               <View style={{ gap: 8, alignItems: "center" }}>
-                {/* <Text style={{ color: colorScheme === "dark" ? "#e2e8f0" : "#1f2937", fontWeight: "600", fontSize: 14 }}>
-                  {t("lesson.video.controls.speed", { defaultValue: "Speed" })}
-                </Text> */}
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
                   {speedPresets.map((rate) => {
                     const isSelected = Math.abs(rate - playbackRate) < 0.05
