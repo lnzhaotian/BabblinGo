@@ -76,6 +76,46 @@ const extractCourseId = (course: LessonDoc['course']): string | undefined => {
   return course.id
 }
 
+export type LearningSyncTrigger = 'scheduled' | 'manual' | 'login' | 'appStart' | 'background'
+
+export type LearningSyncFetchStatus = 'ok' | 'unauthorized' | 'error'
+
+export type LearningSyncStartedMetrics = {
+  localCount: number
+  dirtyCount: number
+  trigger?: LearningSyncTrigger | 'unknown'
+}
+
+export type LearningSyncCompletedMetrics = {
+  durationMs: number
+  localCount: number
+  dirtyBefore: number
+  dirtyAfter: number
+  remoteFetched: number
+  pushAttempted: number
+  pushFailed: number
+  fetchStatus: LearningSyncFetchStatus
+  fetchError?: string
+  trigger?: LearningSyncTrigger | 'unknown'
+}
+
+export type LearningSyncFailedMetrics = {
+  durationMs: number
+  localCount: number
+  dirtyBefore: number
+  errorMessage: string
+  stage?: 'fetch' | 'push' | 'persist' | 'unknown'
+  statusCode?: number
+  trigger?: LearningSyncTrigger | 'unknown'
+}
+
+export type LearningSyncSkippedMetrics = {
+  reason: 'unauthenticated' | 'offline' | 'cooldown' | 'unknown'
+  localCount: number
+  dirtyCount: number
+  trigger?: LearningSyncTrigger | 'unknown'
+}
+
 const emitEvent = (name: string, payload: Record<string, unknown>): void => {
   const event: AnalyticsEvent = {
     name,
@@ -135,5 +175,84 @@ export const recordLessonOpened = (
     courseId: resolvedCourseId,
     level: lesson.level ?? null,
     hasModules: Array.isArray(lesson.modules) && lesson.modules.length > 0,
+  })
+}
+
+export const recordLearningSyncStarted = (metrics: LearningSyncStartedMetrics): void => {
+  const { localCount, dirtyCount, trigger = 'scheduled' } = metrics
+
+  trackEvent('learning_sync_started', {
+    localCount,
+    dirtyCount,
+    trigger,
+  })
+}
+
+export const recordLearningSyncCompleted = (metrics: LearningSyncCompletedMetrics): void => {
+  const {
+    durationMs,
+    localCount,
+    dirtyBefore,
+    dirtyAfter,
+    remoteFetched,
+    pushAttempted,
+    pushFailed,
+    fetchStatus,
+    fetchError,
+    trigger = 'scheduled',
+  } = metrics
+
+  const completionStatus = pushFailed === 0
+    ? 'success'
+    : pushAttempted > 0 && pushFailed >= pushAttempted
+      ? 'failed'
+      : 'partial'
+
+  trackEvent('learning_sync_completed', {
+    durationMs,
+    localCount,
+    dirtyBefore,
+    dirtyAfter,
+    queueDelta: dirtyAfter - dirtyBefore,
+    remoteFetched,
+    pushAttempted,
+    pushFailed,
+    fetchStatus,
+    fetchError: fetchError ?? null,
+    trigger,
+    status: completionStatus,
+  })
+}
+
+export const recordLearningSyncFailed = (metrics: LearningSyncFailedMetrics): void => {
+  const {
+    durationMs,
+    localCount,
+    dirtyBefore,
+    errorMessage,
+    stage = 'unknown',
+    statusCode,
+    trigger = 'scheduled',
+  } = metrics
+
+  trackEvent('learning_sync_failed', {
+    durationMs,
+    localCount,
+    dirtyBefore,
+    errorMessage,
+    stage,
+    statusCode: statusCode ?? null,
+    trigger,
+  })
+}
+
+export const recordLearningSyncSkipped = (metrics: LearningSyncSkippedMetrics): void => {
+  const { reason, localCount, dirtyCount, trigger = 'scheduled' } = metrics
+
+  trackEvent('learning_sync_skipped', {
+    reason,
+    localCount,
+    dirtyCount,
+    trigger,
   })
 }

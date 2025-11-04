@@ -5,6 +5,10 @@ import {
   getAnalyticsBuffer,
   recordCourseView,
   recordLessonOpened,
+  recordLearningSyncCompleted,
+  recordLearningSyncFailed,
+  recordLearningSyncSkipped,
+  recordLearningSyncStarted,
   trackEvent,
 } from '@/lib/analytics'
 import type { CourseDoc, LessonDoc } from '@/lib/payload'
@@ -93,6 +97,58 @@ describe('analytics', () => {
       courseId: 'course-123',
       level: 'beginner',
       hasModules: true,
+    })
+  })
+
+  it('records learning sync lifecycle events', () => {
+    recordLearningSyncStarted({ localCount: 3, dirtyCount: 2, trigger: 'manual' })
+    recordLearningSyncCompleted({
+      durationMs: 1200,
+      localCount: 4,
+      dirtyBefore: 2,
+      dirtyAfter: 0,
+      remoteFetched: 5,
+      pushAttempted: 2,
+      pushFailed: 0,
+      fetchStatus: 'ok',
+      trigger: 'manual',
+    })
+    recordLearningSyncFailed({
+      durationMs: 500,
+      localCount: 1,
+      dirtyBefore: 1,
+      errorMessage: 'Unauthorized',
+      stage: 'fetch',
+      statusCode: 401,
+      trigger: 'login',
+    })
+    recordLearningSyncSkipped({
+      reason: 'unauthenticated',
+      localCount: 0,
+      dirtyCount: 0,
+      trigger: 'scheduled',
+    })
+
+    const events = getAnalyticsBuffer()
+    expect(events.map((entry) => entry.name)).toEqual([
+      'learning_sync_started',
+      'learning_sync_completed',
+      'learning_sync_failed',
+      'learning_sync_skipped',
+    ])
+
+    expect(events[1].payload).toMatchObject({
+      queueDelta: -2,
+      status: 'success',
+      fetchStatus: 'ok',
+      pushAttempted: 2,
+      pushFailed: 0,
+    })
+
+    expect(events[2].payload).toMatchObject({
+      errorMessage: 'Unauthorized',
+      statusCode: 401,
+      trigger: 'login',
     })
   })
 })

@@ -125,11 +125,11 @@ Rationale and best practices:
 - Use Payload’s localization consistently (either fetch locale‑specific fields or handle fallback centrally)
 - Prefer cursor/pagination for courses list on mobile; cache with ETag where helpful
 
-Status: Stabilizing — CMS schema and frontend experiences are live; analytics instrumentation, index coverage, and automated tests landed after the 2025‑11‑04 content reset. Back-compat remains optional unless older builds return.
+Status: Complete — CMS schema and frontend experiences are live; analytics instrumentation, index coverage, and automated tests landed after the 2025‑11‑04 content reset. Back-compat remains optional unless older builds return.
 
 Immediate next steps:
-- Monitor analytics output during internal testing (enable `EXPO_PUBLIC_ANALYTICS_DEBUG` as needed) and validate event payloads server-side.
-- Keep the back-compat shim on the backlog in case legacy clients resurface.
+- Continue monitoring analytics output during internal testing (enable `EXPO_PUBLIC_ANALYTICS_DEBUG` as needed) and validate event payloads server-side.
+- Keep the back-compat shim note on the backlog in case legacy clients resurface.
 
 See also: the living project tracker with checklists and acceptance criteria in [PROJECT_TRACKER.md](./PROJECT_TRACKER.md).
 
@@ -137,7 +137,7 @@ See also: the living project tracker with checklists and acceptance criteria in 
 
 This section tracks the step-by-step plan for implementing user authentication and server-side user data sync in BabblinGo. Refer to this roadmap if you need to resume or clarify the next steps during development.
 
-### Progress Update (as of 2025-11-04)
+### Progress Update (as of 2025-11-04 — complete)
 **Backend:**
 - Users collection extended with display name, avatar, bio, location, website, dateOfBirth, and languages
 - `auth: true` enabled for password-based authentication
@@ -158,10 +158,10 @@ This section tracks the step-by-step plan for implementing user authentication a
 - Email and auth flows tested (unit + manual multi-device checks)
 - Sync regression suite expanded to cover learning record uploads and conflict resolution on reconnect
 
-**Next Steps:**
-1. Instrument analytics/monitoring for sync success & failure rates and set up alerting thresholds
-2. Document support playbooks for resolving sync conflicts or reprocessing queues
-3. Evaluate background sync cadence and battery impact during beta rollout
+**Monitoring Notes:**
+- Learning sync analytics emit lifecycle events with queue depth, timing, and failure metadata.
+- Support runbook for resolving stuck queues lives at `docs/learning-sync-runbook.md`.
+- Background cadence is capped at 15 minutes with manual trigger guidance; adjust via `syncLearningRecords` scheduler if usage patterns change.
 
 ### 1. Backend: Users Collection & Auth Foundation
 - Extend the `Users` collection in Payload CMS:

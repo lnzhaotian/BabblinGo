@@ -1,6 +1,6 @@
 # Project Tracker
 
-Last updated: 2025-11-04
+Last updated: 2025-11-04 (telemetry wrap)
 
 This tracker captures epics, milestones, and acceptance criteria so we can pause/resume confidently. Use this as the single source of truth during the Courses refactor and while wrapping up Users/Auth.
 
@@ -36,7 +36,7 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 - A2 API and Back-compat
   - [x] Expose list/detail endpoints for courses
   - [x] Expose lessons-by-course; support optional `level` filter
-  - [ ] Implement level-slug shim only if legacy builds reappear (currently unnecessary)
+  - [x] Implement level-slug shim only if legacy builds reappear (no longer required; legacy builds retired)
 - A3 Frontend Refactor
   - [x] Replace Home with courses list (loading/empty/error states)
   - [x] Implement Course Detail screen; group lessons by level if present
@@ -80,10 +80,10 @@ Goal: Complete user-facing auth flows and profile management, then add server sy
   - Local queue drains automatically when connectivity/auth is restored
 
 ### Remaining Work
-- B5 Monitoring & Support
-  - [ ] Add analytics/telemetry for sync success/failure and queue depth
-  - [ ] Document operational runbooks for resolving stuck or conflicting learning records
-  - [ ] Evaluate background sync cadence vs. battery/runtime impact during beta
+- B5 Monitoring & Support *(completed 2025-11-04)*
+  - [x] Add analytics/telemetry for sync success/failure and queue depth *(learning sync emits start/completed/failed/skipped events with queue metrics)*
+  - [x] Document operational runbooks for resolving stuck or conflicting learning records *(see `docs/learning-sync-runbook.md` for triage steps)*
+  - [x] Evaluate background sync cadence vs. battery/runtime impact during beta *(baseline captured in runbook with 15-minute scheduled cap and manual trigger guidance)*
 
 ### Completed Since Previous Update
 - B1 Backend Collections

@@ -1,5 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { config } from "./config"
+import {
+  recordLearningSyncCompleted,
+  recordLearningSyncFailed,
+  recordLearningSyncSkipped,
+  recordLearningSyncStarted,
+} from "./analytics"
+import type { LearningSyncFetchStatus } from "./analytics"
 import type { SessionRecord } from "./learning-types"
 import { LEARNING_SESSIONS_STORAGE_KEY } from "./learning-types"
 
@@ -37,6 +44,9 @@ const normalizeSpeed = (value: unknown) => {
   return Number(num.toFixed(2))
 }
 
+const countDirtySessions = (sessions: SessionRecord[]): number =>
+  sessions.reduce((acc, session) => acc + ((session.dirty || !session.serverId) ? 1 : 0), 0)
+
 type RemoteRecord = {
   id: string
   clientId?: string
@@ -51,6 +61,20 @@ type RemoteRecord = {
   finished?: boolean | null
   segments?: number | null
   updatedAt?: string | null
+}
+
+type RemoteFetchResult = {
+  records: SessionRecord[]
+  status: LearningSyncFetchStatus
+  statusCode?: number
+  errorMessage?: string
+}
+
+type PushResult = {
+  sessions: SessionRecord[]
+  attempted: number
+  failed: number
+  succeeded: number
 }
 
 const fromRemoteRecord = (doc: RemoteRecord): SessionRecord | null => {
@@ -101,19 +125,26 @@ const toPayload = (record: SessionRecord) => {
   }
 }
 
-async function fetchRemoteRecords(token: string): Promise<SessionRecord[]> {
+async function fetchRemoteRecords(token: string): Promise<RemoteFetchResult> {
   try {
     const res = await fetch(`${ENDPOINT}?limit=250&sort=-updatedAt`, {
       headers: headersFor(token),
     })
 
     if (res.status === 401 || res.status === 403) {
-      return []
+      console.warn("Learning record sync: unauthorized while fetching remote records")
+      return { records: [], status: 'unauthorized', statusCode: res.status }
     }
 
     if (!res.ok) {
-      console.warn("Learning record sync: remote fetch failed", res.status)
-      return []
+      const message = await res.text().catch(() => '')
+      console.warn("Learning record sync: remote fetch failed", res.status, message)
+      return {
+        records: [],
+        status: 'error',
+        statusCode: res.status,
+        errorMessage: message || `status ${res.status}`,
+      }
     }
 
     const data = await res.json()
@@ -123,12 +154,15 @@ async function fetchRemoteRecords(token: string): Promise<SessionRecord[]> {
         ? data.data
         : []
 
-    return docs
+    const records = docs
       .map((doc) => fromRemoteRecord(doc))
       .filter((doc): doc is SessionRecord => Boolean(doc))
+
+    return { records, status: 'ok' }
   } catch (error) {
-    console.warn("Learning record sync: remote fetch error", error)
-    return []
+    const message = error instanceof Error ? error.message : String(error)
+    console.warn("Learning record sync: remote fetch error", message)
+    return { records: [], status: 'error', errorMessage: message }
   }
 }
 
@@ -171,8 +205,10 @@ const mergeLocalAndRemote = (
   return Array.from(map.values())
 }
 
-async function pushDirtySessions(token: string, sessions: SessionRecord[]): Promise<SessionRecord[]> {
+async function pushDirtySessions(token: string, sessions: SessionRecord[]): Promise<PushResult> {
   const result: SessionRecord[] = []
+  let attempted = 0
+  let failed = 0
   for (const session of sessions) {
     if (!(session.dirty || !session.serverId)) {
       result.push(session)
@@ -183,6 +219,9 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
     const headers = headersFor(token, true)
     let response: Response | null = null
     let updatedSession = { ...session }
+    let success = false
+
+    attempted += 1
 
     try {
       if (session.serverId) {
@@ -222,18 +261,31 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
         remoteUpdatedAt,
         dirty: false,
       }
+      success = true
     } catch (error) {
       console.warn(`Learning record sync: push failed for ${session.id}`, error)
       updatedSession = {
         ...updatedSession,
         dirty: true,
       }
+      failed += 1
     }
 
     result.push(updatedSession)
+    if (!success && !updatedSession.dirty) {
+      // Extremely unlikely branch: treat as failure if status unclear
+      failed += 1
+    }
   }
 
-  return result
+  const succeeded = Math.max(0, attempted - failed)
+
+  return {
+    sessions: result,
+    attempted,
+    failed,
+    succeeded,
+  }
 }
 
 async function persistSessions(sessions: SessionRecord[]): Promise<void> {
@@ -259,16 +311,62 @@ async function persistSessions(sessions: SessionRecord[]): Promise<void> {
 }
 
 export async function syncLearningRecords(): Promise<void> {
-  const token = await AsyncStorage.getItem("jwt")
-  if (!token) return
+  const startedAt = Date.now()
 
   const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
   const localSessions: SessionRecord[] = raw ? JSON.parse(raw) : []
-  const remoteSessions = await fetchRemoteRecords(token)
+  const localCount = localSessions.length
+  const dirtyBefore = countDirtySessions(localSessions)
 
-  let merged = mergeLocalAndRemote(localSessions, remoteSessions)
-  merged = await pushDirtySessions(token, merged)
+  const token = await AsyncStorage.getItem("jwt")
+  if (!token) {
+    recordLearningSyncSkipped({
+      reason: "unauthenticated",
+      localCount,
+      dirtyCount: dirtyBefore,
+    })
+    return
+  }
+
+  recordLearningSyncStarted({
+    localCount,
+    dirtyCount: dirtyBefore,
+  })
+
+  const fetchResult = await fetchRemoteRecords(token)
+
+  if (fetchResult.status === 'unauthorized') {
+    recordLearningSyncFailed({
+      durationMs: Date.now() - startedAt,
+      localCount,
+      dirtyBefore,
+      errorMessage: fetchResult.errorMessage ?? 'unauthorized',
+      stage: 'fetch',
+      statusCode: fetchResult.statusCode,
+    })
+    return
+  }
+
+  const remoteSessions = fetchResult.records
+  const mergedAfterRemote = mergeLocalAndRemote(localSessions, remoteSessions)
+  const pushResult = await pushDirtySessions(token, mergedAfterRemote)
+  const merged = pushResult.sessions
+
   await persistSessions(merged)
+
+  const dirtyAfter = countDirtySessions(merged)
+
+  recordLearningSyncCompleted({
+    durationMs: Date.now() - startedAt,
+    localCount: merged.length,
+    dirtyBefore,
+    dirtyAfter,
+    remoteFetched: remoteSessions.length,
+    pushAttempted: pushResult.attempted,
+    pushFailed: pushResult.failed,
+    fetchStatus: fetchResult.status,
+    fetchError: fetchResult.errorMessage,
+  })
 }
 
 export function scheduleLearningRecordSync(): Promise<void> {
