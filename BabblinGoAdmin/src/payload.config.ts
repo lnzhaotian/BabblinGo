@@ -16,6 +16,7 @@ import { Lessons } from './collections/Lessons'
 import { Media } from './collections/Media'
 import { Modules } from './collections/Modules'
 import { Users } from './collections/Users'
+import LearningRecords from './collections/LearningRecords'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -27,7 +28,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Courses, Lessons, Modules, Media],
+  collections: [Users, Courses, Lessons, Modules, Media, LearningRecords],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   i18n: {

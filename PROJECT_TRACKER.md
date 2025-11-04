@@ -69,18 +69,21 @@ Goal: Complete user-facing auth flows and profile management, then add server sy
 - Backend
   - Users collection includes displayName, avatarIcon, bio, location, website, dateOfBirth, native/learning languages
   - Auth flows working (register/login/me/forgot/reset), email via Aliyun SMTP
-  - User preference and activity collections live with proper access control
+  - User preference, activity, and learning record collections live with access control hooks
 - Frontend
   - Auth screens wired; JWT storage in AsyncStorage
   - Profile and account settings polished (validations, avatar picker, security & delete flows)
   - Offline/expired-token UX handled with graceful messaging across screens
+  - Learning sessions sync online/offline automatically with retry/backoff
 - Sync
-  - Profile, settings, and activity data persist via authenticated API
-  - Outstanding: migrate learning records (lesson progress, quiz results) from local storage to server
+  - Profile, settings, activity, and learning records persist via authenticated API
+  - Local queue drains automatically when connectivity/auth is restored
 
 ### Remaining Work
-- B3 Sync Implementation
-  - [ ] Migrate user learning records (lesson progress, quiz results) to the server with conflict resolution
+- B5 Monitoring & Support
+  - [ ] Add analytics/telemetry for sync success/failure and queue depth
+  - [ ] Document operational runbooks for resolving stuck or conflicting learning records
+  - [ ] Evaluate background sync cadence vs. battery/runtime impact during beta
 
 ### Completed Since Previous Update
 - B1 Backend Collections
@@ -92,6 +95,9 @@ Goal: Complete user-facing auth flows and profile management, then add server sy
   - [x] Error states and recovery (offline/expired token)
 - B3 Sync Implementation
   - [x] Authenticated fetch helpers; retry/backoff
+  - [x] Learning records migrate from local storage with conflict detection
+- B4 Testing
+  - [x] Baseline auth + sync regression suite (profile, settings, learning records); expand for edge analytics once instrumentation lands
 - B4 Testing
   - [x] Baseline auth + sync regression suite (profile, settings); expand for learning records once implemented
 

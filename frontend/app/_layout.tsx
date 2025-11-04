@@ -4,6 +4,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import i18n from "@/lib/i18n";
 import { ThemeProvider, useThemeMode } from "./theme-context";
 import * as SplashScreen from "expo-splash-screen";
+import { scheduleLearningRecordSync } from "../lib/learning-sync";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -30,6 +31,10 @@ function AppNavigator() {
       setTimeout(() => {
         SplashScreen.hideAsync().catch(() => {});
       }, 0);
+
+      scheduleLearningRecordSync().catch(() => {
+        // Logged within scheduler
+      });
     }
   }, [hydrated, i18nReady]);
 

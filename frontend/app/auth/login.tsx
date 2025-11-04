@@ -8,6 +8,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeMode } from "../theme-context";
 import { config } from '@/lib/config';
+import { scheduleLearningRecordSync } from "../../lib/learning-sync";
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -71,6 +72,9 @@ export default function LoginScreen() {
         }
         
         setSuccess(true);
+        scheduleLearningRecordSync().catch(() => {
+          // Non-blocking; errors logged by scheduler
+        });
         // Go back after successful login and trigger settings refresh
         setTimeout(() => {
           router.back();

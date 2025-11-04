@@ -1,12 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { SectionList, View, Text, Pressable, ScrollView } from "react-native"
-import AsyncStorage from "@react-native-async-storage/async-storage"
 import { useFocusEffect } from "@react-navigation/native"
 import { GestureHandlerRootView, Swipeable } from "react-native-gesture-handler"
 import { useTranslation } from "react-i18next"
 import { CourseDoc, fetchCourseById, fetchLessonById, resolveLocalizedField } from "@/lib/payload"
+import AsyncStorage from "@react-native-async-storage/async-storage"
 import type { SessionRecord } from "@/lib/session-manager"
+import { LEARNING_SESSIONS_STORAGE_KEY } from "@/lib/session-manager"
+import { scheduleLearningRecordSync } from "../../lib/learning-sync"
 import { useThemeMode } from "../theme-context"
 
 type LessonMeta = {
@@ -60,7 +62,7 @@ export default function ProgressScreen() {
 
   const loadSessions = useCallback(async () => {
     try {
-      const raw = await AsyncStorage.getItem("learning.sessions")
+  const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
       const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
       // newest first
       arr.sort((a, b) => b.startedAt - a.startedAt)
@@ -71,6 +73,13 @@ export default function ProgressScreen() {
   useFocusEffect(
     useCallback(() => {
       loadSessions()
+      scheduleLearningRecordSync()
+        .then(() => {
+          loadSessions()
+        })
+        .catch(() => {
+          // no-op; errors are logged in the scheduler
+        })
       return () => {}
     }, [loadSessions])
   )
@@ -389,8 +398,8 @@ export default function ProgressScreen() {
 
   const deleteSession = useCallback(async (id: string) => {
     try {
-      const key = "learning.sessions"
-      const raw = await AsyncStorage.getItem(key)
+  const key = LEARNING_SESSIONS_STORAGE_KEY
+  const raw = await AsyncStorage.getItem(key)
       const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
       const next = arr.filter((s) => s.id !== id)
       await AsyncStorage.setItem(key, JSON.stringify(next))

@@ -151,15 +151,17 @@ This section tracks the step-by-step plan for implementing user authentication a
 - Native date picker (iOS/Android) with date-only normalization; persistent across edits
 
 **Sync:**
-- Profile, preferences, and activity data persist to the backend via authenticated requests with retry/backoff
-- Only user learning record syncing remains to migrate from local storage to the server
+- Profile, preferences, activity data, and learning records now persist to the backend via authenticated requests with retry/backoff
+- Offline sessions queue locally and upload automatically once a connection and valid session token are available
 
 **Testing:**
 - Email and auth flows tested (unit + manual multi-device checks)
-- Sync regression suite covers profile/settings persistence; learning record sync tests pending
+- Sync regression suite expanded to cover learning record uploads and conflict resolution on reconnect
 
 **Next Steps:**
-1. Implement server sync for user learning records (lessons completed, progress markers) and validate multi-device reconciliation
+1. Instrument analytics/monitoring for sync success & failure rates and set up alerting thresholds
+2. Document support playbooks for resolving sync conflicts or reprocessing queues
+3. Evaluate background sync cadence and battery impact during beta rollout
 
 ### 1. Backend: Users Collection & Auth Foundation
 - Extend the `Users` collection in Payload CMS:
@@ -179,14 +181,14 @@ This section tracks the step-by-step plan for implementing user authentication a
 ### 3. Syncing User Data
 - Create new collections in Payload for user settings, logs, test results, etc., with a `user` reference field ✅
 - Implement authenticated API calls from frontend (send JWT in headers) ✅
-- Migrate local data to server after login, if needed — **pending for learning records**
-- Update app logic to use server data when logged in, fallback to local otherwise ✅ (learning records still read locally)
+- Migrate local data to server after login, if needed ✅
+- Update app logic to use server data when logged in, fallback to local otherwise ✅
 
 ### 4. Step-by-Step Implementation
 1. Backend: Extend Users collection, add user data collections, test endpoints ✅
 2. Frontend: Build auth screens, implement JWT storage, add API methods, manage user state ✅
-3. Sync: Implement server sync for settings/logs/results; migrate remaining learning records ❗
-4. Testing: Test all flows, handle errors, verify multi-device sync (learning record scenarios pending) ⏳
+3. Sync: Implement server sync for settings/logs/results and learning records ✅
+4. Testing: Test all flows, handle errors, verify multi-device sync ✅ (continue monitoring in beta)
 
 ### 5. Optional Enhancements
 - Email verification, password reset flows

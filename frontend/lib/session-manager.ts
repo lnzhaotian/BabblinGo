@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
+import { scheduleLearningRecordSync } from "@/lib/learning-sync"
 
 /**
  * Session record structure matching the progress screen format
@@ -16,8 +17,15 @@ export interface SessionRecord {
   runId?: string;
   durationSeconds?: number;
   segments?: number;
+  serverId?: string;
+  syncedAt?: number;
+  dirty?: boolean;
+  lastModifiedAt?: number;
+  remoteUpdatedAt?: number;
 }
 // ...existing code...
+
+export const LEARNING_SESSIONS_STORAGE_KEY = "learning.sessions";
 
 /**
  * Learning preferences structure
@@ -106,7 +114,7 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
       return;
     }
 
-    const key = "learning.sessions";
+    const key = LEARNING_SESSIONS_STORAGE_KEY;
     const raw = await AsyncStorage.getItem(key);
     const sessions: SessionRecord[] = raw ? JSON.parse(raw) : [];
 
@@ -117,6 +125,10 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
       lessonTitle: normalizedLessonTitle,
       durationSeconds: segmentDurationSeconds,
       segments: record.segments ?? 1,
+      dirty: true,
+      syncedAt: undefined,
+      serverId: undefined,
+      lastModifiedAt: Date.now(),
     };
 
     if (record.runId) {
@@ -135,6 +147,8 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
           runId: record.runId,
           durationSeconds: existingDuration + segmentDurationSeconds,
           segments: (existing.segments ?? 1) + (record.segments ?? 1),
+          dirty: true,
+          lastModifiedAt: Date.now(),
         };
 
         sessions[existingIndex] = merged;
@@ -142,6 +156,9 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
         console.log(
           `Updated aggregated session ${record.runId}: +${segmentDurationSeconds}s (segments=${merged.segments}, total=${merged.durationSeconds}s)`
         );
+        scheduleLearningRecordSync().catch(() => {
+          // already logged inside scheduler
+        });
         return;
       }
     }
@@ -152,6 +169,9 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
     console.log(
       `Saved learning session: ${segmentDurationSeconds}s for ${normalizedLessonTitle} (finished: ${record.finished}, runId: ${record.runId ?? "-"})`
     );
+    scheduleLearningRecordSync().catch(() => {
+      // already logged inside scheduler
+    });
   } catch (error) {
     console.error("Failed to save learning session:", error);
     // Don't throw - session saving is not critical
@@ -163,7 +183,7 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
  */
 export async function getLearningSessions(): Promise<SessionRecord[]> {
   try {
-    const key = "learning.sessions"
+    const key = LEARNING_SESSIONS_STORAGE_KEY
     const raw = await AsyncStorage.getItem(key)
     return raw ? JSON.parse(raw) : []
   } catch (error) {
@@ -177,7 +197,7 @@ export async function getLearningSessions(): Promise<SessionRecord[]> {
  */
 export async function clearLearningSessions(): Promise<void> {
   try {
-    await AsyncStorage.removeItem("learning.sessions")
+    await AsyncStorage.removeItem(LEARNING_SESSIONS_STORAGE_KEY)
     console.log("Cleared all learning sessions")
   } catch (error) {
     console.error("Failed to clear learning sessions:", error)
