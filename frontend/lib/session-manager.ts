@@ -1,31 +1,8 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import { scheduleLearningRecordSync } from "@/lib/learning-sync"
-
-/**
- * Session record structure matching the progress screen format
- */
-export interface SessionRecord {
-  id: string;
-  lessonId: string;
-  lessonTitle: string;
-  startedAt: number; // timestamp
-  endedAt: number; // timestamp
-  plannedSeconds: number;
-  speed: PlaybackSpeed;
-  finished: boolean; // true if session completed planned time, false if exited early
-  runId?: string;
-  durationSeconds?: number;
-  segments?: number;
-  serverId?: string;
-  syncedAt?: number;
-  dirty?: boolean;
-  lastModifiedAt?: number;
-  remoteUpdatedAt?: number;
-}
-// ...existing code...
-
-export const LEARNING_SESSIONS_STORAGE_KEY = "learning.sessions";
+import type { SessionRecord } from "./learning-types"
+import { LEARNING_SESSIONS_STORAGE_KEY } from "./learning-types"
 
 /**
  * Learning preferences structure

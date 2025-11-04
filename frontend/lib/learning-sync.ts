@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { config } from "./config"
-import type { SessionRecord } from "./session-manager"
-import { LEARNING_SESSIONS_STORAGE_KEY } from "./session-manager"
+import type { SessionRecord } from "./learning-types"
+import { LEARNING_SESSIONS_STORAGE_KEY } from "./learning-types"
 
 const ENDPOINT = `${config.apiUrl}/api/learning-records`
 let inFlight: Promise<void> | null = null

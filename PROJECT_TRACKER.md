@@ -98,8 +98,6 @@ Goal: Complete user-facing auth flows and profile management, then add server sy
   - [x] Learning records migrate from local storage with conflict detection
 - B4 Testing
   - [x] Baseline auth + sync regression suite (profile, settings, learning records); expand for edge analytics once instrumentation lands
-- B4 Testing
-  - [x] Baseline auth + sync regression suite (profile, settings); expand for learning records once implemented
 
 ### Acceptance Criteria
 - Users can manage profile and settings; changes persist across devices
