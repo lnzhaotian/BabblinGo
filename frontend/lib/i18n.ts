@@ -141,6 +141,11 @@ const resources = {
       "lesson.video.controls.forward": "Forward 10s",
       "lesson.video.controls.speed": "Speed",
       "lesson.video.controls.speedLabel": "{{value}}x",
+  "lesson.video.controls.mute": "Mute",
+  "lesson.video.controls.unmute": "Unmute",
+  "lesson.video.controls.fullscreen": "Fullscreen",
+  "lesson.video.controls.exitFullscreen": "Exit fullscreen",
+  "lesson.video.controls.scrub": "Seek position",
 
       // Timer
       "timer.set": "Set session timer",
@@ -391,6 +396,11 @@ const resources = {
       "lesson.video.controls.forward": "前进 10 秒",
       "lesson.video.controls.speed": "播放速度",
       "lesson.video.controls.speedLabel": "{{value}} 倍",
+  "lesson.video.controls.mute": "静音",
+  "lesson.video.controls.unmute": "取消静音",
+  "lesson.video.controls.fullscreen": "全屏",
+  "lesson.video.controls.exitFullscreen": "退出全屏",
+  "lesson.video.controls.scrub": "拖动进度",
 
       // Course screen
       "course.loading": "正在加载课程...",
