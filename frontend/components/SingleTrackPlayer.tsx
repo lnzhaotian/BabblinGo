@@ -165,17 +165,20 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // External play trigger
   useEffect(() => {
     (async () => {
+      if (playSignal == null || playSignal <= 0 || suspend) return
       try {
-        if (playSignal != null && !suspend) {
-          await player.setPlaybackRate(speed)
-          await player.play()
-          setIsPlaying(true)
-          shouldBePlayingRef.current = true
-        }
-      } catch {}
+        try { await player.seekTo(0) } catch {}
+        hasCalledFinishRef.current = false
+        await player.setPlaybackRate(speed)
+        await player.play()
+        setIsPlaying(true)
+        shouldBePlayingRef.current = true
+      } catch (error) {
+        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Replay failed`, error)
+      }
     })()
-    // playSignal is a number that increments to trigger; include it directly
-  }, [playSignal, suspend, player, speed])
+    // playSignal is a counter; increment to trigger a replay when loop is enabled.
+  }, [playSignal, suspend, player, speed, DEBUG])
 
   // Keep UI in sync and detect finish
   // We guard onFinish with hasCalledFinishRef to avoid duplicate signals

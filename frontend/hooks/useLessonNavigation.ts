@@ -71,7 +71,7 @@ export function useLessonNavigation({ totalSlides, hasAudio, loopEnabled, dwellM
   }, [screenWidth])
 
   const handleNavigate = useCallback((action: NavigateAction) => {
-  const target = computeTargetIndex(currentSlideIndex, totalSlides, loopEnabled, action)
+    const target = computeTargetIndex(currentSlideIndex, totalSlides, loopEnabled, action)
     if (target !== currentSlideIndex) {
       programmaticScrollRef.current = true
       flatListRef.current?.scrollToIndex({ index: target, animated: true })
@@ -79,12 +79,25 @@ export function useLessonNavigation({ totalSlides, hasAudio, loopEnabled, dwellM
     }
   }, [currentSlideIndex, totalSlides, loopEnabled])
 
-  const handleTrackFinish = useCallback(() => {
-  const next = computeNextOnFinish(currentSlideIndex, totalSlides, loopEnabled)
-    if (next === null) return
-    programmaticScrollRef.current = true
-    flatListRef.current?.scrollToIndex({ index: next, animated: true })
-    setCurrentSlideIndex(next)
+  const handleTrackFinish = useCallback((): boolean => {
+    const next = computeNextOnFinish(currentSlideIndex, totalSlides, loopEnabled)
+    if (next === null) {
+      return false
+    }
+
+    if (next !== currentSlideIndex) {
+      programmaticScrollRef.current = true
+      flatListRef.current?.scrollToIndex({ index: next, animated: true })
+      setCurrentSlideIndex(next)
+      return true
+    }
+
+    if (loopEnabled && totalSlides > 0) {
+      programmaticScrollRef.current = true
+      flatListRef.current?.scrollToIndex({ index: next, animated: false })
+    }
+
+    return false
   }, [currentSlideIndex, totalSlides, loopEnabled])
 
   const resetToFirstSlide = useCallback(() => {
@@ -100,7 +113,7 @@ export function useLessonNavigation({ totalSlides, hasAudio, loopEnabled, dwellM
     screenWidth,
     onSlideScroll,
     handleNavigate,
-    handleTrackFinish,
+  handleTrackFinish,
     resetToFirstSlide,
   }
 }

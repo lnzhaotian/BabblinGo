@@ -41,17 +41,16 @@ export const AudioPlaylistModule: React.FC<AudioPlaylistModuleProps> = ({
       style={{
         width: screenWidth,
         paddingHorizontal: 16,
-        paddingVertical: 24,
+        paddingVertical: 0,
         alignItems: "center",
       }}
     >
       <View style={{ width: "100%", maxWidth: 640, gap: 20 }}>
-        <View>
-          <Text style={{ fontSize: 22, fontWeight: "700" }}>{slide.title}</Text>
+        {/* <View>
           {slide.summary ? <Text style={{ marginTop: 4, color: "#6b7280" }}>{slide.summary}</Text> : null}
-        </View>
+        </View> */}
 
-        {introductionParagraphs.length > 0 ? (
+        {/* {introductionParagraphs.length > 0 ? (
           <View style={{ gap: 12 }}>
             {introductionParagraphs.map((paragraph, idx) => (
               <Text key={idx} style={{ fontSize: 16, lineHeight: 22, color: "#1f2937" }}>
@@ -59,7 +58,7 @@ export const AudioPlaylistModule: React.FC<AudioPlaylistModuleProps> = ({
               </Text>
             ))}
           </View>
-        ) : null}
+        ) : null} */}
 
         {tracks.length > 0 ? (
           <View style={{ gap: 16 }}>
@@ -78,10 +77,10 @@ export const AudioPlaylistModule: React.FC<AudioPlaylistModuleProps> = ({
                     }
                   }}
                   disabled={isDisabled}
-                  style={({ pressed }) => ({
-                    opacity: isDisabled ? 0.6 : 1,
-                    transform: pressed ? [{ scale: 0.99 }] : undefined,
-                  })}
+                  style={({ pressed }) => [
+                    { opacity: isDisabled ? 0.6 : 1 },
+                    pressed ? { transform: [{ scale: 0.99 }] } : undefined,
+                  ]}
                 >
                   <View
                     style={{

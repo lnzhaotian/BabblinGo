@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import { View, useColorScheme } from "react-native"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import SingleTrackPlayer, { type PlaybackSpeed } from "@/components/SingleTrackPlayer"
@@ -11,7 +11,7 @@ export type LessonAudioPlayerProps = {
   hasNext: boolean
   onSpeedChange: (speed: PlaybackSpeed) => void
   onNavigate: (action: "prev" | "next") => void
-  onFinish: () => void
+  onFinish: () => boolean
 }
 
 export function LessonAudioPlayer({
@@ -26,10 +26,20 @@ export function LessonAudioPlayer({
 }: LessonAudioPlayerProps) {
   const colorScheme = useColorScheme()
   const [themeMode, setThemeMode] = useState<string | null>(null)
+  const [replaySignal, setReplaySignal] = useState(0)
+  const lastTrackIdRef = useRef<string | null>(null)
   useEffect(() => {
     AsyncStorage.getItem("themeMode").then((mode) => setThemeMode(mode))
   }, [])
   const isDark = (themeMode === "dark") || (themeMode === "system" && colorScheme === "dark")
+
+  useEffect(() => {
+    const currentId = track?.id ?? null
+    if (lastTrackIdRef.current !== currentId) {
+      lastTrackIdRef.current = currentId
+      setReplaySignal(0)
+    }
+  }, [track?.id])
 
   if (!track || !track.audioUrl) return null
 
@@ -60,7 +70,13 @@ export function LessonAudioPlayer({
         debug={__DEV__}
         onSpeedChange={onSpeedChange}
         onNavigate={onNavigate}
-        onFinish={onFinish}
+        onFinish={() => {
+          const advanced = onFinish()
+          if (!advanced && loopEnabled) {
+            setReplaySignal((prev) => prev + 1)
+          }
+        }}
+        playSignal={replaySignal}
       />
     </View>
   )

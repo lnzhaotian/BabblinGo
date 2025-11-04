@@ -1,4 +1,4 @@
-import React, { useMemo } from "react"
+import React, { useMemo, useState } from "react"
 import { ScrollView, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useTranslation } from "react-i18next"
@@ -31,6 +31,7 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
   )
 
   const gallery = module.richPost?.mediaGallery ?? slide?.richPost?.mediaGallery ?? []
+  const [ratio, setRatio] = useState(1.5);
 
   return (
     <SafeAreaView
@@ -39,9 +40,6 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
     >
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
         <View style={{ gap: 12 }}>
-          <Text style={{ fontSize: 26, fontWeight: "700", color: colorScheme === "dark" ? "#e0e7ff" : "#111827" }}>
-            {module.title}
-          </Text>
           {module.summary ? (
             <Text style={{ fontSize: 16, color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
               {module.summary}
@@ -98,11 +96,12 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
                     <View key={block.id} style={{ gap: 8 }}>
                       <Image
                         source={{ uri: block.url }}
+                        onLoad={({ source }) => setRatio(source.width / source.height)}
                         style={{
                           width: "100%",
                           borderRadius: 18,
                           backgroundColor: "#0f172a",
-                          aspectRatio: block.aspectRatio && block.aspectRatio > 0 ? block.aspectRatio : 3 / 2,
+                          aspectRatio: block.aspectRatio && block.aspectRatio > 0 ? block.aspectRatio : ratio,
                         }}
                         contentFit="cover"
                       />

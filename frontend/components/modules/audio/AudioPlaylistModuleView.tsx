@@ -3,6 +3,7 @@ import { Dimensions, ScrollView, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useTranslation } from "react-i18next"
 
+import { ThemedHeader } from "@/components/ThemedHeader"
 import { CacheMenuModal } from "@/components/CacheMenuModal"
 import { LessonHeaderControls } from "@/components/LessonHeaderControls"
 import { AudioPlaylistModule, type TrackViewModel } from "./AudioPlaylistModule"
@@ -85,6 +86,8 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
     tracks.map((track, idx) => (track.audioUrl ? idx : -1)).filter((idx) => idx >= 0),
   [tracks])
 
+  const hasAudioTracks = playableTrackIndices.length > 0
+
   const defaultTrackIndex = playableTrackIndices[0] ?? -1
   const [activeTrackIndex, setActiveTrackIndex] = useState(defaultTrackIndex)
 
@@ -107,6 +110,8 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
     }
   }, [tracks])
 
+  const effectiveLoopEnabled = hasAudioTracks ? loopEnabled : false
+
   const navigatePlayable = useCallback((direction: "prev" | "next") => {
     if (playableTrackIndices.length === 0) {
       return false
@@ -124,7 +129,7 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
         setActiveTrackIndex(playableTrackIndices[currentIndex - 1])
         return true
       }
-      if (loopEnabled && playableTrackIndices.length > 1) {
+      if (effectiveLoopEnabled && playableTrackIndices.length > 1) {
         setActiveTrackIndex(playableTrackIndices[playableTrackIndices.length - 1])
         return true
       }
@@ -133,36 +138,34 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
         setActiveTrackIndex(playableTrackIndices[currentIndex + 1])
         return true
       }
-      if (loopEnabled && playableTrackIndices.length > 1) {
+      if (effectiveLoopEnabled && playableTrackIndices.length > 1) {
         setActiveTrackIndex(playableTrackIndices[0])
         return true
       }
     }
 
     return false
-  }, [activeTrackIndex, playableTrackIndices, loopEnabled])
+  }, [activeTrackIndex, playableTrackIndices, effectiveLoopEnabled])
 
   const handlePlayerNavigate = useCallback((action: "prev" | "next") => {
     navigatePlayable(action)
   }, [navigatePlayable])
 
-  const handlePlayerFinish = useCallback(() => {
-    navigatePlayable("next")
-  }, [navigatePlayable])
+  const handlePlayerFinish = useCallback(() => navigatePlayable("next"), [navigatePlayable])
 
   const hasPrev = useMemo(() => {
     if (playableTrackIndices.length === 0) return false
-    if (loopEnabled && playableTrackIndices.length > 1) return true
+    if (effectiveLoopEnabled && playableTrackIndices.length > 1) return true
     const currentIndex = playableTrackIndices.indexOf(activeTrackIndex)
     return currentIndex > 0
-  }, [playableTrackIndices, loopEnabled, activeTrackIndex])
+  }, [playableTrackIndices, effectiveLoopEnabled, activeTrackIndex])
 
   const hasNext = useMemo(() => {
     if (playableTrackIndices.length === 0) return false
-    if (loopEnabled && playableTrackIndices.length > 1) return true
+    if (effectiveLoopEnabled && playableTrackIndices.length > 1) return true
     const currentIndex = playableTrackIndices.indexOf(activeTrackIndex)
     return currentIndex !== -1 && currentIndex < playableTrackIndices.length - 1
-  }, [playableTrackIndices, loopEnabled, activeTrackIndex])
+  }, [playableTrackIndices, effectiveLoopEnabled, activeTrackIndex])
 
   const queuedTrack = activeTrack && activeTrack.audioUrl
     ? {
@@ -172,74 +175,82 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
       }
     : null
 
-  const hasAudioTracks = playableTrackIndices.length > 0
+  const headerTitle = module.title || lesson.title
 
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
-      edges={["bottom"]}
-    >
-      <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
-        <View style={{ flexDirection: "row", justifyContent: "flex-end" }}>
+    <>
+      <ThemedHeader
+        overrideTitle={headerTitle}
+        headerRight={() => (
           <LessonHeaderControls
-            loopEnabled={loopEnabled}
+            loopEnabled={effectiveLoopEnabled}
             cachingInProgress={cachingInProgress}
             cacheStatus={lessonCacheStatus}
-            onToggleLoop={() => setLoopEnabled(!loopEnabled)}
+            onToggleLoop={() => {
+              if (!hasAudioTracks) return
+              setLoopEnabled(!loopEnabled)
+            }}
             onOpenCacheMenu={() => setCacheMenuVisible(true)}
             showLoopToggle={hasAudioTracks}
           />
-        </View>
-
-        <View style={{ gap: 12 }}>
-          <Text style={{ fontSize: 24, fontWeight: "700", color: colorScheme === "dark" ? "#e2e8f0" : "#0f172a" }}>
-            {module.title}
-          </Text>
-          {module.summary ? (
-            <Text style={{ fontSize: 16, color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
-              {module.summary}
-            </Text>
-          ) : null}
-        </View>
-
-        {slide ? (
-          <AudioPlaylistModule
-            slide={slide}
-            screenWidth={screenWidth - 40}
-            introductionParagraphs={introductionParagraphs}
-            tracks={tracks}
-            primaryTrackId={activeTrack?.id ?? null}
-            downloadProgress={downloadProgress}
-            onSelectTrack={selectTrackById}
-          />
-        ) : (
-          <View style={{ padding: 16, borderRadius: 12, backgroundColor: colorScheme === "dark" ? "#1e293b" : "#f1f5f9" }}>
-            <Text style={{ color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
-              {t("lesson.audio.emptyPlaylist", { defaultValue: "No tracks available." })}
-            </Text>
-          </View>
         )}
-      </ScrollView>
-
-      <LessonAudioPlayer
-        track={queuedTrack}
-        playerSpeed={playerSpeed}
-        loopEnabled={loopEnabled}
-        hasPrev={hasPrev}
-        hasNext={hasNext}
-        onSpeedChange={setPlayerSpeed}
-        onNavigate={handlePlayerNavigate}
-        onFinish={handlePlayerFinish}
       />
 
-      <CacheMenuModal
-        visible={cacheMenuVisible}
-        onClose={() => setCacheMenuVisible(false)}
-        cacheStatus={lessonCacheStatus}
-        onRedownload={handleRedownload}
-        onClear={handleClearCache}
-      />
-    </SafeAreaView>
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
+        edges={["bottom"]}
+      >
+        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
+          <View style={{ gap: 12 }}>
+            <Text style={{ fontSize: 24, fontWeight: "700", color: colorScheme === "dark" ? "#e2e8f0" : "#0f172a" }}>
+              {module.title}
+            </Text>
+            {module.summary ? (
+              <Text style={{ fontSize: 16, color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
+                {module.summary}
+              </Text>
+            ) : null}
+          </View>
+
+          {slide ? (
+            <AudioPlaylistModule
+              slide={slide}
+              screenWidth={screenWidth - 40}
+              introductionParagraphs={introductionParagraphs}
+              tracks={tracks}
+              primaryTrackId={activeTrack?.id ?? null}
+              downloadProgress={downloadProgress}
+              onSelectTrack={selectTrackById}
+            />
+          ) : (
+            <View style={{ padding: 16, borderRadius: 12, backgroundColor: colorScheme === "dark" ? "#1e293b" : "#f1f5f9" }}>
+              <Text style={{ color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
+                {t("lesson.audio.emptyPlaylist", { defaultValue: "No tracks available." })}
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+
+        <LessonAudioPlayer
+          track={queuedTrack}
+          playerSpeed={playerSpeed}
+          loopEnabled={effectiveLoopEnabled}
+          hasPrev={hasPrev}
+          hasNext={hasNext}
+          onSpeedChange={setPlayerSpeed}
+          onNavigate={handlePlayerNavigate}
+          onFinish={handlePlayerFinish}
+        />
+
+        <CacheMenuModal
+          visible={cacheMenuVisible}
+          onClose={() => setCacheMenuVisible(false)}
+          cacheStatus={lessonCacheStatus}
+          onRedownload={handleRedownload}
+          onClear={handleClearCache}
+        />
+      </SafeAreaView>
+    </>
   )
 }
 
