@@ -137,32 +137,29 @@ See also: the living project tracker with checklists and acceptance criteria in 
 
 This section tracks the step-by-step plan for implementing user authentication and server-side user data sync in BabblinGo. Refer to this roadmap if you need to resume or clarify the next steps during development.
 
-### Progress Update (as of 2025-11-02)
+### Progress Update (as of 2025-11-04)
 **Backend:**
 - Users collection extended with display name, avatar, bio, location, website, dateOfBirth, and languages
 - `auth: true` enabled for password-based authentication
 - Email verification, password reset, and forgot password flows working (Aliyun SMTP tested)
-- Payload endpoints verified: `/api/users/register`, `/api/users/login`, `/api/users/me`, `/api/users/forgot-password`, `/api/users/reset-password`
+- User preferences/settings and activity collections created with access control; verified via `/api/users/*` endpoints
 
 **Frontend:**
 - Auth screens wired (login/register/forgot) and JWT stored in AsyncStorage
 - Profile page implemented with validation, avatar picker, and new fields (bio, location, website, DOB, native/learning languages)
-- Native date picker (iOS/Android) with date‑only normalization; persistent across edits
-- Header actions for Save/Cancel during edit; safe‑area and layout polish across tabs
+- Account settings screens cover preferences, security, and delete-account flows; offline and expired-token states show friendly messaging
+- Native date picker (iOS/Android) with date-only normalization; persistent across edits
 
 **Sync:**
-- Profile field edits persist to backend via authenticated requests
-- Next: Add collections for user settings/logs/results with `user` reference and wire sync flows
+- Profile, preferences, and activity data persist to the backend via authenticated requests with retry/backoff
+- Only user learning record syncing remains to migrate from local storage to the server
 
 **Testing:**
-- Email flows tested and working
-- Next: Broaden E2E auth coverage; test multi‑device scenarios and error handling
+- Email and auth flows tested (unit + manual multi-device checks)
+- Sync regression suite covers profile/settings persistence; learning record sync tests pending
 
 **Next Steps:**
-1. Backend: Add user data collections (settings, logs, results) with access control
-2. Frontend: Expand account settings (security, delete account), improve error states
-3. Sync: Implement server sync for settings/logs/results; add migration path from local data
-4. Testing: E2E auth + sync tests, multi‑device verification
+1. Implement server sync for user learning records (lessons completed, progress markers) and validate multi-device reconciliation
 
 ### 1. Backend: Users Collection & Auth Foundation
 - Extend the `Users` collection in Payload CMS:
@@ -180,16 +177,16 @@ This section tracks the step-by-step plan for implementing user authentication a
 - Handle email verification and password reset flows in the UI
 
 ### 3. Syncing User Data
-- Create new collections in Payload for user settings, logs, test results, etc., with a `user` reference field
-- Implement authenticated API calls from frontend (send JWT in headers)
-- Migrate local data to server after login, if needed
-- Update app logic to use server data when logged in, fallback to local otherwise
+- Create new collections in Payload for user settings, logs, test results, etc., with a `user` reference field ✅
+- Implement authenticated API calls from frontend (send JWT in headers) ✅
+- Migrate local data to server after login, if needed — **pending for learning records**
+- Update app logic to use server data when logged in, fallback to local otherwise ✅ (learning records still read locally)
 
 ### 4. Step-by-Step Implementation
-1. Backend: Extend Users collection, add user data collections, test endpoints
-2. Frontend: Build auth screens, implement JWT storage, add API methods, manage user state
-3. Sync: Implement server sync for settings/logs/results, migrate local data
-4. Testing: Test all flows, handle errors, verify multi-device sync
+1. Backend: Extend Users collection, add user data collections, test endpoints ✅
+2. Frontend: Build auth screens, implement JWT storage, add API methods, manage user state ✅
+3. Sync: Implement server sync for settings/logs/results; migrate remaining learning records ❗
+4. Testing: Test all flows, handle errors, verify multi-device sync (learning record scenarios pending) ⏳
 
 ### 5. Optional Enhancements
 - Email verification, password reset flows

@@ -1,6 +1,6 @@
 # Project Tracker
 
-Last updated: 2025-11-02
+Last updated: 2025-11-04
 
 This tracker captures epics, milestones, and acceptance criteria so we can pause/resume confidently. Use this as the single source of truth during the Courses refactor and while wrapping up Users/Auth.
 
@@ -65,31 +65,35 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 
 Goal: Complete user-facing auth flows and profile management, then add server sync for user settings/logs/results.
 
-### Current Status (2025-11-02)
+### Current Status (2025-11-04)
 - Backend
   - Users collection includes displayName, avatarIcon, bio, location, website, dateOfBirth, native/learning languages
   - Auth flows working (register/login/me/forgot/reset), email via Aliyun SMTP
+  - User preference and activity collections live with proper access control
 - Frontend
   - Auth screens wired; JWT storage in AsyncStorage
-  - Profile page polished (validations, avatar picker, native date picker with date-only normalization)
-  - Header Save/Cancel actions update correctly; safe-area+layout fixed
+  - Profile and account settings polished (validations, avatar picker, security & delete flows)
+  - Offline/expired-token UX handled with graceful messaging across screens
 - Sync
-  - Profile edits persist via authenticated API
-  - Next: add collections for settings/logs/results and wire sync
+  - Profile, settings, and activity data persist via authenticated API
+  - Outstanding: migrate learning records (lesson progress, quiz results) from local storage to server
 
 ### Remaining Work
-- B1 Backend Collections
-  - [ ] User settings collection (user ref, preferences)
-  - [ ] Logs/results collections (user ref, data shapes)
-  - [ ] Access control and validation
-- B2 Frontend Features
-  - [ ] Account settings (security, delete account UI)
-  - [ ] Error states and recovery (offline/expired token)
 - B3 Sync Implementation
-  - [ ] Authenticated fetch helpers; retry/backoff
-  - [ ] Migrate local data to server on login; conflict policy
+  - [ ] Migrate user learning records (lesson progress, quiz results) to the server with conflict resolution
+
+### Completed Since Previous Update
+- B1 Backend Collections
+  - [x] User settings collection (user ref, preferences)
+  - [x] Logs/results collections (user ref, data shapes)
+  - [x] Access control and validation
+- B2 Frontend Features
+  - [x] Account settings (security, delete account UI)
+  - [x] Error states and recovery (offline/expired token)
+- B3 Sync Implementation
+  - [x] Authenticated fetch helpers; retry/backoff
 - B4 Testing
-  - [ ] E2E auth coverage; multi-device session tests
+  - [x] Baseline auth + sync regression suite (profile, settings); expand for learning records once implemented
 
 ### Acceptance Criteria
 - Users can manage profile and settings; changes persist across devices
