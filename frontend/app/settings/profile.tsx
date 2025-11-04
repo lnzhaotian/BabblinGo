@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Modal } from "react-native";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from "react-i18next";
@@ -10,6 +10,7 @@ import { ThemedHeader } from "@/components/ThemedHeader";
 import { AvatarIconPicker } from "@/components/AvatarIconPicker";
 import { SelectModal, SelectOption } from "@/components/SelectModal";
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useRouter } from "expo-router";
 
 // Levels for learning languages
 const LEVEL_OPTIONS = [
@@ -37,9 +38,61 @@ function toDateOrNull(dateOnly: string): Date | null {
   return new Date(y, m - 1, d);
 }
 
+function extractErrorMessageFromPayload(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  if (/network request failed|failed to fetch/i.test(trimmed)) return null;
+  if (/<!DOCTYPE|<html|<body|<head/i.test(trimmed)) return null;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (typeof parsed === 'string') return parsed;
+      if (parsed && typeof parsed === 'object') {
+        const message = (parsed as any).message;
+        if (typeof message === 'string' && message.trim()) return message.trim();
+        const errors = (parsed as any).errors;
+        if (Array.isArray(errors)) {
+          const stringError = errors.find((item: any) => typeof item === 'string' && item.trim());
+          if (typeof stringError === 'string') return stringError.trim();
+          const nestedMessage = errors.find((item: any) => item && typeof item.message === 'string' && item.message.trim());
+          if (nestedMessage && typeof nestedMessage.message === 'string') return nestedMessage.message.trim();
+        }
+      }
+    } catch {
+      // ignore JSON parse issues and fall back
+    }
+  }
+  if (trimmed.length > 240) return null;
+  return trimmed;
+}
+
+function normalizeErrorMessage(error: unknown, fallback: string): string {
+  const extract = (value: string | null | undefined) => {
+    const candidate = extractErrorMessageFromPayload(value);
+    return candidate ?? fallback;
+  };
+
+  if (typeof error === 'string') {
+    return extract(error);
+  }
+
+  if (error instanceof Error) {
+    return extract(error.message);
+  }
+
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string') {
+    return extract((error as any).message);
+  }
+
+  return fallback;
+}
+
 export default function UserProfileScreen() {
   const { t, i18n } = useTranslation();
   const { colorScheme } = useThemeMode();
+  const router = useRouter();
+  const isMountedRef = useRef(true);
 
   // Profile state
   const [email, setEmail] = useState<string | null>(null);
@@ -107,6 +160,36 @@ export default function UserProfileScreen() {
   , [editLearningLanguages]);
 
   const isFormValid = isNameValid && isBioValid && isUrlValid && isDobValid && areLearningLangsValid;
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const clearAuthState = useCallback(async () => {
+    await AsyncStorage.multiRemove(['jwt', 'user_email', 'user_displayName', 'user_avatarIcon']);
+    if (!isMountedRef.current) return;
+    setEmail(null);
+    setDisplayName(null);
+    setAvatarIcon('person');
+    setBio('');
+    setLocation('');
+    setWebsite('');
+    setDateOfBirth('');
+    setNativeLanguage('');
+    setLearningLanguages([]);
+    setEditName('');
+    setEditBio('');
+    setEditLocation('');
+    setEditWebsite('');
+    setEditDateOfBirth(null);
+    setEditNativeLanguage('');
+    setEditLearningLanguages([]);
+    setUserId(null);
+    setIsEditing(false);
+    setSaving(false);
+  }, []);
   
   useEffect(() => {
     let cancelled = false;
@@ -153,11 +236,33 @@ export default function UserProfileScreen() {
       setError(null);
       try {
         const token = await AsyncStorage.getItem('jwt');
-        if (!token) throw new Error('Not authenticated');
+        if (!token) {
+          throw new Error('Not authenticated');
+        }
         const res = await fetch(`${config.apiUrl}/api/users/me`, {
           headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         });
-        if (!res.ok) throw new Error(await res.text());
+        if (res.status === 401 || res.status === 403) {
+          await clearAuthState();
+          if (!isMountedRef.current) return;
+          setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
+          setLoading(false);
+          router.replace('/auth/login');
+          return;
+        }
+        if (!res.ok) {
+          const fallback = res.status >= 500
+            ? t('profile.serverUnavailable', { defaultValue: 'The server is temporarily unavailable. Please try again later.' })
+            : t('profile.loadFailed', { defaultValue: 'We could not load your profile.' });
+          let responseText: string | null = null;
+          try {
+            responseText = await res.text();
+          } catch {
+            responseText = null;
+          }
+          const message = extractErrorMessageFromPayload(responseText) ?? fallback;
+          throw new Error(message);
+        }
         const data = await res.json();
         const rawUser = (data && typeof data === 'object') ? (data.user ?? data.doc ?? data) : null;
         if (!rawUser || typeof rawUser !== 'object') {
@@ -172,6 +277,8 @@ export default function UserProfileScreen() {
         const nextAvatarIcon = typeof u.avatarIcon === 'string' && u.avatarIcon.trim().length
           ? u.avatarIcon
           : 'person';
+
+        if (!isMountedRef.current) return;
 
         setEmail(nextEmail);
         setDisplayName(nextDisplayName);
@@ -212,13 +319,23 @@ export default function UserProfileScreen() {
 
         await AsyncStorage.setItem('user_avatarIcon', nextAvatarIcon || 'person');
       } catch (err: any) {
-        setError(err.message || 'Failed to load profile');
+        if (err instanceof Error && err.message === 'Not authenticated') {
+          await clearAuthState();
+          if (!isMountedRef.current) return;
+          setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
+          router.replace('/auth/login');
+          return;
+        }
+        if (!isMountedRef.current) return;
+        const fallback = t('profile.loadFailed', { defaultValue: 'We could not load your profile.' });
+        setError(normalizeErrorMessage(err, fallback));
       } finally {
+        if (!isMountedRef.current) return;
         setLoading(false);
       }
     };
     fetchUserInfo();
-  }, []);
+  }, [clearAuthState, router, t]);
 
   // Helpers
   const startEdit = () => {
@@ -245,7 +362,7 @@ export default function UserProfileScreen() {
     if (!isNameValid) errs.displayName = t('profile.nameRequired');
     if (!isBioValid) errs.bio = t('profile.bioTooLong');
     if (!isUrlValid) errs.website = t('profile.invalidUrl');
-  if (!isDobValid) errs.dateOfBirth = 'Invalid date';
+    if (!isDobValid) errs.dateOfBirth = 'Invalid date';
     // Validate learning languages minimal
     editLearningLanguages.forEach((ll, idx) => {
       if (ll.language && ll.level && !LEVEL_OPTIONS.some(o => o.key === ll.level)) {
@@ -279,8 +396,28 @@ export default function UserProfileScreen() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, Accept: 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error(await res.text());
-  const data = await res.json();
+      if (res.status === 401 || res.status === 403) {
+        await clearAuthState();
+        if (!isMountedRef.current) return;
+        setSaving(false);
+        setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
+        router.replace('/auth/login');
+        return;
+      }
+      if (!res.ok) {
+        const fallback = res.status >= 500
+          ? t('profile.updateFailedServer', { defaultValue: 'Our servers are having trouble. Please try saving again soon.' })
+          : t('profile.updateFailed', { defaultValue: 'We could not update your profile.' });
+        let responseText: string | null = null;
+        try {
+          responseText = await res.text();
+        } catch {
+          responseText = null;
+        }
+        const message = extractErrorMessageFromPayload(responseText) ?? fallback;
+        throw new Error(message);
+      }
+      const data = await res.json();
       const u = data.doc || {};
       setDisplayName(u.displayName ?? editName);
       setBio(u.bio ?? editBio ?? '');
@@ -296,7 +433,8 @@ export default function UserProfileScreen() {
       await AsyncStorage.setItem('user_displayName', u.displayName ?? editName);
       setIsEditing(false);
     } catch (err: any) {
-      setError(err.message || 'Failed to update profile');
+      const fallback = t('profile.updateFailed', { defaultValue: 'We could not update your profile.' });
+      setError(normalizeErrorMessage(err, fallback));
     } finally {
       setSaving(false);
     }
@@ -545,11 +683,18 @@ export default function UserProfileScreen() {
             const token = await AsyncStorage.getItem('jwt');
             if (!token) throw new Error('Not authenticated');
             if (!userId) throw new Error('User ID not found');
-            await fetch(`${config.apiUrl}/api/users/${userId}`, {
+            const res = await fetch(`${config.apiUrl}/api/users/${userId}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, Accept: 'application/json' },
               body: JSON.stringify({ avatarIcon: iconName }),
             });
+            if (res.status === 401 || res.status === 403) {
+              await clearAuthState();
+              if (!isMountedRef.current) return;
+              setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
+              router.replace('/auth/login');
+              return;
+            }
             await AsyncStorage.setItem('user_avatarIcon', iconName);
           } catch {
             // Silent fail; avatar will revert next fetch if backend rejects

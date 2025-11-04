@@ -73,7 +73,7 @@ function AppNavigator() {
         }}
       />
       <Stack.Screen
-        name="(stack)/lesson/[lessonId]"
+        name="(stack)/lesson/[lessonId]/index"
         options={{
           headerShown: false,
         }}

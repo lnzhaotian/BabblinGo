@@ -208,9 +208,6 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
       >
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
           <View style={{ gap: 12 }}>
-            <Text style={{ fontSize: 24, fontWeight: "700", color: colorScheme === "dark" ? "#e2e8f0" : "#0f172a" }}>
-              {module.title}
-            </Text>
             {module.summary ? (
               <Text style={{ fontSize: 16, color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
                 {module.summary}
