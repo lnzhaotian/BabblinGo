@@ -105,10 +105,10 @@ Scope and milestones:
 	- [x] List courses: `GET /api/courses?where[status][equals]=published&locale=xx`
 	- [x] Course detail: `GET /api/courses/:id` (includes `levels`)
 	- [x] Lessons by course: `GET /api/lessons?where[course][equals]=:id&where[status][equals]=published` with optional `level` filter and `locale`
-	- [ ] Back‑compat shim: if older clients request by level slug, resolve to course+level server‑side temporarily (document and deprecate)
-- Migration
-	- [ ] Create a default “BabblinGo” course; backfill existing lessons with this `course` relation and appropriate `level`
-	- [ ] Idempotent script and rollback plan; apply indexes after backfill
+	- [ ] Back‑compat shim: if older clients request by level slug, resolve to course+level server‑side temporarily (document and deprecate) *(2025‑11‑04 update: currently unnecessary because legacy data/clients were cleared ahead of launch; keep on radar if older builds resurface)*
+- Migration / Backfill
+	- [x] Legacy content reset on 2025‑11‑04; all seed lessons were recreated directly against the new course schema, so no scripted migration is required
+	- [x] Rollback plan limited to re-importing the new seed data snapshot if needed
 - Frontend work (Expo app)
 	- [x] Refactor Home tab to list courses with cards (cover, title, optional lesson count/progress)
 	- [x] Add Course Detail screen (`/course/[courseId]`) that lists lessons; group by level if defined, otherwise flat list
@@ -124,12 +124,12 @@ Rationale and best practices:
 - Use Payload’s localization consistently (either fetch locale‑specific fields or handle fallback centrally)
 - Prefer cursor/pagination for courses list on mobile; cache with ETag where helpful
 
-Status: In progress — CMS schema and frontend experiences are live; remaining work covers migrations/back‑compat, additional indexes, and end-to-end testing.
+Status: In progress — CMS schema and frontend experiences are live; migrations/back-compat were deemed unnecessary after the 2025‑11‑04 content reset. Outstanding work centers on the final index, automated coverage, and analytics/monitoring.
 
 Immediate next steps:
-- Ship the migration/backfill script for existing lessons and apply the outstanding indexes (notably `lessons.order`).
-- Implement the temporary level-slug back-compat shim and document the deprecation path.
+- Apply the remaining `lessons.order` index so sort queries stay fast as content grows.
 - Add automated coverage (backend e2e + frontend navigation tests) and wire up analytics/monitoring for the new flows.
+- Revisit the back-compat shim only if older clients or datasets resurface.
 
 See also: the living project tracker with checklists and acceptance criteria in [PROJECT_TRACKER.md](./PROJECT_TRACKER.md).
 

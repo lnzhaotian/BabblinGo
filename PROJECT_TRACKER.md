@@ -12,15 +12,15 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 
 ### Scope
 - Backend (Payload CMS)
-  - Create `courses` collection: slug (unique), title (i18n), description (i18n), coverImage, order, status, timestamps
-  - Optional `levels` array: [{ key, label (i18n), order }]
-  - Update `lessons` collection: add `course` relation (required), optional `level` key
-  - Indexes: unique on `courses.slug`; indexes on `lessons.course`, `lessons.level`, `lessons.order`
+  - Create `courses` collection: slug (unique), title (i18n), description (i18n), coverImage, order, status, timestamps *(shipped)*
+  - Optional `levels` array: [{ key, label (i18n), order }] *(shipped)*
+  - Update `lessons` collection: add `course` relation (required), optional `level` key *(shipped)*
+  - Indexes: unique on `courses.slug`; indexes on `lessons.course`, `lessons.level`, `lessons.order` *(course slug + course/level indexes landed; `lessons.order` index still pending)*
 - API (Payload REST)
   - List courses: GET /api/courses?where[status][equals]=published&locale=xx
   - Course detail: GET /api/courses/:id
   - Lessons by course: GET /api/lessons?where[course][equals]=:id&where[status][equals]=published&where[level][equals]=:key (optional)&locale=xx
-  - Back-compat shim: Resolve legacy level-slug calls to course+level; document and deprecate
+  - Back-compat shim: Resolve legacy level-slug calls to course+level; document and deprecate *(2025-11-04 update: not required because legacy clients/data were cleared; revisit if older builds return)*
 - Frontend (Expo)
   - Home tab shows courses list (cards)
   - New Course Detail screen `/course/[courseId]` lists lessons (grouped if levels exist)
@@ -29,18 +29,18 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 
 ### Milestones
 - A1 Data model & Migration
-  - [ ] Create `courses` collection in Payload
-  - [ ] Backfill: create default “BabblinGo” course and attach existing lessons
-  - [ ] Add indexes and constraints
-  - [ ] Write idempotent migration + rollback plan
+  - [x] Create `courses` collection in Payload
+  - [x] Backfill reset: removed legacy seed data on 2025-11-04 and recreated lessons against the new course schema (no migration script required)
+  - [ ] Add remaining index on `lessons.order`; other constraints are in place
+  - [x] Rollback approach: re-import the post-reset seed snapshot if recovery is needed
 - A2 API and Back-compat
-  - [ ] Expose list/detail endpoints for courses
-  - [ ] Expose lessons-by-course; support optional `level` filter
-  - [ ] Implement level-slug shim; mark deprecated
+  - [x] Expose list/detail endpoints for courses
+  - [x] Expose lessons-by-course; support optional `level` filter
+  - [ ] Implement level-slug shim only if legacy builds reappear (currently unnecessary)
 - A3 Frontend Refactor
-  - [ ] Replace Home with courses list (loading/empty/error states)
-  - [ ] Implement Course Detail screen; group lessons by level if present
-  - [ ] Wire data helpers; keep cache indicators
+  - [x] Replace Home with courses list (loading/empty/error states)
+  - [x] Implement Course Detail screen; group lessons by level if present
+  - [x] Wire data helpers; keep cache indicators
   - [ ] Instrument analytics: course_viewed, lesson_opened
 - A4 Testing & Rollout
   - [ ] Backend e2e: courses list/detail, lessons-by-course (with and without levels)
@@ -55,7 +55,7 @@ Goal: Refactor Home into an “All Courses” view. Support many courses; each c
 - Back-compat layer exists during transition and is removed after validation
 
 ### Risks / Mitigations
-- Data backfill integrity → idempotent migration, pre-prod dry run
+- Course ordering performance → ship the pending `lessons.order` index before content volume increases
 - i18n completeness → define fallbacks and QA pass
 - Performance on large lists → pagination + cache headers
 
