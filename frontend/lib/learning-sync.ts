@@ -9,6 +9,7 @@ import {
 import type { LearningSyncFetchStatus } from "./analytics"
 import type { SessionRecord } from "./learning-types"
 import { LEARNING_SESSIONS_STORAGE_KEY } from "./learning-types"
+import { clearAuthSession, getAuthToken } from "./auth-session"
 
 const ENDPOINT = `${config.apiUrl}/api/learning-records`
 let inFlight: Promise<void> | null = null
@@ -75,6 +76,9 @@ type PushResult = {
   attempted: number
   failed: number
   succeeded: number
+  unauthorized: boolean
+  statusCode?: number
+  errorMessage?: string
 }
 
 const fromRemoteRecord = (doc: RemoteRecord): SessionRecord | null => {
@@ -131,9 +135,15 @@ async function fetchRemoteRecords(token: string): Promise<RemoteFetchResult> {
       headers: headersFor(token),
     })
 
-    if (res.status === 401 || res.status === 403) {
-      console.warn("Learning record sync: unauthorized while fetching remote records")
-      return { records: [], status: 'unauthorized', statusCode: res.status }
+    if (res.status === 401) {
+      const message = await res.text().catch(() => '')
+      console.warn("Learning record sync: unauthorized while fetching remote records", message)
+      return {
+        records: [],
+        status: 'unauthorized',
+        statusCode: res.status,
+        errorMessage: message || `status ${res.status}`,
+      }
     }
 
     if (!res.ok) {
@@ -206,12 +216,16 @@ const mergeLocalAndRemote = (
 }
 
 async function pushDirtySessions(token: string, sessions: SessionRecord[]): Promise<PushResult> {
-  const result: SessionRecord[] = []
+  const updatedSessions = [...sessions]
   let attempted = 0
   let failed = 0
-  for (const session of sessions) {
+  let unauthorized = false
+  let unauthorizedStatus: number | undefined
+  let unauthorizedMessage: string | undefined
+
+  for (let index = 0; index < sessions.length; index += 1) {
+    const session = sessions[index]
     if (!(session.dirty || !session.serverId)) {
-      result.push(session)
       continue
     }
 
@@ -219,7 +233,6 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
     const headers = headersFor(token, true)
     let response: Response | null = null
     let updatedSession = { ...session }
-    let success = false
 
     attempted += 1
 
@@ -244,6 +257,17 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
         })
       }
 
+      if (!response) {
+        throw new Error("Learning record sync: no response received")
+      }
+
+      if (response.status === 401) {
+        unauthorized = true
+        unauthorizedStatus = response.status
+        unauthorizedMessage = await response.text().catch(() => "")
+        throw new Error("unauthorized")
+      }
+
       if (!response.ok) {
         const text = await response.text()
         throw new Error(text || "Failed to sync learning record")
@@ -261,7 +285,6 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
         remoteUpdatedAt,
         dirty: false,
       }
-      success = true
     } catch (error) {
       console.warn(`Learning record sync: push failed for ${session.id}`, error)
       updatedSession = {
@@ -271,20 +294,23 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
       failed += 1
     }
 
-    result.push(updatedSession)
-    if (!success && !updatedSession.dirty) {
-      // Extremely unlikely branch: treat as failure if status unclear
-      failed += 1
+    updatedSessions[index] = updatedSession
+
+    if (unauthorized) {
+      break
     }
   }
 
   const succeeded = Math.max(0, attempted - failed)
 
   return {
-    sessions: result,
+    sessions: updatedSessions,
     attempted,
     failed,
     succeeded,
+    unauthorized,
+    statusCode: unauthorizedStatus,
+    errorMessage: unauthorizedMessage,
   }
 }
 
@@ -318,7 +344,7 @@ export async function syncLearningRecords(): Promise<void> {
   const localCount = localSessions.length
   const dirtyBefore = countDirtySessions(localSessions)
 
-  const token = await AsyncStorage.getItem("jwt")
+  const token = await getAuthToken()
   if (!token) {
     recordLearningSyncSkipped({
       reason: "unauthenticated",
@@ -336,6 +362,7 @@ export async function syncLearningRecords(): Promise<void> {
   const fetchResult = await fetchRemoteRecords(token)
 
   if (fetchResult.status === 'unauthorized') {
+    await clearAuthSession()
     recordLearningSyncFailed({
       durationMs: Date.now() - startedAt,
       localCount,
@@ -350,6 +377,18 @@ export async function syncLearningRecords(): Promise<void> {
   const remoteSessions = fetchResult.records
   const mergedAfterRemote = mergeLocalAndRemote(localSessions, remoteSessions)
   const pushResult = await pushDirtySessions(token, mergedAfterRemote)
+  if (pushResult.unauthorized) {
+    await clearAuthSession()
+    recordLearningSyncFailed({
+      durationMs: Date.now() - startedAt,
+      localCount: mergedAfterRemote.length,
+      dirtyBefore,
+      errorMessage: pushResult.errorMessage ?? 'unauthorized',
+      stage: 'push',
+      statusCode: pushResult.statusCode,
+    })
+    return
+  }
   const merged = pushResult.sessions
 
   await persistSessions(merged)

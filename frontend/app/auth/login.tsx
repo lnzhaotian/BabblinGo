@@ -2,13 +2,13 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, TextInput, StyleSheet, Pressable, KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator } from 'react-native';
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { loginUser } from '../../lib/auth';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { MaterialIcons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useThemeMode } from "../theme-context";
 import { config } from '@/lib/config';
 import { scheduleLearningRecordSync } from "../../lib/learning-sync";
+import { setAuthSession, updateProfileCache } from '@/lib/auth-session';
 
 export default function LoginScreen() {
   const { t } = useTranslation();
@@ -49,8 +49,7 @@ export default function LoginScreen() {
     try {
       const result = await loginUser({ email, password });
       if (result?.token) {
-        await AsyncStorage.setItem('jwt', result.token);
-        await AsyncStorage.setItem('user_email', email);
+        await setAuthSession(result.token, { email });
         
         // Fetch user profile to get displayName
         try {
@@ -62,8 +61,17 @@ export default function LoginScreen() {
           });
           if (profileRes.ok) {
             const profileData = await profileRes.json();
-            if (profileData.user?.displayName) {
-              await AsyncStorage.setItem('user_displayName', profileData.user.displayName);
+            const user = (profileData && typeof profileData === 'object')
+              ? (profileData.user ?? profileData.doc ?? profileData)
+              : null;
+
+            if (user && typeof user === 'object') {
+              const nextDisplayName = typeof user.displayName === 'string' ? user.displayName : undefined;
+              const nextAvatarIcon = typeof user.avatarIcon === 'string' ? user.avatarIcon : undefined;
+              await updateProfileCache({
+                displayName: nextDisplayName,
+                avatarIcon: nextAvatarIcon,
+              });
             }
           }
         } catch (e) {

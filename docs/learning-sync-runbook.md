@@ -22,7 +22,7 @@ This runbook covers how to monitor, triage, and recover the learning session syn
 ## 3. Common Scenarios & Fixes
 ### 3.1 Unauthorized / Expired Token
 - **Signals:** `learning_sync_failed` with `stage=fetch`, `statusCode=401`, repeated `learning_sync_skipped` with `reason="unauthenticated"`.
-- **Action:** Ask user to log out/in. If widespread, verify Payload JWT secret alignment and inspect Auth service status.
+- **Action:** The client now clears local auth state when a sync request returns 401, so users are redirected to the login flow automatically. If alerts show this happening in bulk, verify Payload JWT secret alignment and inspect Auth service status.
 
 ### 3.2 Payload Outage or 5xx Errors
 - **Signals:** `learning_sync_failed` with `stage=push`, `statusCode` >= 500; queue size climbs (positive `queueDelta`).

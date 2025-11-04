@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform, Modal } from "react-native";
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearAuthSession, getAuthToken, getCachedProfile, updateProfileCache } from '@/lib/auth-session';
 import { useTranslation } from "react-i18next";
 import { config } from "@/lib/config";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -167,8 +167,8 @@ export default function UserProfileScreen() {
     };
   }, []);
 
-  const clearAuthState = useCallback(async () => {
-    await AsyncStorage.multiRemove(['jwt', 'user_email', 'user_displayName', 'user_avatarIcon']);
+  const resetAuthState = useCallback(async () => {
+    await clearAuthSession();
     if (!isMountedRef.current) return;
     setEmail(null);
     setDisplayName(null);
@@ -195,29 +195,21 @@ export default function UserProfileScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const [cachedEmail, cachedName, cachedIcon] = await Promise.all([
-          AsyncStorage.getItem('user_email'),
-          AsyncStorage.getItem('user_displayName'),
-          AsyncStorage.getItem('user_avatarIcon'),
-        ]);
+        const cached = await getCachedProfile();
 
-        if (cancelled) {
+        if (cancelled || !isMountedRef.current) {
           return;
         }
 
-        const normalizedEmail = cachedEmail && cachedEmail.trim().length ? cachedEmail : null;
-        const normalizedName = cachedName && cachedName.trim().length ? cachedName : null;
-        const normalizedIcon = cachedIcon && cachedIcon.trim().length ? cachedIcon : undefined;
-
-        if (normalizedEmail !== null) {
-          setEmail(normalizedEmail);
+        if (cached.email) {
+          setEmail(cached.email);
         }
-        if (normalizedName !== null) {
-          setDisplayName(normalizedName);
-          setEditName(normalizedName);
+        if (cached.displayName) {
+          setDisplayName(cached.displayName);
+          setEditName(cached.displayName);
         }
-        if (normalizedIcon) {
-          setAvatarIcon(normalizedIcon);
+        if (cached.avatarIcon) {
+          setAvatarIcon(cached.avatarIcon);
         }
       } catch {
         // ignore cache hydration errors
@@ -235,7 +227,7 @@ export default function UserProfileScreen() {
       setLoading(true);
       setError(null);
       try {
-        const token = await AsyncStorage.getItem('jwt');
+  const token = await getAuthToken();
         if (!token) {
           throw new Error('Not authenticated');
         }
@@ -243,7 +235,7 @@ export default function UserProfileScreen() {
           headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
         });
         if (res.status === 401 || res.status === 403) {
-          await clearAuthState();
+          await resetAuthState();
           if (!isMountedRef.current) return;
           setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
           setLoading(false);
@@ -305,22 +297,14 @@ export default function UserProfileScreen() {
         setEditLearningLanguages(learningLangs);
         setUserId((typeof u.id === 'string' && u.id) || (typeof u._id === 'string' && u._id) || null);
 
-        if (nextEmail !== null) {
-          await AsyncStorage.setItem('user_email', nextEmail);
-        } else {
-          await AsyncStorage.removeItem('user_email');
-        }
-
-        if (nextDisplayName !== null) {
-          await AsyncStorage.setItem('user_displayName', nextDisplayName);
-        } else {
-          await AsyncStorage.removeItem('user_displayName');
-        }
-
-        await AsyncStorage.setItem('user_avatarIcon', nextAvatarIcon || 'person');
+        await updateProfileCache({
+          email: nextEmail,
+          displayName: nextDisplayName,
+          avatarIcon: nextAvatarIcon || 'person',
+        });
       } catch (err: any) {
         if (err instanceof Error && err.message === 'Not authenticated') {
-          await clearAuthState();
+          await resetAuthState();
           if (!isMountedRef.current) return;
           setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
           router.replace('/auth/login');
@@ -335,7 +319,7 @@ export default function UserProfileScreen() {
       }
     };
     fetchUserInfo();
-  }, [clearAuthState, router, t]);
+  }, [resetAuthState, router, t]);
 
   // Helpers
   const startEdit = () => {
@@ -375,7 +359,7 @@ export default function UserProfileScreen() {
     setSaving(true);
     setError(null);
     try {
-      const token = await AsyncStorage.getItem('jwt');
+  const token = await getAuthToken();
       if (!token) throw new Error('Not authenticated');
       if (!userId) throw new Error('User ID not found');
       // Convert Date object to YYYY-MM-DD string
@@ -397,7 +381,7 @@ export default function UserProfileScreen() {
         body: JSON.stringify(payload),
       });
       if (res.status === 401 || res.status === 403) {
-        await clearAuthState();
+        await resetAuthState();
         if (!isMountedRef.current) return;
         setSaving(false);
         setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
@@ -430,7 +414,9 @@ export default function UserProfileScreen() {
       setEditDateOfBirth(toDateOrNull(normalizedDob));
       setNativeLanguage(u.nativeLanguage ?? editNativeLanguage ?? '');
       setLearningLanguages(u.learningLanguages ?? editLearningLanguages ?? []);
-      await AsyncStorage.setItem('user_displayName', u.displayName ?? editName);
+      await updateProfileCache({
+        displayName: u.displayName ?? editName,
+      });
       setIsEditing(false);
     } catch (err: any) {
       const fallback = t('profile.updateFailed', { defaultValue: 'We could not update your profile.' });
@@ -680,7 +666,7 @@ export default function UserProfileScreen() {
           // Update immediately and save to backend
           setAvatarIcon(iconName);
           try {
-            const token = await AsyncStorage.getItem('jwt');
+            const token = await getAuthToken();
             if (!token) throw new Error('Not authenticated');
             if (!userId) throw new Error('User ID not found');
             const res = await fetch(`${config.apiUrl}/api/users/${userId}`, {
@@ -689,13 +675,13 @@ export default function UserProfileScreen() {
               body: JSON.stringify({ avatarIcon: iconName }),
             });
             if (res.status === 401 || res.status === 403) {
-              await clearAuthState();
+              await resetAuthState();
               if (!isMountedRef.current) return;
               setError(t('auth.sessionExpired', { defaultValue: 'Your session has expired. Please log in again.' }));
               router.replace('/auth/login');
               return;
             }
-            await AsyncStorage.setItem('user_avatarIcon', iconName);
+            await updateProfileCache({ avatarIcon: iconName });
           } catch {
             // Silent fail; avatar will revert next fetch if backend rejects
           } finally {

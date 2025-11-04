@@ -1,12 +1,12 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useThemeMode } from "../theme-context";
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { clearAuthSession, getAuthToken, getCachedProfile, subscribeAuthState } from '@/lib/auth-session';
 
 type SettingItem = {
   id: string;
@@ -26,56 +26,61 @@ export default function Settings() {
   const [userName, setUserName] = useState<string | null>(null);
   const [userAvatarIcon, setUserAvatarIcon] = useState<string>('person');
   const { colorScheme } = useThemeMode();
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  const refreshAuthSnapshot = useCallback(async () => {
+    try {
+      const token = await getAuthToken();
+      if (!isMountedRef.current) return;
+
+      setIsAuthenticated(!!token);
+
+      if (token) {
+        const profile = await getCachedProfile();
+        if (!isMountedRef.current) return;
+
+        setUserEmail(profile.email);
+        setUserName(profile.displayName);
+        setUserAvatarIcon(profile.avatarIcon || 'person');
+      } else {
+        setUserEmail(null);
+        setUserName(null);
+        setUserAvatarIcon('person');
+      }
+    } catch {
+      if (!isMountedRef.current) return;
+      setIsAuthenticated(false);
+      setUserEmail(null);
+      setUserName(null);
+      setUserAvatarIcon('person');
+    }
+  }, []);
 
   // Update auth state on screen focus and initial mount
   useFocusEffect(
     useCallback(() => {
-      let cancelled = false;
-      (async () => {
-        try {
-          const token = await AsyncStorage.getItem('jwt');
-          if (!cancelled) {
-            setIsAuthenticated(!!token);
-            if (token) {
-              // Fetch user profile
-              const email = await AsyncStorage.getItem('user_email');
-              const name = await AsyncStorage.getItem('user_displayName');
-              const icon = await AsyncStorage.getItem('user_avatarIcon');
-              setUserEmail(email);
-              setUserName(name);
-              setUserAvatarIcon(icon || 'person');
-            } else {
-              setUserEmail(null);
-              setUserName(null);
-              setUserAvatarIcon('person');
-            }
-          }
-        } catch {
-          if (!cancelled) {
-            setIsAuthenticated(false);
-            setUserEmail(null);
-            setUserName(null);
-            setUserAvatarIcon('person');
-          }
-        }
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }, [])
+      refreshAuthSnapshot();
+      return undefined;
+    }, [refreshAuthSnapshot])
   );
 
+  useEffect(() => {
+    const unsubscribe = subscribeAuthState(() => {
+      refreshAuthSnapshot();
+    });
+    return unsubscribe;
+  }, [refreshAuthSnapshot]);
 
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem('jwt');
-    await AsyncStorage.removeItem('user_email');
-    await AsyncStorage.removeItem('user_displayName');
-    await AsyncStorage.removeItem('user_avatarIcon');
-    setIsAuthenticated(false);
-    setUserEmail(null);
-    setUserName(null);
-    setUserAvatarIcon('person');
-  };
+  const handleLogout = useCallback(async () => {
+    await clearAuthSession();
+    await refreshAuthSnapshot();
+  }, [refreshAuthSnapshot]);
 
   const preferencesSection: SettingItem[] = [
     {
