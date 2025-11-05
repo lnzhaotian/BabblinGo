@@ -20,8 +20,8 @@ This runbook covers how to monitor, triage, and recover the learning session syn
 3. **Alerts:** Pager rules fire if failure rate exceeds 10% over a 15-minute window or if no successful sync events arrive in 30 minutes during active sessions.
 
 ## 3. Common Scenarios & Fixes
-### 3.1 Unauthorized / Expired Token
-- **Signals:** `learning_sync_failed` with `stage=fetch`, `statusCode=401`, repeated `learning_sync_skipped` with `reason="unauthenticated"`.
+-### 3.1 Unauthorized / Expired Token
+- **Signals:** `learning_sync_failed` with `stage=fetch`, `statusCode` of 401 or 403, repeated `learning_sync_skipped` with `reason="unauthenticated"`.
 - **Action:** The client now clears local auth state when a sync request returns 401, so users are redirected to the login flow automatically. If alerts show this happening in bulk, verify Payload JWT secret alignment and inspect Auth service status.
 
 ### 3.2 Payload Outage or 5xx Errors

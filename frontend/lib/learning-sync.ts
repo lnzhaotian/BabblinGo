@@ -135,7 +135,7 @@ async function fetchRemoteRecords(token: string): Promise<RemoteFetchResult> {
       headers: headersFor(token),
     })
 
-    if (res.status === 401) {
+    if (res.status === 401 || res.status === 403) {
       const message = await res.text().catch(() => '')
       console.warn("Learning record sync: unauthorized while fetching remote records", message)
       return {
@@ -261,7 +261,7 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
         throw new Error("Learning record sync: no response received")
       }
 
-      if (response.status === 401) {
+      if (response.status === 401 || response.status === 403) {
         unauthorized = true
         unauthorizedStatus = response.status
         unauthorizedMessage = await response.text().catch(() => "")
