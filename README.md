@@ -1,6 +1,39 @@
+````markdown
 # BabblinGo
 
-BabblinGo is now composed of two apps:
+**BabblinGo** is a mobile language learning platform that delivers immersive, multimedia lessons with offline support. Built with Expo (React Native) and Payload CMS, it provides a modern learning experience with audio, video, and rich content modules.
+
+## 🎯 MVP Features
+
+### **Content & Learning**
+- 📚 **Multi-course architecture**: Browse and access multiple language courses
+- 🎓 **Flexible module types**: Audio slideshows, video lessons, rich posts, and audio-only content
+- 🎵 **Interactive audio player**: Variable playback speed, loop mode, and synchronized slides
+- 📝 **Learning session tracking**: Monitor progress with time-based statistics
+- 🌐 **Internationalization**: Full i18n support (English, Chinese)
+
+### **User Experience**
+- 👤 **User authentication**: Email-based registration and login
+- 👥 **User profiles**: Customizable profiles with avatar, bio, and language preferences
+- 📊 **Progress tracking**: View learning history and activity charts
+- ⚙️ **Account management**: Settings, preferences, security, and account deletion
+
+### **Offline & Sync**
+- 💾 **Offline caching**: Download lessons for offline access with smart cache management
+- 🔄 **Cloud sync**: Automatic syncing of learning records across devices
+- 📡 **Network resilience**: Queue-based sync with retry logic and conflict resolution
+- 🎯 **Cache status indicators**: Visual feedback for download progress and cache state
+
+### **Technical Highlights**
+- 📱 Native iOS/Android with Expo
+- 🎨 Dark mode support
+- 🔐 JWT-based authentication with AsyncStorage
+- 📈 Analytics instrumentation for user behavior insights
+- ✅ Unit tests for core business logic
+
+## Architecture
+
+BabblinGo consists of two main components:
 
 - `BabblinGoAdmin/`: a [Payload CMS](https://payloadcms.com/) instance that provides the admin UI and API
 - `frontend/`: an Expo application that consumes the CMS and powers the client experience
@@ -25,9 +58,7 @@ BabblinGo is now composed of two apps:
 	cd BabblinGoAdmin
 	docker compose up payload
 	```
-4. Once the containers are running, open `http://localhost:3000/admin` to create the first admin user.
-
-> The compose setup exposes MongoDB internally at `mongodb://mongo/BabblinGoAdmin`. Change `DATABASE_URI` only if you point to an external database.
+4. Once running, open `http://localhost:3000/admin` to create the first admin user.
 
 ### Expo Frontend (`frontend`)
 
@@ -42,7 +73,9 @@ BabblinGo is now composed of two apps:
 	```
 3. Follow the CLI prompts to open the app in a simulator, device, or web browser.
 
-## Project Structure
+## Contributing
+
+See individual README files in `BabblinGoAdmin/` and `frontend/` for detailed documentation on testing, architecture, and development workflows.## Project Structure
 
 ```text
 BabblinGo/
