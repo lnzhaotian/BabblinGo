@@ -8,6 +8,10 @@ import { LessonDoc, ModuleDoc, MediaDoc, extractModuleSlides, resolveMediaUrl } 
 import { useThemeMode } from "@/app/theme-context"
 import type { LexicalRichText } from "@/lib/payload"
 import { useLearningSession } from "@/hooks/useLearningSession"
+import { useLessonCache } from "@/hooks/useLessonCache"
+import { ThemedHeader } from "@/components/ThemedHeader"
+import { LessonHeaderControls } from "@/components/LessonHeaderControls"
+import { CacheMenuModal } from "@/components/CacheMenuModal"
 
 export type RichPostModuleViewProps = {
   lesson: LessonDoc
@@ -28,16 +32,70 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
     return slides[0] ?? null
   }, [module])
 
+  const {
+    cachedMedia,
+    cachingInProgress,
+    lessonCacheStatus,
+    cacheMenuVisible,
+    setCacheMenuVisible,
+    handleClearCache,
+    handleRedownload,
+  } = useLessonCache(lesson)
+
   const contentBlocks = useMemo(
     () => parseLexicalBody(slide?.body ?? module.richPost?.body ?? null),
     [slide?.body, module.richPost?.body]
   )
 
-  const gallery = module.richPost?.mediaGallery ?? slide?.richPost?.mediaGallery ?? []
-  const [ratio, setRatio] = useState(1.5);
+  const resolvedContentBlocks = useMemo(() =>
+    contentBlocks.map((block) => {
+      if (block.type !== "image" || !block.url) {
+        return block
+      }
+      const effectiveUrl = cachedMedia[block.url] ?? block.url
+      if (effectiveUrl === block.url) {
+        return block
+      }
+      return {
+        ...block,
+        url: effectiveUrl,
+      }
+    }),
+  [contentBlocks, cachedMedia])
+
+  const resolvedGallery = useMemo(() => {
+    const galleryEntries = module.richPost?.mediaGallery ?? slide?.richPost?.mediaGallery ?? []
+
+    return galleryEntries.map((entry) => {
+      const originalUrl = resolveMediaUrl(entry.media)
+      const cachedUrl = originalUrl ? cachedMedia[originalUrl] ?? originalUrl : null
+      return {
+        id: entry.id ?? originalUrl ?? "gallery-entry",
+        url: cachedUrl,
+        caption: entry.caption ?? null,
+      }
+    })
+  }, [module.richPost?.mediaGallery, slide?.richPost?.mediaGallery, cachedMedia])
+  const [ratio, setRatio] = useState(1.5)
+
+  const headerTitle = module.title || lesson.title
 
   return (
-    <SafeAreaView
+    <>
+      <ThemedHeader
+        overrideTitle={headerTitle}
+        headerRight={() => (
+          <LessonHeaderControls
+            loopEnabled={false}
+            cachingInProgress={cachingInProgress}
+            cacheStatus={lessonCacheStatus}
+            onToggleLoop={() => {}}
+            onOpenCacheMenu={() => setCacheMenuVisible(true)}
+            showLoopToggle={false}
+          />
+        )}
+      />
+      <SafeAreaView
       style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
       edges={["bottom"]}
     >
@@ -50,9 +108,9 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
           ) : null}
         </View>
 
-        {contentBlocks.length > 0 ? (
+        {resolvedContentBlocks.length > 0 ? (
           <View style={{ gap: 18 }}>
-            {contentBlocks.map((block) => {
+            {resolvedContentBlocks.map((block) => {
               switch (block.type) {
                 case "heading":
                   return (
@@ -126,17 +184,16 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
           </View>
         )}
 
-        {gallery.length > 0 ? (
+        {resolvedGallery.length > 0 ? (
           <View style={{ gap: 16 }}>
-            {gallery.map((entry) => {
-              const mediaUrl = resolveMediaUrl(entry.media)
-              if (!mediaUrl) {
+            {resolvedGallery.map((entry) => {
+              if (!entry.url) {
                 return null
               }
               return (
-                <View key={entry.id ?? mediaUrl} style={{ gap: 8 }}>
+                <View key={entry.id} style={{ gap: 8 }}>
                   <Image
-                    source={{ uri: mediaUrl }}
+                    source={{ uri: entry.url }}
                     style={{ width: "100%", aspectRatio: 3 / 2, borderRadius: 18, backgroundColor: "#0f172a" }}
                     contentFit="cover"
                   />
@@ -149,8 +206,17 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
           </View>
         ) : null}
       </ScrollView>
+
+      <CacheMenuModal
+        visible={cacheMenuVisible}
+        onClose={() => setCacheMenuVisible(false)}
+        cacheStatus={lessonCacheStatus}
+        onRedownload={handleRedownload}
+        onClear={handleClearCache}
+      />
     </SafeAreaView>
-  )
+  </>
+)
 }
 
 type LexicalNode = {

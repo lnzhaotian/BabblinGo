@@ -80,7 +80,7 @@ export function LessonHeaderControls({
       : undefined
 
   return (
-    <View style={{ flexDirection: "row", alignItems: "center" }}>
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: showLoopToggle ? "flex-start" : "center", minWidth: showLoopToggle ? undefined : 44 }}>
       {showLoopToggle ? (
         <Pressable
           onPress={onToggleLoop}

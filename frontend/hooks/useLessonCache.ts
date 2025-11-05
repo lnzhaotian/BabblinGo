@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react"
 import { Alert } from "react-native"
 import { useTranslation } from "react-i18next"
 import type { LessonDoc } from "@/lib/payload"
-import { extractModules, resolveMediaUrl } from "@/lib/payload"
+import { collectLessonMediaUrls } from "@/lib/lesson-media"
 import {
   getOrDownloadFile,
   getLessonCacheStatus,
@@ -25,65 +25,73 @@ export function useLessonCache(lesson: LessonDoc | null) {
   const [cachingInProgress, setCachingInProgress] = useState(false)
   const [lessonCacheStatus, setLessonCacheStatus] = useState<LessonCacheStatus>("none")
   const [cacheMenuVisible, setCacheMenuVisible] = useState(false)
+  const [isRedownloading, setIsRedownloading] = useState(false)
 
   // Cache media files (images and audio) for offline access
   const cacheMediaFiles = useCallback(async (lessonData: LessonDoc) => {
-    if (!lessonData.updatedAt) return
-
-    setCachingInProgress(true)
-    const version = lessonData.updatedAt
-    const modulesList = extractModules(lessonData)
-    const cached: Record<string, string> = {}
-
-    // Collect all media URLs
-  const mediaUrls = new Set<string>()
-
-    for (const module of modulesList) {
-      const imageUrl = resolveMediaUrl(module.image)
-      const audioUrl = resolveMediaUrl(module.audio)
-
-      if (imageUrl) mediaUrls.add(imageUrl)
-      if (audioUrl) mediaUrls.add(audioUrl)
+    if (!lessonData.updatedAt) {
+      console.log("[useLessonCache] No updatedAt timestamp, skipping cache")
+      return
     }
 
-    // Download all files in parallel
-    await Promise.all(
-      Array.from(mediaUrls).map(async (url) => {
-        try {
-          const localPath = await getOrDownloadFile(
-            url,
-            version,
-            false, // Don't force download if cached
-            (progress) => {
-              setDownloadProgress((prev) => ({ ...prev, [url]: progress }))
-            }
-          )
-          cached[url] = localPath
-          // Clear progress indicator once complete
-          setDownloadProgress((prev) => {
-            const next = { ...prev }
-            delete next[url]
-            return next
-          })
-        } catch (error) {
-          console.error(`Failed to cache ${url}:`, error)
-        }
-      })
-    )
+    const mediaUrls = collectLessonMediaUrls(lessonData)
+    console.log(`[useLessonCache] Found ${mediaUrls.length} media URLs to cache`)
 
-    setCachedMedia(cached)
-    setCachingInProgress(false)
+    if (mediaUrls.length === 0) {
+      setCachedMedia({})
+      setLessonCacheStatus("none")
+      setCachingInProgress(false)
+      return
+    }
 
-    // Update cache status
-    const allUrls = Array.from(mediaUrls)
+    setCachingInProgress(true)
+    setLessonCacheStatus("downloading")
+    const version = lessonData.updatedAt
+    const cached: Record<string, string> = {}
 
-    if (allUrls.length > 0) {
+    try {
+      await Promise.all(
+        mediaUrls.map(async (url) => {
+          try {
+            console.log(`[useLessonCache] Caching: ${url}`)
+            const localPath = await getOrDownloadFile(
+              url,
+              version,
+              false,
+              (progress) => {
+                setDownloadProgress((prev) => ({ ...prev, [url]: progress }))
+              }
+            )
+            cached[url] = localPath
+            console.log(`[useLessonCache] Cached successfully: ${url} -> ${localPath}`)
+            setDownloadProgress((prev) => {
+              const next = { ...prev }
+              delete next[url]
+              return next
+            })
+          } catch (error) {
+            console.error(`[useLessonCache] Failed to cache ${url}:`, error)
+          }
+        })
+      )
+
+      setCachedMedia(cached)
+      console.log(`[useLessonCache] Cached ${Object.keys(cached).length}/${mediaUrls.length} files`)
+
       try {
-        const status = await getLessonCacheStatus(allUrls, version)
+        const status = await getLessonCacheStatus(mediaUrls, version)
+        console.log(`[useLessonCache] Cache status: ${status.status} (${status.cachedCount}/${status.totalCount})`)
         setLessonCacheStatus(status.status)
       } catch (error) {
-        console.error("Failed to get cache status:", error)
+        console.error("[useLessonCache] Failed to get cache status:", error)
+        setLessonCacheStatus("none")
       }
+    } catch (error) {
+      console.error("[useLessonCache] Cache operation failed:", error)
+      setLessonCacheStatus("none")
+    } finally {
+      console.log("[useLessonCache] Caching complete, setting cachingInProgress to false")
+      setCachingInProgress(false)
     }
   }, [])
 
@@ -101,17 +109,9 @@ export function useLessonCache(lesson: LessonDoc | null) {
           style: "destructive",
           onPress: async () => {
             try {
-              const modulesList = extractModules(lesson)
-              const mediaUrls = new Set<string>()
+              const mediaUrls = collectLessonMediaUrls(lesson)
 
-              for (const module of modulesList) {
-                const imageUrl = resolveMediaUrl(module.image)
-                const audioUrl = resolveMediaUrl(module.audio)
-                if (imageUrl) mediaUrls.add(imageUrl)
-                if (audioUrl) mediaUrls.add(audioUrl)
-              }
-
-              await clearLessonCache(Array.from(mediaUrls))
+              await clearLessonCache(mediaUrls)
               setCachedMedia({})
               setLessonCacheStatus("none")
               setCacheMenuVisible(false)
@@ -136,6 +136,12 @@ export function useLessonCache(lesson: LessonDoc | null) {
   const handleRedownload = useCallback(async () => {
     if (!lesson || !lesson.updatedAt) return
 
+    // Prevent duplicate redownload operations
+    if (isRedownloading) {
+      console.log("Redownload already in progress, ignoring duplicate request")
+      return
+    }
+
     Alert.alert(
       t("lesson.cache.redownloadTitle") || "Re-download Media?",
       t("lesson.cache.redownloadMessage") ||
@@ -146,21 +152,14 @@ export function useLessonCache(lesson: LessonDoc | null) {
           text: t("lesson.cache.redownload") || "Re-download",
           onPress: async () => {
             try {
+              setIsRedownloading(true)
               setCacheMenuVisible(false)
               setCachingInProgress(true)
               setLessonCacheStatus("downloading")
 
-              const modulesList = extractModules(lesson)
-              const mediaUrls = new Set<string>()
+              const mediaUrls = collectLessonMediaUrls(lesson)
 
-              for (const module of modulesList) {
-                const imageUrl = resolveMediaUrl(module.image)
-                const audioUrl = resolveMediaUrl(module.audio)
-                if (imageUrl) mediaUrls.add(imageUrl)
-                if (audioUrl) mediaUrls.add(audioUrl)
-              }
-
-              await redownloadLessonMedia(Array.from(mediaUrls), lesson.updatedAt!, (url, progress) => {
+              await redownloadLessonMedia(mediaUrls, lesson.updatedAt!, (url, progress) => {
                 setDownloadProgress((prev) => ({ ...prev, [url]: progress }))
               })
 
@@ -174,12 +173,13 @@ export function useLessonCache(lesson: LessonDoc | null) {
               )
             } finally {
               setCachingInProgress(false)
+              setIsRedownloading(false)
             }
           },
         },
       ]
     )
-  }, [lesson, t, cacheMediaFiles])
+  }, [lesson, t, cacheMediaFiles, isRedownloading])
 
   // Cache media after lesson loads
   useEffect(() => {
@@ -199,3 +199,4 @@ export function useLessonCache(lesson: LessonDoc | null) {
     handleRedownload,
   }
 }
+

@@ -17,7 +17,6 @@ import {
   CourseDoc,
   CourseLevel,
   LessonDoc,
-  extractModules,
   fetchCourseById,
   fetchLessonsByCourse,
   getLessonModules,
@@ -28,6 +27,7 @@ import { recordCourseView, recordLessonOpened } from "@/lib/analytics";
 import { getLessonCacheStatus, LessonCacheStatus } from "@/lib/cache-manager";
 import { ThemedHeader } from "@/components/ThemedHeader";
 import { useThemeMode } from "../../theme-context";
+import { collectLessonMediaUrls } from "@/lib/lesson-media";
 
 const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>
   [...items].sort((a, b) => {
@@ -69,18 +69,7 @@ const CourseDetail = () => {
           return;
         }
 
-        const modules = extractModules(lesson);
-        const mediaUrls = new Set<string>();
-
-        for (const module of modules) {
-          const imageUrl = resolveMediaUrl(module.image);
-          const audioUrl = resolveMediaUrl(module.audio);
-
-          if (imageUrl) mediaUrls.add(imageUrl);
-          if (audioUrl) mediaUrls.add(audioUrl);
-        }
-
-        const uniqueMedia = Array.from(mediaUrls);
+        const uniqueMedia = collectLessonMediaUrls(lesson);
 
         if (uniqueMedia.length === 0) {
           result[lesson.id] = "none";
@@ -257,8 +246,6 @@ const CourseDetail = () => {
 
   const renderLesson = useCallback(
     ({ item, index }: { item: LessonDoc; index: number }) => {
-      const displayOrder = typeof item.order === "number" ? item.order : index + 1;
-      const padded = String(displayOrder).padStart(2, "0");
       const summary = item.summary?.trim();
       const moduleDocs = getLessonModules(item);
       const hasModules = moduleDocs.length > 0;
@@ -309,7 +296,7 @@ const CourseDetail = () => {
 
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === "dark" ? "#fff" : "#111827" }}>
-              {t("home.lesson", { number: padded })}
+              {item.title && resolveLocalizedField(item.title, locale)}
             </Text>
             {summary ? (
               <Text style={{ marginTop: 4, color: colorScheme === "dark" ? "#d1d5db" : "#4b5563" }} numberOfLines={2}>
@@ -328,7 +315,7 @@ const CourseDetail = () => {
         </Pressable>
       );
     },
-    [cacheStatuses, colorScheme, handleLessonPress, t],
+    [cacheStatuses, colorScheme, handleLessonPress, locale],
   );
 
   const listHeader = useMemo(() => {

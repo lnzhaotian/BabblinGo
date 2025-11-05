@@ -10,6 +10,10 @@ import { LessonDoc, ModuleDoc, extractModuleSlides, resolveMediaUrl } from "@/li
 import { extractParagraphs } from "@/lib/lesson-helpers"
 import { useThemeMode } from "@/app/theme-context"
 import { useLearningSession } from "@/hooks/useLearningSession"
+import { useLessonCache } from "@/hooks/useLessonCache"
+import { ThemedHeader } from "@/components/ThemedHeader"
+import { LessonHeaderControls } from "@/components/LessonHeaderControls"
+import { CacheMenuModal } from "@/components/CacheMenuModal"
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
@@ -55,21 +59,57 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
   }, [module])
 
   const videoContent = slide?.video ?? module.video ?? null
-  const posterUrl = useMemo(() => resolveMediaUrl(videoContent?.posterImage ?? slide?.image ?? null), [videoContent?.posterImage, slide?.image])
+  const {
+    cachedMedia,
+    cachingInProgress,
+    lessonCacheStatus,
+    cacheMenuVisible,
+    setCacheMenuVisible,
+    handleClearCache,
+    handleRedownload,
+  } = useLessonCache(lesson)
+
+  const rawPosterUrl = useMemo(
+    () => resolveMediaUrl(videoContent?.posterImage ?? slide?.image ?? null),
+    [videoContent?.posterImage, slide?.image]
+  )
+  const posterUrl = useMemo(() => {
+    if (!rawPosterUrl) return null
+    return cachedMedia[rawPosterUrl] ?? rawPosterUrl
+  }, [cachedMedia, rawPosterUrl])
+
+  const rawVideoFileUrl = useMemo(
+    () => resolveMediaUrl(videoContent?.videoFile ?? null),
+    [videoContent?.videoFile]
+  )
+
+  const streamUrlKey = useMemo(() => {
+    const stream = typeof videoContent?.streamUrl === "string" ? videoContent.streamUrl.trim() : ""
+    if (!stream || stream.toLowerCase().endsWith(".m3u8")) {
+      return null
+    }
+    const resolved = resolveMediaUrl(stream)
+    return resolved ?? stream
+  }, [videoContent?.streamUrl])
 
   const videoUrl = useMemo(() => {
-    const fileUrl = resolveMediaUrl(videoContent?.videoFile ?? null)
-    if (fileUrl) return fileUrl
-    return videoContent?.streamUrl ?? null
-  }, [videoContent?.videoFile, videoContent?.streamUrl])
+    if (rawVideoFileUrl) {
+      return cachedMedia[rawVideoFileUrl] ?? rawVideoFileUrl
+    }
+    if (streamUrlKey) {
+      return cachedMedia[streamUrlKey] ?? streamUrlKey
+    }
+    return typeof videoContent?.streamUrl === "string" ? videoContent.streamUrl : null
+  }, [cachedMedia, rawVideoFileUrl, streamUrlKey, videoContent?.streamUrl])
 
   const videoSource = useMemo(() => {
     if (!videoUrl) return null
-    if (videoContent?.streamUrl) {
-      const isHls = videoContent.streamUrl.toLowerCase().endsWith(".m3u8")
+    if (videoContent?.streamUrl && !rawVideoFileUrl) {
+      const stream = typeof videoContent.streamUrl === "string" ? videoContent.streamUrl : ""
+      const isHls = stream.toLowerCase().endsWith(".m3u8")
       const contentType: ContentType = isHls ? "hls" : "auto"
       return {
-        uri: videoContent.streamUrl,
+        uri: videoUrl,
         contentType,
       }
     }
@@ -77,7 +117,7 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
     return {
       uri: videoUrl,
     }
-  }, [videoUrl, videoContent?.streamUrl])
+  }, [videoUrl, videoContent?.streamUrl, rawVideoFileUrl])
 
   const player = useVideoPlayer(videoSource, (instance) => {
     instance.loop = false
@@ -312,11 +352,27 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
 
   const speedPresets = useMemo(() => [0.5, 0.7, 1, 1.3, 1.5, 2], [])
 
+  const headerTitle = module.title || lesson.title
+
   return (
-    <SafeAreaView
-      style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
-      edges={["bottom"]}
-    >
+    <>
+      <ThemedHeader
+        overrideTitle={headerTitle}
+        headerRight={() => (
+          <LessonHeaderControls
+            loopEnabled={false}
+            cachingInProgress={cachingInProgress}
+            cacheStatus={lessonCacheStatus}
+            onToggleLoop={() => {}}
+            onOpenCacheMenu={() => setCacheMenuVisible(true)}
+            showLoopToggle={false}
+          />
+        )}
+      />
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
+        edges={["bottom"]}
+      >
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
         {module.summary ? (
           <View
@@ -582,7 +638,16 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
           </View>
         ) : null}
       </ScrollView>
+
+      <CacheMenuModal
+        visible={cacheMenuVisible}
+        onClose={() => setCacheMenuVisible(false)}
+        cacheStatus={lessonCacheStatus}
+        onRedownload={handleRedownload}
+        onClear={handleClearCache}
+      />
     </SafeAreaView>
+    </>
   )
 }
 type CircleButtonProps = {
