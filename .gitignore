@@ -21,10 +21,16 @@ BabblinGoAdmin/.env
 BabblinGoAdmin/.env.local
 BabblinGoAdmin/.env.*.local
 
-# Expo build output
+# Expo native bundles
 frontend/.expo/
 frontend/dist/
 frontend/web-build/
+
+# Expo environment secrets
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/.env.production
 
 # Expo native bundles
 frontend/android/

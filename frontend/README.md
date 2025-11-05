@@ -4,13 +4,25 @@ This directory contains the Expo application for BabblinGo. It consumes the APIs
 
 ## Get started
 
-1. Install dependencies
+1. **Configure environment**
+
+   Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+   Edit `.env` and set your API URL:
+   ```properties
+   NEXT_PUBLIC_API_URL=http://localhost:3000
+   ```
+
+2. **Install dependencies**
 
    ```bash
    npm install
    ```
 
-2. Start the app
+3. **Start the app**
 
    ```bash
    npx expo start
@@ -21,6 +33,24 @@ In the output, you'll find options to open the app in a development build, an An
 You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
 
 > Make sure the Payload CMS (`../BabblinGoAdmin`) is running before testing screens that rely on backend data.
+
+## Environment Variables
+
+The app uses the following environment variables (configured in `.env`):
+
+- `NEXT_PUBLIC_API_URL` (required): URL of the Payload CMS backend
+  - Development: `http://localhost:3000`
+  - Production: Your production API URL
+
+- `EXPO_PUBLIC_DEBUG` (optional): Enable debug logging
+  - Set to `true` to see detailed logs from cache manager, session manager, etc.
+  - Default: `false` (only in development builds)
+
+- `EXPO_PUBLIC_ANALYTICS_DEBUG` (optional): Enable analytics event logging
+  - Set to `true` to see analytics events in console
+  - Default: `false`
+
+**Security Note**: Never commit `.env` files to version control. Use `.env.example` as a template.
 
 ## Get a fresh project
 
