@@ -109,6 +109,17 @@ export type CourseLevel = {
   order?: number | null
 }
 
+export type ToolDoc = {
+  id: string
+  title: string | Record<string, string | null>
+  description?: string | Record<string, string | null> | null
+  url: string
+  category?: string | null
+  icon?: string | null
+  order?: number | null
+  status?: string | null
+}
+
 export type CourseDoc = {
   id: string
   slug: string
@@ -476,6 +487,22 @@ export const fetchCourses = async (locale?: string): Promise<CourseDoc[]> => {
 
 export const fetchCourseById = async (courseId: string, locale?: string): Promise<CourseDoc> =>
   fetchPayload<CourseDoc>(`/api/courses/${courseId}?depth=1`, undefined, locale)
+
+export const fetchTools = async (locale?: string): Promise<ToolDoc[]> => {
+  const params = new URLSearchParams({
+    'where[status][equals]': 'published',
+    limit: '100',
+    sort: 'order',
+  })
+
+  const response = await fetchPayload<PayloadListResponse<ToolDoc>>(
+    `/api/tools?${params.toString()}`,
+    undefined,
+    locale
+  )
+
+  return sortByOrder(response.docs)
+}
 
 export const fetchLessonsByCourse = async (
   courseId: string,

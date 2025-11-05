@@ -73,6 +73,7 @@ export interface Config {
     modules: Module;
     media: Media;
     'learning-records': LearningRecord;
+    tools: Tool;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -85,6 +86,7 @@ export interface Config {
     modules: ModulesSelect<false> | ModulesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     'learning-records': LearningRecordsSelect<false> | LearningRecordsSelect<true>;
+    tools: ToolsSelect<false> | ToolsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -505,6 +507,31 @@ export interface LearningRecord {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tools".
+ */
+export interface Tool {
+  id: string;
+  title: string;
+  description?: string | null;
+  /**
+   * Must be a full URL beginning with http:// or https://
+   */
+  url: string;
+  /**
+   * Optional grouping label shown as a pill in the app (e.g., "Test", "Tool")
+   */
+  category?: string | null;
+  /**
+   * Optional Material Icons name (e.g., "handyman", "science", "language")
+   */
+  icon?: string | null;
+  status: 'draft' | 'published';
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -533,6 +560,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'learning-records';
         value: string | LearningRecord;
+      } | null)
+    | ({
+        relationTo: 'tools';
+        value: string | Tool;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -764,6 +795,21 @@ export interface LearningRecordsSelect<T extends boolean = true> {
   speed?: T;
   finished?: T;
   segments?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tools_select".
+ */
+export interface ToolsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  url?: T;
+  category?: T;
+  icon?: T;
+  status?: T;
+  order?: T;
   updatedAt?: T;
   createdAt?: T;
 }

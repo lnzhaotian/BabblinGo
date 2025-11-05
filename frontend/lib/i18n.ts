@@ -58,7 +58,7 @@ const resources = {
       "profile.invalidUrl": "Please enter a valid URL",
       // Tabs
       "tabs.home": "Courses",
-      "tabs.tests": "Tests",
+  "tabs.tools": "Toolbox",
       "tabs.progress": "History",
       "tabs.settings": "Settings",
 
@@ -81,14 +81,10 @@ const resources = {
       "course.defaultTitle": "Course",
       "course.section.ungrouped": "Lessons",
 
-      // Tests screen
-      "tests.title": "Tests",
-      "tests.placementTitle": "ACTFL Language Proficiency Self-Assessment",
-      "tests.placementDescription":
-        "Assess your current language proficiency level",
-      "tests.achievementTitle": "Beginner Course Achievement Test",
-      "tests.achievementDescription":
-        "Check if you have mastered the content from our beginner course",
+      // Tools screen
+      "tools.title": "Toolbox",
+      "tools.loadError": "Unable to load tools. Pull to refresh and try again.",
+      "tools.empty": "No tools are available yet.",
 
       // Lesson screen
       "lesson.back": "Back",
@@ -325,7 +321,7 @@ const resources = {
       "profile.invalidUrl": "请输入有效的网址",
       // Tabs
       "tabs.home": "课程",
-      "tabs.tests": "测试",
+  "tabs.tools": "工具",
       "tabs.progress": "记录",
       "tabs.settings": "设置",
 
@@ -339,13 +335,10 @@ const resources = {
       "home.loadCoursesError": "无法加载课程。下拉刷新重试。",
       "home.untitledCourse": "未命名课程",
 
-      // Tests screen
-      "tests.title": "测试",
-      "tests.placementTitle": "ACTFL语言能力自测题",
-      "tests.placementDescription": "判断您当前的语言能力水平",
-      "tests.achievementTitle": "零基础教练课测试",
-      "tests.achievementDescription":
-        "判断您是否已掌握我们的零基础教练课中的内容",
+      // Tools screen
+      "tools.title": "工具箱",
+      "tools.loadError": "无法加载工具。下拉刷新后重试。",
+      "tools.empty": "暂无可用的工具。",
 
       // Lesson screen
       "lesson.back": "返回",
