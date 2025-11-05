@@ -1,4 +1,3 @@
-````markdown
 # BabblinGo
 
 **BabblinGo** is a mobile language learning platform that delivers immersive, multimedia lessons with offline support. Built with Expo (React Native) and Payload CMS, it provides a modern learning experience with audio, video, and rich content modules.
