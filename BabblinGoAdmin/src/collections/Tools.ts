@@ -65,6 +65,9 @@ const Tools: CollectionConfig = {
       required: false,
       admin: {
         description: 'Optional Material Icon name (e.g., "science"). Leave blank to use the default icon.',
+        components: {
+          afterInput: ['@/fields/IconReferencePanel.tsx'],
+        },
       },
     },
     {
