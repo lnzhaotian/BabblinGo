@@ -1,5 +1,4 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
-import materialIconOptions from '../data/materialIconOptions'
 
 const urlValidator = (value: unknown): true | string => {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -62,15 +61,10 @@ const Tools: CollectionConfig = {
     },
     {
       name: 'icon',
-      type: 'select',
+      type: 'text',
       required: false,
-      options: materialIconOptions,
       admin: {
-        description: 'Optional Material Icon. Search to filter the list or clear to use the default.',
-        isClearable: true,
-        components: {
-          Field: '@/fields/IconPickerField.tsx',
-        },
+        description: 'Optional Material Icon name (e.g., "science"). Leave blank to use the default icon.',
       },
     },
     {
