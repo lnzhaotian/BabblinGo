@@ -17,6 +17,7 @@ module.exports = ({ config }) => ({
   extra: {
     ...(config.extra || {}),
     // Mirror the NEXT_PUBLIC_API_URL from .env into expo's extra config
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL,
+    // Falls back to production URL if not set
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://admin.babblinguide.cn',
   },
 });

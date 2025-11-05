@@ -1,15 +1,21 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "BabblinGo",
+    "slug": "babblingo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "babblingo",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "icon": "./assets/images/icon.png",
+      "bundleIdentifier": "com.babblinguide.babblingo",
+      "buildNumber": "2",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -43,6 +49,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "47c83cac-dd71-4b87-8cbc-2bd8fb56357f"
+      },
+      "NEXT_PUBLIC_API_URL": "https://admin.babblinguide.cn"
     }
   }
 }
