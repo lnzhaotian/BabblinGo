@@ -1,6 +1,13 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, PayloadRequest } from 'payload'
 
-const canManage = ({ req, doc }: { req: any; doc?: any }) => {
+type ManageArgs = {
+  req: PayloadRequest
+  doc?: {
+    user?: string | { id?: string | null } | null
+  } | null
+}
+
+const canManage = ({ req, doc }: ManageArgs) => {
   const user = req?.user
   if (!user) return false
   if (user.role === 'manager' || user.role === 'editor') return true

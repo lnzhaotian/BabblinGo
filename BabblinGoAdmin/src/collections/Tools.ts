@@ -1,4 +1,5 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
+import materialIconOptions from '../data/materialIconOptions'
 
 const urlValidator = (value: unknown): true | string => {
   if (typeof value !== 'string' || value.trim().length === 0) {
@@ -11,7 +12,7 @@ const urlValidator = (value: unknown): true | string => {
       return 'URL must use http or https scheme'
     }
     return true
-  } catch (error) {
+  } catch (_error) {
     return 'URL must be a valid address'
   }
 }
@@ -61,10 +62,15 @@ const Tools: CollectionConfig = {
     },
     {
       name: 'icon',
-      type: 'text',
+      type: 'select',
       required: false,
+      options: materialIconOptions,
       admin: {
-        description: 'Optional Material Icons name (e.g., "handyman", "science", "language")',
+        description: 'Optional Material Icon. Search to filter the list or clear to use the default.',
+        isClearable: true,
+        components: {
+          Field: '@/fields/IconPickerField.tsx',
+        },
       },
     },
     {
