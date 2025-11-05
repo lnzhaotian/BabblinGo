@@ -1,5 +1,7 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
 
+import { materialIconGlyphMap } from '../data/materialIconOptions'
+
 const urlValidator = (value: unknown): true | string => {
   if (typeof value !== 'string' || value.trim().length === 0) {
     return 'URL is required'
@@ -14,6 +16,27 @@ const urlValidator = (value: unknown): true | string => {
   } catch (_error) {
     return 'URL must be a valid address'
   }
+}
+
+const iconValidator = (value: unknown): true | string => {
+  if (value == null) {
+    return true
+  }
+
+  if (typeof value !== 'string') {
+    return 'Icon must be a text value'
+  }
+
+  const trimmed = value.trim()
+  if (trimmed.length === 0) {
+    return true
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(materialIconGlyphMap, trimmed)) {
+    return `Icon "${trimmed}" is not available in the mobile app icon set`
+  }
+
+  return true
 }
 
 const Tools: CollectionConfig = {
@@ -69,6 +92,7 @@ const Tools: CollectionConfig = {
           afterInput: ['@/fields/IconReferencePanel.tsx'],
         },
       },
+      validate: iconValidator,
     },
     {
       name: 'status',

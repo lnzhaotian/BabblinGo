@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type CSSProperties } from 'react'
 
 import materialIconOptions, { materialIconGlyphMap } from '../data/materialIconOptions'
 import materialIconFontUrl from '@expo/vector-icons/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf'
@@ -53,6 +53,48 @@ const gridStyle: CSSProperties = {
   maxHeight: 300,
   overflowY: 'auto',
   paddingRight: 4,
+}
+
+const searchContainerStyle: CSSProperties = {
+  marginTop: 16,
+  display: 'flex',
+  alignItems: 'stretch',
+  gap: 8,
+}
+
+const searchInputStyle: CSSProperties = {
+  flex: 1,
+  borderRadius: 6,
+  border: '1px solid #d1d5db',
+  padding: '8px 12px',
+  fontSize: 14,
+}
+
+const searchInputDarkStyle: CSSProperties = {
+  border: '1px solid #4b5563',
+  backgroundColor: '#1f2937',
+  color: '#e5e7eb',
+}
+
+const copyFeedbackStyle: CSSProperties = {
+  marginTop: 12,
+  fontSize: 12,
+  color: '#16a34a',
+  fontWeight: 500,
+}
+
+const copyFeedbackDarkStyle: CSSProperties = {
+  color: '#4ade80',
+}
+
+const emptyStateStyle: CSSProperties = {
+  marginTop: 16,
+  fontSize: 13,
+  color: '#6b7280',
+}
+
+const emptyStateDarkStyle: CSSProperties = {
+  color: '#9ca3af',
 }
 
 const iconTileStyle: CSSProperties = {
@@ -190,6 +232,8 @@ const ensureMaterialIconFont = () => {
 
 const IconReferencePanel = () => {
   const [expanded, setExpanded] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [copiedIcon, setCopiedIcon] = useState<string | null>(null)
   const isDarkMode = useIsDarkMode()
 
   useEffect(() => {
@@ -199,9 +243,68 @@ const IconReferencePanel = () => {
   }, [expanded])
 
   const icons = useMemo(() => materialIconOptions, [])
+  const filteredIcons = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    if (!query) {
+      return icons
+    }
+
+    return icons.filter((icon) => icon.label.toLowerCase().includes(query))
+  }, [icons, searchTerm])
+
+  useEffect(() => {
+    if (!copiedIcon || typeof window === 'undefined') {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setCopiedIcon(null)
+    }, 2000)
+
+    return () => {
+      window.clearTimeout(timeoutId)
+    }
+  }, [copiedIcon])
 
   const handleToggle = useCallback(() => {
     setExpanded((prev) => !prev)
+  }, [])
+
+  const handleSearchChange = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value)
+  }, [])
+
+  const handleIconClick = useCallback(async (iconName: string) => {
+    let copied = false
+
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(iconName)
+        copied = true
+      } catch (error) {
+        console.warn('Unable to copy using clipboard API', error)
+      }
+    }
+
+    if (!copied && typeof document !== 'undefined') {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = iconName
+        textarea.setAttribute('readonly', '')
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        copied = document.execCommand('copy')
+        document.body.removeChild(textarea)
+      } catch (error) {
+        console.warn('Unable to copy icon name fallback', error)
+      }
+    }
+
+    if (copied) {
+      setCopiedIcon(iconName)
+    }
   }, [])
 
   return (
@@ -212,24 +315,54 @@ const IconReferencePanel = () => {
           {expanded ? 'Hide icons' : 'Show icons'}
         </button>
       </div>
-      {expanded ? (
-        <div style={gridStyle}>
-          {icons.map((icon) => {
-            const glyphCode = materialIconGlyphMap[icon.value]
-            const glyphChar = glyphCode ? String.fromCodePoint(glyphCode) : '□'
-            return (
-              <div
-                key={icon.value}
-                style={{ ...iconTileStyle, ...(isDarkMode ? iconTileDarkStyle : {}) }}
-              >
-                <span style={{ ...iconSwatchStyle, ...(isDarkMode ? iconSwatchDarkStyle : {}) }}>
-                  <span style={{ ...iconGlyphStyle, ...(isDarkMode ? iconGlyphDarkStyle : {}) }}>{glyphChar}</span>
-                </span>
-                <span style={{ ...iconLabelStyle, ...(isDarkMode ? iconLabelDarkStyle : {}) }}>{icon.label}</span>
-              </div>
-            )
-          })}
+      {copiedIcon ? (
+        <div style={{ ...copyFeedbackStyle, ...(isDarkMode ? copyFeedbackDarkStyle : {}) }}>
+          Copied &quot;{copiedIcon}&quot; to your clipboard.
         </div>
+      ) : null}
+      {expanded ? (
+        <>
+          <div style={searchContainerStyle}>
+            <input
+              type="search"
+              placeholder="Search by icon name"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              style={{ ...searchInputStyle, ...(isDarkMode ? searchInputDarkStyle : {}) }}
+            />
+          </div>
+          {filteredIcons.length > 0 ? (
+            <div style={gridStyle}>
+              {filteredIcons.map((icon) => {
+                const glyphCode = materialIconGlyphMap[icon.value]
+                const glyphChar = glyphCode ? String.fromCodePoint(glyphCode) : '□'
+                return (
+                  <button
+                    key={icon.value}
+                    type="button"
+                    onClick={() => handleIconClick(icon.value)}
+                    title={`Copy "${icon.label}"`}
+                    style={{
+                      ...iconTileStyle,
+                      ...(isDarkMode ? iconTileDarkStyle : {}),
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <span style={{ ...iconSwatchStyle, ...(isDarkMode ? iconSwatchDarkStyle : {}) }}>
+                      <span style={{ ...iconGlyphStyle, ...(isDarkMode ? iconGlyphDarkStyle : {}) }}>{glyphChar}</span>
+                    </span>
+                    <span style={{ ...iconLabelStyle, ...(isDarkMode ? iconLabelDarkStyle : {}) }}>{icon.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : (
+            <p style={{ ...emptyStateStyle, ...(isDarkMode ? emptyStateDarkStyle : {}) }}>
+              No icons match &quot;{searchTerm}&quot;.
+            </p>
+          )}
+        </>
       ) : (
         <p style={{ marginTop: 12, fontSize: 13, color: isDarkMode ? '#e5e7eb' : '#4b5563' }}>
           Click Show icons to reveal a scrollable list of every Material icon name.
