@@ -15,48 +15,74 @@ const syncModulesOnLessons = async (
   action: 'add' | 'remove'
 ) => {
   if (!lessonId || !moduleId) {
+    console.log('[syncModulesOnLessons] Skipping: missing lessonId or moduleId', { lessonId, moduleId })
     return
   }
+
+  console.log(`[syncModulesOnLessons] Starting ${action} for module ${moduleId} on lesson ${lessonId}`)
 
   try {
     const lesson = await req.payload.findByID({
       collection: 'lessons',
       id: lessonId,
       depth: 0,
+      locale: req.locale || 'en',
+      fallbackLocale: false,
     })
+
+    console.log('[syncModulesOnLessons] Found lesson:', { id: lesson.id, title: lesson.title, currentModules: lesson.modules, locale: req.locale })
 
     const moduleIds = uniqueRelationshipIds(lesson?.modules as RelationshipValue[])
 
     const hasModule = moduleIds.includes(moduleId)
+    console.log('[syncModulesOnLessons] Module status:', { hasModule, moduleIds })
 
     if (action === 'add') {
       if (hasModule) {
+        console.log('[syncModulesOnLessons] Module already linked, skipping')
         return
       }
 
       moduleIds.push(moduleId)
+      console.log('[syncModulesOnLessons] Adding module, new array:', moduleIds)
 
       await req.payload.update({
         collection: 'lessons',
         id: lessonId,
-        data: { modules: moduleIds },
+        data: {
+          title: lesson.title,
+          course: lesson.course,
+          modules: moduleIds,
+        },
         depth: 0,
+        locale: req.locale === 'all' ? 'en' : req.locale,
+        overrideAccess: true,
         context: mergeContext(req.context, { skipSyncLessonModules: true }),
       })
+      console.log('[syncModulesOnLessons] Successfully added module to lesson')
     } else {
       if (!hasModule) {
+        console.log('[syncModulesOnLessons] Module not in lesson, skipping removal')
         return
       }
 
       const nextModuleIds = moduleIds.filter((id) => id !== moduleId)
+      console.log('[syncModulesOnLessons] Removing module, new array:', nextModuleIds)
 
       await req.payload.update({
         collection: 'lessons',
         id: lessonId,
-        data: { modules: nextModuleIds },
+        data: {
+          title: lesson.title,
+          course: lesson.course,
+          modules: nextModuleIds,
+        },
         depth: 0,
+        locale: req.locale === 'all' ? 'en' : req.locale,
+        overrideAccess: true,
         context: mergeContext(req.context, { skipSyncLessonModules: true }),
       })
+      console.log('[syncModulesOnLessons] Successfully removed module from lesson')
     }
   } catch (error) {
     console.error(
@@ -83,21 +109,32 @@ export const Modules: CollectionConfig = {
   hooks: {
     afterChange: [
       async ({ doc, previousDoc, req }) => {
+        console.log('[Modules afterChange] Hook triggered', { 
+          docId: doc?.id, 
+          skipSync: req?.context?.skipSyncLessonModules 
+        })
+
         if (!doc?.id || req?.context?.skipSyncLessonModules) {
+          console.log('[Modules afterChange] Skipping sync (no docId or skipSync flag)')
           return doc
         }
 
         const currentLessonId = extractRelationshipId(doc.lesson as RelationshipValue)
         const previousLessonId = extractRelationshipId(previousDoc?.lesson as RelationshipValue)
 
+        console.log('[Modules afterChange] Lesson IDs:', { currentLessonId, previousLessonId })
+
         if (previousLessonId && previousLessonId !== currentLessonId) {
+          console.log('[Modules afterChange] Lesson changed, removing from old lesson')
           await syncModulesOnLessons(req, previousLessonId, doc.id, 'remove')
         }
 
         if (currentLessonId) {
+          console.log('[Modules afterChange] Adding to current lesson')
           await syncModulesOnLessons(req, currentLessonId, doc.id, 'add')
         }
 
+        console.log('[Modules afterChange] Sync complete')
         return doc
       },
     ],
