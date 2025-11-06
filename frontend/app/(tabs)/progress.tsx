@@ -52,12 +52,16 @@ const withinLastNDays = (ms: number, days: number) => {
   const start = now - days * 24 * 60 * 60 * 1000
   return ms >= start
 }
+const PAGE_SIZE = 25
+
 export default function ProgressScreen() {
   const { t, i18n } = useTranslation()
   const [sessions, setSessions] = useState<SessionRecord[]>([])
-  const [timeframe, setTimeframe] = useState<"7d" | "30d" | "all">("7d")
+  const [timeframe, setTimeframe] = useState<"7d" | "30d" | "all">("30d")
   const [courseFilter, setCourseFilter] = useState<string | "all">("all")
   const [lessonMetaById, setLessonMetaById] = useState<Record<string, LessonMeta>>({})
+  const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
+  const [loadingMore, setLoadingMore] = useState(false)
   const { colorScheme } = useThemeMode();
 
   const loadSessions = useCallback(async () => {
@@ -84,11 +88,12 @@ export default function ProgressScreen() {
     }, [loadSessions])
   )
 
-  // Fetch localized lesson titles for current language
+  // Fetch localized lesson titles for current language (only for visible + next page)
   useEffect(() => {
     const loadMeta = async () => {
       try {
-        const ids = Array.from(new Set(sessions.map((s) => s.lessonId)))
+        const limitForMeta = Math.min(sessions.length, visibleCount + PAGE_SIZE)
+        const ids = Array.from(new Set(sessions.slice(0, limitForMeta).map((s) => s.lessonId)))
         if (ids.length === 0) {
           setLessonMetaById({})
           return
@@ -171,7 +176,7 @@ export default function ProgressScreen() {
     }
 
     loadMeta()
-  }, [sessions, i18n.language])
+  }, [sessions, visibleCount, i18n.language])
 
   const fallbackCourseName = t("home.untitledCourse")
 
@@ -242,6 +247,13 @@ export default function ProgressScreen() {
     }
     return arr
   }, [sessions, timeframe, courseFilter, lessonMetaById])
+
+  // Reset paging whenever filters change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [timeframe, courseFilter])
+
+  const visibleFiltered = useMemo(() => filteredSessions.slice(0, visibleCount), [filteredSessions, visibleCount])
 
   // Time-series chart data driven by current timeframe filter.
   const chart = useMemo(() => {
@@ -382,7 +394,7 @@ export default function ProgressScreen() {
     const week: SessionRecord[] = []
     const earlier: SessionRecord[] = []
 
-    for (const s of filteredSessions) {
+    for (const s of visibleFiltered) {
       const started = new Date(s.startedAt)
       if (isSameDay(started, now)) today.push(s)
       else if (withinLastNDays(s.startedAt, 7)) week.push(s)
@@ -394,7 +406,18 @@ export default function ProgressScreen() {
     if (week.length) result.push({ title: "This Week", data: week })
     if (earlier.length) result.push({ title: "Earlier", data: earlier })
     return result
-  }, [filteredSessions])
+  }, [visibleFiltered])
+
+  const hasMore = visibleCount < filteredSessions.length
+  const handleEndReached = useCallback(() => {
+    if (!hasMore || loadingMore) return
+    setLoadingMore(true)
+    // Simulate async to allow SectionList to settle before increasing slice
+    requestAnimationFrame(() => {
+      setVisibleCount((c) => Math.min(c + PAGE_SIZE, filteredSessions.length))
+      setLoadingMore(false)
+    })
+  }, [hasMore, loadingMore, filteredSessions.length])
 
   const deleteSession = useCallback(async (id: string) => {
     try {
@@ -488,6 +511,24 @@ export default function ProgressScreen() {
         sections={sections}
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 24 }}
+        removeClippedSubviews
+        windowSize={8}
+        initialNumToRender={12}
+        onEndReached={handleEndReached}
+        onEndReachedThreshold={0.6}
+        ListFooterComponent={() => (
+          hasMore ? (
+            <View style={{ paddingVertical: 16, alignItems: "center" }}>
+              <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }}>Loading more…</Text>
+            </View>
+          ) : (
+            filteredSessions.length > 0 ? (
+              <View style={{ paddingVertical: 16, alignItems: "center" }}>
+                <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }}>End of history</Text>
+              </View>
+            ) : null
+          )
+        )}
         ListEmptyComponent={() => (
           <View style={{ padding: 24, alignItems: "center" }}>
             <Text style={{ color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", textAlign: "center" }}>
