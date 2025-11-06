@@ -352,12 +352,10 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
 
   const speedPresets = useMemo(() => [0.5, 0.7, 1, 1.3, 1.5, 2], [])
 
-  const headerTitle = module.title || lesson.title
-
   return (
     <>
       <ThemedHeader
-        overrideTitle={headerTitle}
+        overrideTitle=""
         headerRight={() => (
           <LessonHeaderControls
             loopEnabled={false}

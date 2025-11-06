@@ -84,6 +84,12 @@ function AppNavigator() {
         }}
       />
       <Stack.Screen
+        name="(stack)/lesson/[lessonId]/module/[moduleId]"
+        options={{
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
         name="(stack)/course/[courseId]"
         options={{
           headerShown: false,

@@ -26,9 +26,6 @@ const ModuleDetailScreen: React.FC = () => {
   const {
     lessonId,
     moduleId,
-    moduleTitle: moduleTitleParam,
-    lessonTitle: lessonTitleParam,
-    isSingleModuleLesson: isSingleModuleLessonParam,
   } = useLocalSearchParams<RouteParams>()
   const { t, i18n } = useTranslation()
   const router = useRouter()
@@ -77,59 +74,18 @@ const ModuleDetailScreen: React.FC = () => {
   const modules = useMemo(() => (lesson ? getLessonModules(lesson) : []), [lesson])
   const activeModule = useMemo(() => modules.find((item) => item.id === moduleId) ?? null, [modules, moduleId])
 
-  const routeModuleTitle = typeof moduleTitleParam === "string" ? moduleTitleParam : undefined
-  const routeLessonTitle = typeof lessonTitleParam === "string" ? lessonTitleParam : undefined
-  const routeSingleModule = useMemo(() => {
-    if (typeof isSingleModuleLessonParam !== "string") return false
-    const normalized = isSingleModuleLessonParam.trim().toLowerCase()
-    return normalized === "true" || normalized === "1" || normalized === "yes"
-  }, [isSingleModuleLessonParam])
-
-  const fallbackTitle = useMemo(() => {
-    if (routeLessonTitle) return routeLessonTitle
-    if (lesson?.title) return lesson.title
-    if (routeModuleTitle && !routeSingleModule) return routeModuleTitle
-    if (typeof moduleId === "string") return moduleId
-    if (typeof lessonId === "string") return lessonId
-    return t("lesson.title", { defaultValue: "Lesson" })
-  }, [lesson, lessonId, moduleId, routeLessonTitle, routeModuleTitle, routeSingleModule, t])
-
-  const resolvedLessonTitle = lesson?.title ?? routeLessonTitle
-  const resolvedModuleTitle = activeModule?.title ?? routeModuleTitle
-
-  const shouldPreferLessonTitle = useMemo(() => {
-    if (lesson) {
-      return modules.length === 1
-    }
-    return routeSingleModule
-  }, [lesson, modules.length, routeSingleModule])
-
-  const headerTitle = useMemo(() => {
-    if (lesson) {
-      if (modules.length === 1) {
-        return resolvedLessonTitle ?? fallbackTitle
-      }
-      if (modules.length > 1) {
-        return resolvedModuleTitle ?? resolvedLessonTitle ?? fallbackTitle
-      }
-    }
-    if (shouldPreferLessonTitle) {
-      return resolvedLessonTitle ?? fallbackTitle
-    }
-    return resolvedModuleTitle ?? resolvedLessonTitle ?? fallbackTitle
-  }, [lesson, modules.length, resolvedLessonTitle, resolvedModuleTitle, fallbackTitle, shouldPreferLessonTitle])
-
   const handleBackToList = () => {
     router.back()
   }
 
-  const header = <ThemedHeader overrideTitle={headerTitle} />
+  const isDark = colorScheme === "dark"
+  const header = <ThemedHeader overrideTitle="" />
 
   if (loading) {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 12 }}>
             <ActivityIndicator size="large" />
             <Text style={{ color: colorScheme === "dark" ? "#e2e8f0" : "#475569" }}>
@@ -145,14 +101,14 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, gap: 12 }}>
-            <Text style={{ color: colorScheme === "dark" ? "#fca5a5" : "#dc2626", textAlign: "center" }}>
+            <Text style={{ color: isDark ? "#fca5a5" : "#dc2626", textAlign: "center" }}>
               {error ?? FALLBACK_ERROR}
             </Text>
             <Text
               onPress={() => router.back()}
-              style={{ color: colorScheme === "dark" ? "#93c5fd" : "#2563eb", textDecorationLine: "underline" }}
+              style={{ color: isDark ? "#93c5fd" : "#2563eb", textDecorationLine: "underline" }}
             >
               {t("lesson.modules.backToList", { defaultValue: "Back to modules" })}
             </Text>
@@ -166,9 +122,9 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}>
-            <Text style={{ color: colorScheme === "dark" ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
+            <Text style={{ color: isDark ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
               {t("lesson.errorMissingModuleId", { defaultValue: "Module identifier is missing." })}
             </Text>
           </View>
@@ -181,9 +137,9 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}>
-            <Text style={{ color: colorScheme === "dark" ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
+            <Text style={{ color: isDark ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
               {t("lesson.errorMissingId", { defaultValue: "Lesson identifier is missing." })}
             </Text>
           </View>
@@ -195,58 +151,46 @@ const ModuleDetailScreen: React.FC = () => {
   switch (activeModule.type ?? "audioSlideshow") {
     case "audioSlideshow":
       return (
-        <>
-          {header}
-          <AudioSlideshowModuleView
-            lesson={lesson}
-            module={activeModule}
-            lessonId={lessonId}
-            onExit={handleBackToList}
-          />
-        </>
+        <AudioSlideshowModuleView
+          lesson={lesson}
+          module={activeModule}
+          lessonId={lessonId}
+          onExit={handleBackToList}
+        />
       )
     case "video":
       return (
-        <>
-          {header}
-          <VideoModuleView
-            lesson={lesson}
-            module={activeModule}
-          />
-        </>
+        <VideoModuleView
+          lesson={lesson}
+          module={activeModule}
+        />
       )
     case "richPost":
       return (
-        <>
-          {header}
-          <RichPostModuleView
-            lesson={lesson}
-            module={activeModule}
-          />
-        </>
+        <RichPostModuleView
+          lesson={lesson}
+          module={activeModule}
+        />
       )
     case "audio":
       return (
-        <>
-          {header}
-          <AudioPlaylistModuleView
-            lesson={lesson}
-            module={activeModule}
-          />
-        </>
+        <AudioPlaylistModuleView
+          lesson={lesson}
+          module={activeModule}
+        />
       )
     default:
       return (
         <>
           {header}
-          <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, gap: 12 }}>
-              <Text style={{ color: colorScheme === "dark" ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
+              <Text style={{ color: isDark ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
                 {t("lesson.modules.unsupported", { defaultValue: "This module type is not supported yet." })}
               </Text>
               <Text
                 onPress={handleBackToList}
-                style={{ color: colorScheme === "dark" ? "#93c5fd" : "#2563eb", textDecorationLine: "underline" }}
+                style={{ color: isDark ? "#93c5fd" : "#2563eb", textDecorationLine: "underline" }}
               >
                 {t("lesson.modules.backToList", { defaultValue: "Back to modules" })}
               </Text>

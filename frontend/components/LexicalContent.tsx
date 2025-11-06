@@ -1,6 +1,10 @@
-import React from "react"
-import { Text, View, Linking } from "react-native"
+import React, { useEffect, useState } from "react"
+import { Text, View, Linking, TouchableOpacity } from "react-native"
 import { Image } from "expo-image"
+import { VideoView, useVideoPlayer } from "expo-video"
+import { useAudioPlayer } from "expo-audio"
+import Slider from "@react-native-community/slider"
+import { Ionicons } from "@expo/vector-icons"
 import type { LexicalRichText } from "@/lib/payload"
 import { resolveMediaUrl } from "@/lib/payload"
 
@@ -18,8 +22,12 @@ type LexicalNode = {
 type ContentBlock = 
   | { id: string; type: "heading"; level: number; elements: React.ReactNode[] }
   | { id: string; type: "paragraph"; elements: React.ReactNode[] }
+  | { id: string; type: "quote"; elements: React.ReactNode[] }
   | { id: string; type: "list"; style: "bullet" | "number"; items: React.ReactNode[][] }
   | { id: string; type: "image"; url: string | null; caption?: string | null; aspectRatio?: number }
+  | { id: string; type: "audio"; url: string | null; caption?: string | null }
+  | { id: string; type: "video"; url: string | null; caption?: string | null }
+  | { id: string; type: "relationship"; relationTo?: string; value?: any }
 
 type LexicalContentProps = {
   content: LexicalRichText | null | undefined
@@ -77,6 +85,31 @@ export const LexicalContent: React.FC<LexicalContentProps> = ({
                 {block.elements}
               </Text>
             )
+          case "quote":
+            return (
+              <View 
+                key={block.id} 
+                style={{ 
+                  borderLeftWidth: 4, 
+                  borderLeftColor: isDark ? "#475569" : "#cbd5e1",
+                  paddingLeft: 16,
+                  paddingVertical: 8,
+                  backgroundColor: isDark ? "#1e293b" : "#f8fafc",
+                  borderRadius: 4,
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize,
+                    lineHeight,
+                    color: mutedColor,
+                    fontStyle: "italic",
+                  }}
+                >
+                  {block.elements}
+                </Text>
+              </View>
+            )
           case "list":
             return (
               <View key={block.id} style={{ gap: 8 }}>
@@ -94,22 +127,68 @@ export const LexicalContent: React.FC<LexicalContentProps> = ({
             )
           case "image":
             if (!block.url) return null
-            const effectiveUrl = cachedMedia[block.url] ?? block.url
+            const effectiveImageUrl = cachedMedia[block.url] ?? block.url
             return (
               <View key={block.id} style={{ gap: 8 }}>
                 <Image
-                  source={{ uri: effectiveUrl }}
+                  source={{ uri: effectiveImageUrl }}
                   style={{
                     width: "100%",
                     borderRadius: 12,
                     backgroundColor: isDark ? "#1e293b" : "#f1f5f9",
-                    aspectRatio: block.aspectRatio ?? 16 / 9,
                   }}
-                  contentFit="cover"
+                  contentFit="contain"
+                  transition={200}
                 />
                 {block.caption ? (
                   <Text style={{ color: mutedColor, fontSize: fontSize - 2 }}>{block.caption}</Text>
                 ) : null}
+              </View>
+            )
+          case "audio":
+            if (!block.url) return null
+            const effectiveAudioUrl = cachedMedia[block.url] ?? block.url
+            return (
+              <AudioPlayer 
+                key={block.id} 
+                url={effectiveAudioUrl} 
+                caption={block.caption}
+                isDark={isDark}
+                textColor={textColor}
+                mutedColor={mutedColor}
+                fontSize={fontSize}
+              />
+            )
+          case "video":
+            if (!block.url) return null
+            const effectiveVideoUrl = cachedMedia[block.url] ?? block.url
+            return (
+              <VideoPlayer 
+                key={block.id} 
+                url={effectiveVideoUrl} 
+                caption={block.caption}
+                isDark={isDark}
+                mutedColor={mutedColor}
+                fontSize={fontSize}
+              />
+            )
+          case "relationship":
+            // Relationships are typically for internal linking or user mentions
+            // For now, render a simple badge or skip
+            return (
+              <View 
+                key={block.id} 
+                style={{ 
+                  paddingHorizontal: 12, 
+                  paddingVertical: 6, 
+                  backgroundColor: isDark ? "#1e293b" : "#e0e7ff",
+                  borderRadius: 6,
+                  alignSelf: "flex-start",
+                }}
+              >
+                <Text style={{ color: isDark ? "#a5b4fc" : "#4338ca", fontSize: fontSize - 2 }}>
+                  @{block.relationTo || "reference"}
+                </Text>
               </View>
             )
           default:
@@ -149,6 +228,13 @@ const parseLexicalContent = (body: LexicalRichText | null | undefined): ContentB
           }
           break
         }
+        case "quote": {
+          const elements = collectRichText(node, nodeKey)
+          if (elements.length > 0) {
+            blocks.push({ id: nodeKey, type: "quote", elements })
+          }
+          break
+        }
         case "list": {
           const items: React.ReactNode[][] = []
           if (Array.isArray(node.children)) {
@@ -167,15 +253,35 @@ const parseLexicalContent = (body: LexicalRichText | null | undefined): ContentB
         }
         case "upload":
         case "image": {
-          const url = resolveMediaUrl(node.value ?? null)
+          const value = node.value ?? null
+          const url = resolveMediaUrl(value)
           if (url) {
+            // Determine media type from the value object
+            const mimeType = value?.mimeType || value?.mime_type || ""
+            let blockType: "image" | "audio" | "video" = "image"
+            
+            if (mimeType.startsWith("audio/")) {
+              blockType = "audio"
+            } else if (mimeType.startsWith("video/")) {
+              blockType = "video"
+            }
+            
             blocks.push({
               id: nodeKey,
-              type: "image",
+              type: blockType,
               url,
               caption: typeof node.caption === "string" ? node.caption : null,
             })
           }
+          break
+        }
+        case "relationship": {
+          blocks.push({
+            id: nodeKey,
+            type: "relationship",
+            relationTo: node.relationTo,
+            value: node.value,
+          })
           break
         }
         default: {
@@ -287,4 +393,181 @@ const collectPlainText = (node: LexicalNode | undefined): string => {
   if (typeof node.text === "string") return node.text
   if (!Array.isArray(node.children)) return ""
   return node.children.map(collectPlainText).join("")
+}
+
+// Audio Player Component
+type AudioPlayerProps = {
+  url: string
+  caption?: string | null
+  isDark: boolean
+  textColor: string
+  mutedColor: string
+  fontSize: number
+}
+
+const AudioPlayer: React.FC<AudioPlayerProps> = ({ url, caption, isDark, mutedColor, fontSize }) => {
+  const player = useAudioPlayer(url)
+  const [isPlaying, setIsPlaying] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [isSeeking, setIsSeeking] = useState(false)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      try {
+        if (player && !isSeeking) {
+          const newTime = player.currentTime || 0
+          const newDuration = player.duration || 0
+          setCurrentTime(newTime)
+          if (newDuration > 0) {
+            setDuration(newDuration)
+          }
+          setIsPlaying(player.playing)
+        }
+      } catch {
+        // Player might be unmounted, ignore
+      }
+    }, 100)
+
+    return () => clearInterval(interval)
+  }, [player, isSeeking])
+
+  const togglePlayPause = () => {
+    try {
+      if (!player) return
+      
+      if (isPlaying) {
+        player.pause()
+      } else {
+        player.play()
+      }
+    } catch (error) {
+      console.error("Error toggling playback:", error)
+    }
+  }
+
+  const formatTime = (seconds: number) => {
+    if (!seconds || isNaN(seconds)) return "0:00"
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const handleSliderChange = (value: number) => {
+    setCurrentTime(value)
+  }
+
+  const handleSlidingStart = () => {
+    setIsSeeking(true)
+  }
+
+  const handleSlidingComplete = (value: number) => {
+    try {
+      if (player && duration > 0) {
+        player.seekTo(value)
+      }
+    } catch (error) {
+      console.error("Error seeking audio:", error)
+    }
+    setIsSeeking(false)
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View 
+        style={{ 
+          backgroundColor: isDark ? "#1e293b" : "#f1f5f9",
+          borderRadius: 12,
+          padding: 16,
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <TouchableOpacity 
+            onPress={togglePlayPause}
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 24,
+              backgroundColor: isDark ? "#3b82f6" : "#2563eb",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Ionicons 
+              name={isPlaying ? "pause" : "play"} 
+              size={24} 
+              color="white" 
+              style={{ marginLeft: isPlaying ? 0 : 2 }}
+            />
+          </TouchableOpacity>
+          
+          <View style={{ flex: 1, gap: 4 }}>
+            {/* Slider for draggable progress */}
+            <Slider
+              style={{ width: "100%", height: 40 }}
+              minimumValue={0}
+              maximumValue={duration || 1}
+              value={currentTime}
+              onValueChange={handleSliderChange}
+              onSlidingStart={handleSlidingStart}
+              onSlidingComplete={handleSlidingComplete}
+              minimumTrackTintColor={isDark ? "#3b82f6" : "#2563eb"}
+              maximumTrackTintColor={isDark ? "#334155" : "#e2e8f0"}
+              thumbTintColor={isDark ? "#3b82f6" : "#2563eb"}
+            />
+            
+            {/* Time display */}
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: -8 }}>
+              <Text style={{ color: mutedColor, fontSize: fontSize - 4 }}>
+                {formatTime(currentTime)}
+              </Text>
+              <Text style={{ color: mutedColor, fontSize: fontSize - 4 }}>
+                {formatTime(duration)}
+              </Text>
+            </View>
+          </View>
+        </View>
+      </View>
+      {caption ? (
+        <Text style={{ color: mutedColor, fontSize: fontSize - 2 }}>{caption}</Text>
+      ) : null}
+    </View>
+  )
+}
+
+// Video Player Component
+type VideoPlayerProps = {
+  url: string
+  caption?: string | null
+  isDark: boolean
+  mutedColor: string
+  fontSize: number
+}
+
+const VideoPlayer: React.FC<VideoPlayerProps> = ({ url, caption, isDark, mutedColor, fontSize }) => {
+  const player = useVideoPlayer(url, (player) => {
+    player.loop = false
+  })
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View 
+        style={{ 
+          borderRadius: 12, 
+          overflow: "hidden",
+          backgroundColor: isDark ? "#1e293b" : "#f1f5f9",
+        }}
+      >
+        <VideoView
+          player={player}
+          style={{ width: "100%", aspectRatio: 16 / 9 }}
+          allowsFullscreen
+          allowsPictureInPicture
+        />
+      </View>
+      {caption ? (
+        <Text style={{ color: mutedColor, fontSize: fontSize - 2 }}>{caption}</Text>
+      ) : null}
+    </View>
+  )
 }

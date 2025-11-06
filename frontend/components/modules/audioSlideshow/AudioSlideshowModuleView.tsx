@@ -103,8 +103,6 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
   const showAudioPlayer = currentSlide?.type === "audioSlideshow"
     && Boolean(slideAudio[currentSlideIndex]?.audioUrl)
 
-  const headerTitle = module.title || lesson.title
-
   const {
     mode,
     configuredSeconds,
@@ -128,7 +126,7 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
   return (
     <>
       <ThemedHeader
-        overrideTitle={headerTitle}
+        overrideTitle=""
         headerRight={() => (
           showSessionLanding
             ? undefined

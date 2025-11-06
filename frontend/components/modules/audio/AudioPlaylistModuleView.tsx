@@ -180,12 +180,10 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
       }
     : null
 
-  const headerTitle = module.title || lesson.title
-
   return (
     <>
       <ThemedHeader
-        overrideTitle={headerTitle}
+        overrideTitle=""
         headerRight={() => (
           <LessonHeaderControls
             loopEnabled={effectiveLoopEnabled}
@@ -206,9 +204,28 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
         edges={["bottom"]}
       >
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
+          {/* Title and Summary Section */}
           <View style={{ gap: 12 }}>
+            <Text 
+              style={{ 
+                fontSize: 28, 
+                fontWeight: "700",
+                color: colorScheme === "dark" ? "#f1f5f9" : "#0f172a",
+                lineHeight: 36,
+                textAlign: "center",
+              }}
+            >
+              {module.title}
+            </Text>
+            
             {module.summary ? (
-              <Text style={{ fontSize: 16, color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
+              <Text 
+                style={{ 
+                  fontSize: 16, 
+                  color: colorScheme === "dark" ? "#cbd5e1" : "#64748b",
+                  lineHeight: 24,
+                }}
+              >
                 {module.summary}
               </Text>
             ) : null}

@@ -4,9 +4,8 @@ import { SafeAreaView } from "react-native-safe-area-context"
 import { useTranslation } from "react-i18next"
 import { Image } from "expo-image"
 
-import { LessonDoc, ModuleDoc, MediaDoc, extractModuleSlides, resolveMediaUrl } from "@/lib/payload"
+import { LessonDoc, ModuleDoc, extractModuleSlides, resolveMediaUrl } from "@/lib/payload"
 import { useThemeMode } from "@/app/theme-context"
-import type { LexicalRichText } from "@/lib/payload"
 import { useLearningSession } from "@/hooks/useLearningSession"
 import { useLessonCache } from "@/hooks/useLessonCache"
 import { ThemedHeader } from "@/components/ThemedHeader"
@@ -62,12 +61,10 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
     })
   }, [module.richPost?.mediaGallery, slide?.richPost?.mediaGallery, cachedMedia])
 
-  const headerTitle = module.title || lesson.title
-
   return (
     <>
       <ThemedHeader
-        overrideTitle={headerTitle}
+        overrideTitle=""
         headerRight={() => (
           <LessonHeaderControls
             loopEnabled={false}
@@ -84,9 +81,28 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
       edges={["bottom"]}
     >
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
+        {/* Title and Summary Section */}
         <View style={{ gap: 12 }}>
+          <Text 
+            style={{ 
+              fontSize: 28, 
+              fontWeight: "700",
+              color: colorScheme === "dark" ? "#f1f5f9" : "#0f172a",
+              lineHeight: 36,
+              textAlign: "center",
+            }}
+          >
+            {module.title}
+          </Text>
+          
           {module.summary ? (
-            <Text style={{ fontSize: 16, color: colorScheme === "dark" ? "#cbd5f5" : "#4b5563" }}>
+            <Text 
+              style={{ 
+                fontSize: 16, 
+                color: colorScheme === "dark" ? "#cbd5e1" : "#64748b",
+                lineHeight: 24,
+              }}
+            >
               {module.summary}
             </Text>
           ) : null}

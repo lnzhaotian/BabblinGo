@@ -8,12 +8,12 @@ import { useThemeMode } from '../app/theme-context';
  * Renders a Stack.Screen with localized title and theme-aware colors.
  * Avoids flicker by hiding the header until theme and i18n are hydrated.
  */
-export function ThemedHeader({ titleKey, overrideTitle, headerRight }: { titleKey?: string; overrideTitle?: string; headerRight?: () => React.ReactNode }) {
+export function ThemedHeader({ titleKey, overrideTitle, headerRight, hideTitle }: { titleKey?: string; overrideTitle?: string; headerRight?: () => React.ReactNode; hideTitle?: boolean }) {
   const { i18n, t } = useTranslation();
   const { colorScheme, hydrated } = useThemeMode();
 
   const ready = hydrated && i18n.isInitialized;
-  const computedTitle = overrideTitle ?? (titleKey ? t(titleKey) : '');
+  const computedTitle = hideTitle ? '' : (overrideTitle ?? (titleKey ? t(titleKey) : ''));
 
   // Always show header to reserve space; when not ready, make it transparent and hide back/title to avoid flicker.
   return (

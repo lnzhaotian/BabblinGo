@@ -134,9 +134,6 @@ const LessonModuleListScreen: React.FC = () => {
         params: {
           lessonId,
           moduleId: soleModule.id,
-          moduleTitle: soleModule.title,
-          lessonTitle: lesson?.title ?? (typeof routeTitle === "string" ? routeTitle : undefined),
-          isSingleModuleLesson: "true",
         },
       } as any)
     }
@@ -149,12 +146,9 @@ const LessonModuleListScreen: React.FC = () => {
       params: {
         lessonId,
         moduleId: module.id,
-        moduleTitle: module.title,
-        lessonTitle: lesson?.title ?? (typeof routeTitle === "string" ? routeTitle : undefined),
-        isSingleModuleLesson: "false",
       },
     } as any)
-  }, [lessonId, router, lesson, routeTitle])
+  }, [lessonId, router])
 
   const headerTitle = lesson?.title || (typeof routeTitle === "string" && routeTitle) || (lessonId ? String(lessonId) : t("lesson.title", { defaultValue: "Lesson" }))
 
