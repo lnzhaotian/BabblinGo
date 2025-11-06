@@ -373,7 +373,7 @@ const resources = {
       "lesson.modules.position": "模块{{index}}",
       "lesson.modules.unsupported": "该模块类型尚未支持。",
       "lesson.modules.backToList": "返回模块列表",
-      "lesson.audio.primaryTrack": "已在播放器排队。",
+      "lesson.audio.primaryTrack": "已在播放器队列中。",
       "lesson.audio.additionalTrack": "点击播放该音频。",
       "lesson.audio.missingTrack": "音频文件缺失。",
       "lesson.audio.emptyPlaylist": "暂无可播放的音频。",

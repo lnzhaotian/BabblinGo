@@ -1,9 +1,55 @@
 import type { AudioContent, LexicalRichText, LessonDoc, MediaDoc, ModuleDoc } from "@/lib/payload"
 import { getLessonModules, resolveMediaUrl } from "@/lib/payload"
+import { config } from "@/lib/config"
+
+/**
+ * Check if a URL is a cacheable media file from our own storage
+ * (not external streaming services like YouTube, Vimeo, etc.)
+ */
+const isCacheableUrl = (url: string): boolean => {
+  if (!url) return false
+  
+  try {
+    const urlObj = new URL(url)
+    const hostname = urlObj.hostname.toLowerCase()
+    
+    // Allow our API domain
+    const apiUrlObj = new URL(config.apiUrl)
+    if (hostname === apiUrlObj.hostname.toLowerCase()) {
+      return true
+    }
+    
+    // Allow OSS/S3 storage domains for our media
+    if (hostname.includes('aliyuncs.com') || // Alibaba Cloud OSS
+        hostname.includes('amazonaws.com') || // AWS S3
+        hostname.includes('cloudflare') || // Cloudflare R2/CDN
+        hostname.includes('babblingo') ||  // Any babblingo subdomain
+        hostname.includes('babblinguide')) { // Any babblinguide subdomain
+      return true
+    }
+    
+    // Block known external streaming services
+    const blockedDomains = ['youtube.com', 'youtu.be', 'vimeo.com', 'dailymotion.com', 'twitch.tv']
+    if (blockedDomains.some(domain => hostname.includes(domain))) {
+      return false
+    }
+    
+    // For other domains, check if it looks like a media file by extension
+    const path = urlObj.pathname.toLowerCase()
+    const mediaExtensions = ['.mp3', '.mp4', '.wav', '.m4a', '.aac', '.ogg', 
+                            '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg',
+                            '.pdf', '.vtt', '.srt']
+    return mediaExtensions.some(ext => path.endsWith(ext))
+  } catch {
+    // If URL parsing fails, don't cache it
+    return false
+  }
+}
 
 /**
  * Collect all media URLs referenced by a lesson's modules. The returned URLs are
  * normalized via `resolveMediaUrl` so they can be used for caching lookups.
+ * Only includes URLs from our own server (uploaded media), not external services.
  */
 export const collectLessonMediaUrls = (lesson: LessonDoc): string[] => {
   const modules = getLessonModules(lesson)
@@ -80,9 +126,13 @@ const collectVideoModuleUrls = (module: ModuleDoc, urls: Set<string>) => {
     urls.add(fileUrl)
   } else if (typeof videoContent?.streamUrl === "string") {
     const normalized = videoContent.streamUrl.trim()
-    if (normalized && !normalized.toLowerCase().endsWith(".m3u8")) {
+    // Only cache streamUrl if it's from our own server (not YouTube, Vimeo, etc.)
+    // and not an HLS manifest (which can't be cached as a single file)
+    if (normalized && !normalized.toLowerCase().endsWith(".m3u8") && isCacheableUrl(normalized)) {
       const resolvedStream = resolveMediaUrl(normalized)
-      urls.add(resolvedStream ?? normalized)
+      if (resolvedStream) {
+        urls.add(resolvedStream)
+      }
     }
   }
 
@@ -111,7 +161,7 @@ const collectFallbackModuleUrls = (module: ModuleDoc, urls: Set<string>) => {
 
 const addMediaUrl = (candidate: unknown, urls: Set<string>) => {
   const resolved = resolveUnknownMedia(candidate)
-  if (resolved) {
+  if (resolved && isCacheableUrl(resolved)) {
     urls.add(resolved)
   }
 }

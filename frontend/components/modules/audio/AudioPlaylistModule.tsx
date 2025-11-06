@@ -2,7 +2,8 @@ import React from "react"
 import { ActivityIndicator, Image, Pressable, Text, View } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useTranslation } from "react-i18next"
-import type { LessonModuleSlide } from "@/lib/payload"
+import type { LessonModuleSlide, LexicalRichText } from "@/lib/payload"
+import { LexicalContent } from "@/components/LexicalContent"
 
 export type TrackViewModel = {
   id: string
@@ -18,20 +19,24 @@ export type TrackViewModel = {
 type AudioPlaylistModuleProps = {
   slide: LessonModuleSlide
   screenWidth: number
-  introductionParagraphs: string[]
+  introduction: LexicalRichText | null | undefined
   tracks: TrackViewModel[]
   primaryTrackId: string | null
   downloadProgress: Record<string, number>
+  cachedMedia: Record<string, string>
+  colorScheme: "light" | "dark"
   onSelectTrack?: (trackId: string) => void
 }
 
 export const AudioPlaylistModule: React.FC<AudioPlaylistModuleProps> = ({
   slide,
   screenWidth,
-  introductionParagraphs,
+  introduction,
   tracks,
   primaryTrackId,
   downloadProgress,
+  cachedMedia,
+  colorScheme,
   onSelectTrack,
 }) => {
   const { t } = useTranslation()
@@ -46,19 +51,15 @@ export const AudioPlaylistModule: React.FC<AudioPlaylistModuleProps> = ({
       }}
     >
       <View style={{ width: "100%", maxWidth: 640, gap: 20 }}>
-        {/* <View>
-          {slide.summary ? <Text style={{ marginTop: 4, color: "#6b7280" }}>{slide.summary}</Text> : null}
-        </View> */}
-
-        {/* {introductionParagraphs.length > 0 ? (
-          <View style={{ gap: 12 }}>
-            {introductionParagraphs.map((paragraph, idx) => (
-              <Text key={idx} style={{ fontSize: 16, lineHeight: 22, color: "#1f2937" }}>
-                {paragraph}
-              </Text>
-            ))}
-          </View>
-        ) : null} */}
+        {introduction ? (
+          <LexicalContent 
+            content={introduction} 
+            cachedMedia={cachedMedia}
+            colorScheme={colorScheme}
+            fontSize={16}
+            lineHeight={24}
+          />
+        ) : null}
 
         {tracks.length > 0 ? (
           <View style={{ gap: 16 }}>

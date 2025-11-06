@@ -192,13 +192,8 @@ export async function downloadAndCache(
       // Use the static download method
       console.log(`[cache-manager] Downloading to cache directory...`);
       
-      // Add a timeout to prevent hanging downloads
-      const downloadPromise = File.downloadFileAsync(url, CACHE_DIR);
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Download timeout after 60 seconds')), 60000);
-      });
-      
-      const downloadedFile = await Promise.race([downloadPromise, timeoutPromise]);
+      // Start the download (no timeout - let large files complete)
+      const downloadedFile = await File.downloadFileAsync(url, CACHE_DIR);
       console.log(`[cache-manager] Download complete: ${downloadedFile.uri} (${downloadedFile.size} bytes)`);
 
       // Call progress callback with 100% after completion

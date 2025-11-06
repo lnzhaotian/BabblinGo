@@ -56,9 +56,8 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
     speed: playerSpeed,
   })
 
-  const introductionParagraphs = useMemo(() => {
-    const preferred = slide?.body ?? slide?.audioPlaylist?.introduction ?? null
-    return extractParagraphs(preferred)
+  const introduction = useMemo(() => {
+    return slide?.body ?? slide?.audioPlaylist?.introduction ?? null
   }, [slide?.body, slide?.audioPlaylist?.introduction])
 
   const tracks: TrackViewModel[] = useMemo(() => {
@@ -219,10 +218,12 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
             <AudioPlaylistModule
               slide={slide}
               screenWidth={screenWidth - 40}
-              introductionParagraphs={introductionParagraphs}
+              introduction={introduction}
               tracks={tracks}
               primaryTrackId={activeTrack?.id ?? null}
               downloadProgress={downloadProgress}
+              cachedMedia={cachedMedia}
+              colorScheme={colorScheme}
               onSelectTrack={selectTrackById}
             />
           ) : (

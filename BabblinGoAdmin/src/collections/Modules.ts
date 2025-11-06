@@ -35,6 +35,14 @@ const syncModulesOnLessons = async (
       }
 
       moduleIds.push(moduleId)
+
+      await req.payload.update({
+        collection: 'lessons',
+        id: lessonId,
+        data: { modules: moduleIds },
+        depth: 0,
+        context: mergeContext(req.context, { skipSyncLessonModules: true }),
+      })
     } else {
       if (!hasModule) {
         return
@@ -49,16 +57,7 @@ const syncModulesOnLessons = async (
         depth: 0,
         context: mergeContext(req.context, { skipSyncLessonModules: true }),
       })
-      return
     }
-
-    await req.payload.update({
-      collection: 'lessons',
-      id: lessonId,
-      data: { modules: moduleIds },
-      depth: 0,
-      context: mergeContext(req.context, { skipSyncLessonModules: true }),
-    })
   } catch (error) {
     console.error(
       `[payload] Failed to ${action === 'add' ? 'link' : 'unlink'} module ${moduleId} ${

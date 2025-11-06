@@ -7,13 +7,13 @@ import { useTranslation } from "react-i18next"
 import { MaterialIcons } from "@expo/vector-icons"
 
 import { LessonDoc, ModuleDoc, extractModuleSlides, resolveMediaUrl } from "@/lib/payload"
-import { extractParagraphs } from "@/lib/lesson-helpers"
 import { useThemeMode } from "@/app/theme-context"
 import { useLearningSession } from "@/hooks/useLearningSession"
 import { useLessonCache } from "@/hooks/useLessonCache"
 import { ThemedHeader } from "@/components/ThemedHeader"
 import { LessonHeaderControls } from "@/components/LessonHeaderControls"
 import { CacheMenuModal } from "@/components/CacheMenuModal"
+import { LexicalContent } from "@/components/LexicalContent"
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
@@ -243,8 +243,8 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
     }
   }, [player])
 
-  const transcriptParagraphs = useMemo(
-    () => extractParagraphs(videoContent?.transcript ?? slide?.transcript ?? null),
+  const transcript = useMemo(
+    () => videoContent?.transcript ?? slide?.transcript ?? null,
     [videoContent?.transcript, slide?.transcript]
   )
 
@@ -625,16 +625,18 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
           </View>
         )}
 
-        {transcriptParagraphs.length > 0 ? (
+        {transcript ? (
           <View style={{ gap: 12 }}>
             <Text style={{ fontSize: 18, fontWeight: "600", color: colorScheme === "dark" ? "#e2e8f0" : "#0f172a" }}>
               {t("lesson.video.transcript", { defaultValue: "Transcript" })}
             </Text>
-            {transcriptParagraphs.map((paragraph, idx) => (
-              <Text key={idx} style={{ fontSize: 16, lineHeight: 22, color: colorScheme === "dark" ? "#cbd5f5" : "#374151" }}>
-                {paragraph}
-              </Text>
-            ))}
+            <LexicalContent
+              content={transcript}
+              cachedMedia={cachedMedia}
+              colorScheme={colorScheme}
+              fontSize={16}
+              lineHeight={24}
+            />
           </View>
         ) : null}
       </ScrollView>
