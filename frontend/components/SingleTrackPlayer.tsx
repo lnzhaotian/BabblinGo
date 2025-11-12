@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState, useCallback } from "react"
 import { Pressable, Text, View, useColorScheme } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useAudioPlayer, useAudioPlayerStatus, AudioSource, setAudioModeAsync } from "expo-audio"
 import AsyncStorage from "@react-native-async-storage/async-storage"
+import Slider from "@react-native-community/slider"
 
 export type PlaybackSpeed = 0.5 | 0.7 | 1.0 | 1.3 | 1.5 | 1.7 | 2.0
 const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 2.0]
@@ -32,24 +33,27 @@ export type SingleTrack = {
 export type SingleTrackPlayerProps = {
   track: SingleTrack
   autoPlay?: boolean
-  speed: PlaybackSpeed  // Now controlled by parent
-  loop: boolean  // Read-only from parent
+  speed: PlaybackSpeed
+  loop: boolean
   debug?: boolean
   hasPrev?: boolean
   hasNext?: boolean
   onSpeedChange?: (speed: PlaybackSpeed) => void
   onFinish?: () => void
   onNavigate?: (action: 'prev' | 'next') => void
-  // Optional external controls
-  suspend?: boolean  // when true, pause playback
-  playSignal?: number // incrementing number triggers a play() if not suspended
+  suspend?: boolean
+  playSignal?: number
+  showProgressBar?: boolean
 }
 
-export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate, suspend = false, playSignal }: SingleTrackPlayerProps) {
+export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate, suspend = false, playSignal, showProgressBar = false }: SingleTrackPlayerProps) {
   const DEBUG = !!debug
   const player = useAudioPlayer(undefined, { updateInterval: 250, downloadFirst: true })
   const status = useAudioPlayerStatus(player)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isSeeking, setIsSeeking] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
   const mountedRef = useRef(true)
   const hasStartedRef = useRef(false)
@@ -226,6 +230,18 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
     }
   }, [status, DEBUG, onFinish, player, speed, suspend])
 
+  // Update current time and duration for the progress slider
+  useEffect(() => {
+    if (!isSeeking && status) {
+      if (status.currentTime !== undefined) {
+        setCurrentTime(status.currentTime)
+      }
+      if (status.duration !== undefined && status.duration > 0) {
+        setDuration(status.duration)
+      }
+    }
+  }, [status, isSeeking])
+
   useEffect(() => {
     return () => {
       mountedRef.current = false
@@ -236,6 +252,33 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       try { if (player.playing) player.pause() } catch {}
     }
   }, [player])
+
+  // Slider event handlers
+  const handleSliderChange = useCallback((value: number) => {
+    setCurrentTime(value)
+  }, [])
+
+  const handleSlidingStart = useCallback(() => {
+    setIsSeeking(true)
+  }, [])
+
+  const handleSlidingComplete = useCallback((value: number) => {
+    try {
+      player.seekTo(value)
+    } catch (err) {
+      console.error("Error seeking audio:", err)
+    } finally {
+      setIsSeeking(false)
+    }
+  }, [player])
+
+  // Format time as mm:ss
+  const formatTime = (seconds: number): string => {
+    if (!isFinite(seconds) || seconds < 0) return "00:00"
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
 
   // Play/Pause button behavior
   // If the track already finished (e.g., last slide with loop off) and the
@@ -319,6 +362,32 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           <MaterialIcons name="skip-next" size={32} color={isDark ? "#d1d5db" : "#4b5563"} />
         </Pressable>
       </View>
+
+      {/* Progress bar - only shown when showProgressBar is true */}
+      {showProgressBar && (
+        <View style={{ marginTop: 12, paddingHorizontal: 16 }}>
+          <Slider
+            style={{ width: "100%", height: 40 }}
+            minimumValue={0}
+            maximumValue={duration || 1}
+            value={currentTime}
+            onValueChange={handleSliderChange}
+            onSlidingStart={handleSlidingStart}
+            onSlidingComplete={handleSlidingComplete}
+            minimumTrackTintColor={isDark ? "#6366f1" : "#6366f1"}
+            maximumTrackTintColor={isDark ? "#4b5563" : "#d1d5db"}
+            thumbTintColor={isDark ? "#6366f1" : "#6366f1"}
+          />
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: -8 }}>
+            <Text style={{ fontSize: 12, color: isDark ? "#9ca3af" : "#6b7280" }}>
+              {formatTime(currentTime)}
+            </Text>
+            <Text style={{ fontSize: 12, color: isDark ? "#9ca3af" : "#6b7280" }}>
+              {formatTime(duration)}
+            </Text>
+          </View>
+        </View>
+      )}
 
       <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>
         {/* Speed selector – calls onSpeedChange so the parent can store the new value

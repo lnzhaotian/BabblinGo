@@ -284,6 +284,7 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
           onSpeedChange={setPlayerSpeed}
           onNavigate={handlePlayerNavigate}
           onFinish={handlePlayerFinish}
+          showProgressBar={true}
         />
 
         <CacheMenuModal

@@ -12,6 +12,7 @@ export type LessonAudioPlayerProps = {
   onSpeedChange: (speed: PlaybackSpeed) => void
   onNavigate: (action: "prev" | "next") => void
   onFinish: () => boolean
+  showProgressBar?: boolean
 }
 
 export function LessonAudioPlayer({
@@ -23,6 +24,7 @@ export function LessonAudioPlayer({
   onSpeedChange,
   onNavigate,
   onFinish,
+  showProgressBar = false,
 }: LessonAudioPlayerProps) {
   const colorScheme = useColorScheme()
   const [themeMode, setThemeMode] = useState<string | null>(null)
@@ -77,6 +79,7 @@ export function LessonAudioPlayer({
           }
         }}
         playSignal={replaySignal}
+        showProgressBar={showProgressBar}
       />
     </View>
   )
