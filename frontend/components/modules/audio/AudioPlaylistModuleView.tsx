@@ -10,10 +10,12 @@ import { AudioPlaylistModule, type TrackViewModel } from "./AudioPlaylistModule"
 import { LessonAudioPlayer } from "@/components/LessonAudioPlayer"
 import { useLessonPreferences } from "@/hooks/useLessonPreferences"
 import { useLessonCache } from "@/hooks/useLessonCache"
-import { LessonDoc, ModuleDoc, extractModuleSlides, resolveMediaUrl } from "@/lib/payload"
+import { LessonDoc, ModuleDoc, extractModuleSlides, resolveMediaUrl, type LexicalRichText } from "@/lib/payload"
 import { extractParagraphs } from "@/lib/lesson-helpers"
+
 import { useThemeMode } from "@/app/theme-context"
 import { useLearningSession } from "@/hooks/useLearningSession"
+import { LexicalContent } from "@/components/LexicalContent"
 
 export type AudioPlaylistModuleViewProps = {
   lesson: LessonDoc
@@ -59,6 +61,16 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
   const introduction = useMemo(() => {
     return slide?.body ?? slide?.audioPlaylist?.introduction ?? null
   }, [slide?.body, slide?.audioPlaylist?.introduction])
+
+  // Main content/body for the module (like rich post)
+  const bodyContent = useMemo(() => {
+    const body = module.body
+    // Ensure body has a root property (valid LexicalRichText structure)
+    if (body && typeof body === 'object' && 'root' in body) {
+      return body as LexicalRichText
+    }
+    return null
+  }, [module.body])
 
   const tracks: TrackViewModel[] = useMemo(() => {
     const list = slide?.audioPlaylist?.tracks ?? []
@@ -203,6 +215,7 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
         style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
         edges={["bottom"]}
       >
+
         <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
           {/* Title and Summary Section */}
           <View style={{ gap: 12 }}>
@@ -217,7 +230,6 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
             >
               {module.title}
             </Text>
-            
             {module.summary ? (
               <Text 
                 style={{ 
@@ -230,6 +242,17 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
               </Text>
             ) : null}
           </View>
+
+          {/* Main content/body rendered with LexicalContent, like rich post */}
+          {bodyContent ? (
+            <LexicalContent
+              content={bodyContent}
+              cachedMedia={cachedMedia}
+              colorScheme={colorScheme}
+              fontSize={17}
+              lineHeight={26}
+            />
+          ) : null}
 
           {slide ? (
             <AudioPlaylistModule

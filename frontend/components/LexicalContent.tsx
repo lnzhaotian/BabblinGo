@@ -134,6 +134,7 @@ export const LexicalContent: React.FC<LexicalContentProps> = ({
                   source={{ uri: effectiveImageUrl }}
                   style={{
                     width: "100%",
+                    aspectRatio: block.aspectRatio || 1,
                     borderRadius: 12,
                     backgroundColor: isDark ? "#1e293b" : "#f1f5f9",
                   }}
@@ -253,12 +254,21 @@ const parseLexicalContent = (body: LexicalRichText | null | undefined): ContentB
         }
         case "upload":
         case "image": {
+          // Debug log for image/upload node
+          // eslint-disable-next-line no-console
+          console.log('[LexicalContent] image/upload node:', JSON.stringify(node, null, 2))
           const value = node.value ?? null
-          const url = resolveMediaUrl(value)
+          let url = resolveMediaUrl(value)
+          // Fallback: if resolveMediaUrl fails, use value.url directly
+          if (!url && value && typeof value === 'object' && typeof value.url === 'string') {
+            url = value.url
+          }
           if (url) {
             // Determine media type from the value object
             const mimeType = value?.mimeType || value?.mime_type || ""
             let blockType: "image" | "audio" | "video" = "image"
+            console.log('[LexicalContent] resolved mimeType:', mimeType)
+            console.log('[LexicalContent] resolved blockType:', blockType)
             
             if (mimeType.startsWith("audio/")) {
               blockType = "audio"
@@ -266,11 +276,22 @@ const parseLexicalContent = (body: LexicalRichText | null | undefined): ContentB
               blockType = "video"
             }
             
+            // Calculate aspect ratio for images
+            let aspectRatio: number | undefined
+            if (blockType === "image" && value && typeof value === 'object') {
+              const width = value.width
+              const height = value.height
+              if (typeof width === 'number' && typeof height === 'number' && height > 0) {
+                aspectRatio = width / height
+              }
+            }
+            
             blocks.push({
               id: nodeKey,
               type: blockType,
               url,
               caption: typeof node.caption === "string" ? node.caption : null,
+              aspectRatio,
             })
           }
           break
