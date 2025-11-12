@@ -365,6 +365,22 @@ export default function ProgressScreen() {
 
   const chartHasData = chart.points.some((point) => point.total > 0)
 
+  // Calculate total filtered time
+  const filteredTotal = useMemo(() => {
+    return filteredSessions.reduce((sum, session) => sum + getSessionSeconds(session), 0)
+  }, [filteredSessions])
+
+  // Generate Y-axis scale labels (3 evenly spaced points)
+  const yAxisLabels = useMemo(() => {
+    if (!chartHasData) return []
+    const max = chart.max
+    return [
+      { value: max, label: secToHMM(max) },
+      { value: max / 2, label: secToHMM(Math.round(max / 2)) },
+      { value: 0, label: '0m' },
+    ]
+  }, [chart.max, chartHasData])
+
   const chartBars = chart.points.map((point) => {
     const normalized = chart.max > 0 ? point.total / chart.max : 0
     const height = Math.max(4, Math.round(normalized * BAR_MAX_HEIGHT))
@@ -492,17 +508,93 @@ export default function ProgressScreen() {
         </ScrollView>
       </View>
 
+  {/* Total filtered time */}
+  {filteredTotal > 0 && (
+        <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }}>
+          <View style={{ 
+            backgroundColor: colorScheme === 'dark' ? '#23232a' : '#f9fafb', 
+            paddingVertical: 12, 
+            paddingHorizontal: 16, 
+            borderRadius: 12,
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between'
+          }}>
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : '#6b7280', fontWeight: '600' }}>
+              {t("progress.totalFiltered")}
+            </Text>
+            <Text style={{ fontSize: 20, fontWeight: '800', color: colorScheme === 'dark' ? '#fff' : '#111827' }}>
+              {secToHMM(filteredTotal)}
+            </Text>
+          </View>
+        </View>
+      )}
+
   {/* Activity chart */}
   <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
         <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", fontWeight: "700", marginBottom: 8 }}>{chartTitle}</Text>
         {chart.points.length === 0 || !chartHasData ? (
           <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : "#9ca3af", marginTop: 12 }}>{t("progress.chartEmpty")}</Text>
         ) : chart.scrollable ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4, paddingRight: 16 }}>
-            <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12 }}>{chartBars}</View>
-          </ScrollView>
+          <View style={{ flexDirection: 'row' }}>
+            {/* Y-axis scale */}
+            <View style={{ justifyContent: 'space-between', height: BAR_MAX_HEIGHT + 40, paddingTop: 4, paddingBottom: 36, marginRight: 8 }}>
+              {yAxisLabels.map((label, index) => (
+                <Text key={index} style={{ fontSize: 10, color: colorScheme === 'dark' ? '#9ca3af' : '#9ca3af', textAlign: 'right', minWidth: 32 }}>
+                  {label.label}
+                </Text>
+              ))}
+            </View>
+            {/* Chart area with grid lines */}
+            <View style={{ flex: 1 }}>
+              {/* Grid lines layer */}
+              <View style={{ position: 'absolute', left: 0, right: 16, top: 4, bottom: 36, justifyContent: 'space-between' }}>
+                {yAxisLabels.map((label, index) => (
+                  <View 
+                    key={index} 
+                    style={{ 
+                      height: 1, 
+                      backgroundColor: colorScheme === 'dark' ? 'rgba(156, 163, 175, 0.15)' : 'rgba(107, 114, 128, 0.12)',
+                      width: '100%'
+                    }} 
+                  />
+                ))}
+              </View>
+              {/* Bars layer */}
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4, paddingRight: 16 }}>
+                <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12 }}>{chartBars}</View>
+              </ScrollView>
+            </View>
+          </View>
         ) : (
-          <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12, paddingVertical: 4 }}>{chartBars}</View>
+          <View style={{ flexDirection: 'row' }}>
+            {/* Y-axis scale */}
+            <View style={{ justifyContent: 'space-between', height: BAR_MAX_HEIGHT + 40, paddingTop: 4, paddingBottom: 36, marginRight: 8 }}>
+              {yAxisLabels.map((label, index) => (
+                <Text key={index} style={{ fontSize: 10, color: colorScheme === 'dark' ? '#9ca3af' : '#9ca3af', textAlign: 'right', minWidth: 32 }}>
+                  {label.label}
+                </Text>
+              ))}
+            </View>
+            {/* Chart area with grid lines */}
+            <View style={{ flex: 1, position: 'relative' }}>
+              {/* Grid lines layer */}
+              <View style={{ position: 'absolute', left: 0, right: 0, top: 4, bottom: 36, justifyContent: 'space-between' }}>
+                {yAxisLabels.map((label, index) => (
+                  <View 
+                    key={index} 
+                    style={{ 
+                      height: 1, 
+                      backgroundColor: colorScheme === 'dark' ? 'rgba(156, 163, 175, 0.15)' : 'rgba(107, 114, 128, 0.12)',
+                      width: '100%'
+                    }} 
+                  />
+                ))}
+              </View>
+              {/* Bars layer */}
+              <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12, paddingVertical: 4 }}>{chartBars}</View>
+            </View>
+          </View>
         )}
       </View>
 

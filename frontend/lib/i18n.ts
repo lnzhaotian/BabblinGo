@@ -188,6 +188,7 @@ const resources = {
       "progress.planned": "planned",
       "progress.actual": "actual",
       "progress.unfinished": "unfinished",
+      "progress.totalFiltered": "Total Learning Time",
 
       // Settings
       "settings.title": "Settings",
@@ -446,6 +447,7 @@ const resources = {
       "progress.planned": "计划",
       "progress.actual": "实际",
       "progress.unfinished": "未完成",
+      "progress.totalFiltered": "学习总时长",
 
       // Settings
       "settings.title": "设置",
