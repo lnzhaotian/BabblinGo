@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { ActivityIndicator, FlatList, Image, Pressable, RefreshControl, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 
-import { CourseDoc, CourseLevel, fetchCourses, resolveLocalizedField, resolveMediaUrl } from "@/lib/payload";
+import { CourseDoc, CourseLevel, fetchCourses, fetchTools, resolveLocalizedField, resolveMediaUrl, ToolDoc } from "@/lib/payload";
 import { useThemeMode } from "../theme-context";
 
 const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>
@@ -15,10 +15,29 @@ const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] 
     return aOrder - bOrder;
   });
 
+const FALLBACK_ICON: keyof typeof MaterialIcons.glyphMap = "handyman"
+
+const getIconName = (rawIcon?: string | null): keyof typeof MaterialIcons.glyphMap => {
+  if (!rawIcon) {
+    return FALLBACK_ICON
+  }
+
+  if (Object.prototype.hasOwnProperty.call(MaterialIcons.glyphMap, rawIcon)) {
+    return rawIcon as keyof typeof MaterialIcons.glyphMap
+  }
+
+  return FALLBACK_ICON
+}
+
+type CombinedItem = 
+  | { type: 'course'; data: CourseDoc }
+  | { type: 'tool'; data: ToolDoc }
+
 export default function Index() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const [courses, setCourses] = useState<CourseDoc[]>([]);
+  const [tools, setTools] = useState<ToolDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +51,15 @@ export default function Index() {
 
       try {
         const locale = i18n.language;
-        const data = await fetchCourses(locale);
-        setCourses(data);
+        const [coursesData, toolsData] = await Promise.all([
+          fetchCourses(locale),
+          fetchTools(locale)
+        ]);
+        setCourses(coursesData);
+        setTools(toolsData);
         setError(null);
       } catch (err) {
-        console.error("Failed to load courses", err);
+        console.error("Failed to load data", err);
         setError(t("home.loadCoursesError"));
       } finally {
         if (!skipLoading) {
@@ -65,6 +88,19 @@ export default function Index() {
 
     router.push(target as never);
   };
+
+  const handlePressTool = (tool: ToolDoc, title: string) => {
+    router.push({ pathname: "/(stack)/web", params: { url: tool.url, title } });
+  };
+
+  const combinedData = useMemo((): CombinedItem[] => {
+    const items: CombinedItem[] = [];
+    
+    courses.forEach(course => items.push({ type: 'course', data: course }));
+    tools.forEach(tool => items.push({ type: 'tool', data: tool }));
+    
+    return items;
+  }, [courses, tools]);
 
   const renderCourse = ({ item }: { item: CourseDoc }) => {
     const locale = i18n.language;
@@ -173,6 +209,101 @@ export default function Index() {
     );
   };
 
+  const renderTool = ({ item }: { item: ToolDoc }) => {
+    const locale = i18n.language;
+    const title = resolveLocalizedField(item.title, locale) ?? item.url.replace(/^https?:\/\//, "");
+    const description = resolveLocalizedField(item.description, locale) ?? undefined;
+    const iconName = getIconName(item.icon);
+    const category = item.category ?? undefined;
+
+    return (
+      <Pressable
+        onPress={() => handlePressTool(item, title)}
+        android_ripple={{ color: "#e5e7eb" }}
+        style={{
+          marginHorizontal: 16,
+          marginBottom: 16,
+          borderRadius: 16,
+          backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
+          padding: 18,
+          shadowColor: colorScheme === 'dark' ? '#000' : '#000',
+          shadowOpacity: colorScheme === 'dark' ? 0.35 : 0.07,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 4 },
+          elevation: 2,
+          borderWidth: colorScheme === 'dark' ? 1 : 0,
+          borderColor: colorScheme === 'dark' ? '#2f2f36' : 'transparent',
+        }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          <View
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 12,
+              backgroundColor: colorScheme === 'dark' ? '#1e1e26' : '#eef2ff',
+              justifyContent: "center",
+              alignItems: "center",
+              marginRight: 16,
+            }}
+          >
+            <MaterialIcons name={iconName} size={28} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
+          </View>
+
+          <View style={{ flex: 1 }}>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: "700",
+                color: colorScheme === 'dark' ? '#fff' : '#111827',
+              }}
+            >
+              {title}
+            </Text>
+            {description ? (
+              <Text
+                style={{
+                  marginTop: 6,
+                  color: colorScheme === 'dark' ? '#d1d5db' : '#4b5563',
+                  lineHeight: 20,
+                }}
+                numberOfLines={3}
+              >
+                {description}
+              </Text>
+            ) : null}
+
+            {category ? (
+              <View style={{
+                marginTop: 12,
+                alignSelf: "flex-start",
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                backgroundColor: colorScheme === 'dark' ? '#312e81' : '#e0e7ff',
+              }}>
+                <Text style={{ color: colorScheme === 'dark' ? '#c7d2fe' : '#4338ca', fontSize: 12, fontWeight: "600" }}>
+                  {category}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          <MaterialIcons name="chevron-right" size={24} color={colorScheme === 'dark' ? '#a1a1aa' : '#9ca3af'} />
+        </View>
+      </Pressable>
+    );
+  };
+
+  const renderItem = ({ item }: { item: CombinedItem }) => {
+    if (item.type === 'course') {
+      return renderCourse({ item: item.data });
+    } else if (item.type === 'tool') {
+      return renderTool({ item: item.data });
+    }
+    return null;
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={{ flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: colorScheme === 'dark' ? '#18181b' : undefined }} edges={[]}>
@@ -191,14 +322,20 @@ export default function Index() {
           </View>
         ) : null}
         <FlatList
-          data={courses}
-          keyExtractor={(item) => item.id}
-          renderItem={renderCourse}
+          data={combinedData}
+          keyExtractor={(item) => {
+            if (item.type === 'course') {
+              return `course-${item.data.id}`;
+            } else {
+              return `tool-${item.data.id}`;
+            }
+          }}
+          renderItem={renderItem}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
           contentContainerStyle={{
             paddingVertical: 16,
             backgroundColor: colorScheme === 'dark' ? '#18181b' : '#f9fafb',
-            flexGrow: courses.length === 0 ? 1 : undefined,
+            flexGrow: combinedData.length === 0 ? 1 : undefined,
           }}
           style={{ flex: 1, backgroundColor: "transparent", paddingVertical: 8 }}
           ListEmptyComponent={

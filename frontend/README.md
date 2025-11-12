@@ -140,3 +140,41 @@ Quick QA checklist (manual)
 Extension ideas
 - Persist `loopEnabled` and `playerSpeed` to AsyncStorage so preferences survive app restarts.
 - If a true playlist view is needed later, build it as a separate component that reuses the single-track player internally.
+
+## Tab Navigation Structure
+
+The app currently uses a combined Home tab that displays both courses and tools in a single view. This was done to avoid empty-looking tabs while content is being built up.
+
+**Current structure (Combined View)**:
+- Home tab (`app/(tabs)/index.tsx`): Shows both courses and tools with section headers
+- Tools tab (`app/(tabs)/tools.tsx`): Hidden via `href: null` in tab layout
+- Progress tab
+- Settings tab
+
+**How to restore separate Courses and Tools tabs**:
+
+When you have enough content to justify separate tabs, follow these steps:
+
+1. **Restore the tab layout** (`app/(tabs)/_layout.tsx`):
+   - For NativeTabs (iOS 18+): Add back the tools trigger between index and progress
+   - For regular Tabs: Remove `href: null` from the tools screen options
+   - Optionally change the home icon back to "auto-stories" if desired
+
+2. **Revert the Home tab** (`app/(tabs)/index.tsx`):
+   - Remove `fetchTools`, `ToolDoc`, `useMemo` imports
+   - Remove `tools` state and `setTools`
+   - Remove helper functions: `getIconName`, `FALLBACK_ICON`, `CombinedItem` type, `handlePressTool`, `renderTool`
+   - Change `loadCourses` to only fetch courses (remove `Promise.all` and `fetchTools`)
+   - Remove `combinedData` useMemo
+   - Change FlatList back to use `data={courses}` and `renderItem={renderCourse}`
+   - Update keyExtractor to just return `item.id`
+
+3. **Show the Tools tab**:
+   - The tools.tsx file already exists and is fully functional
+   - It will automatically appear once you remove `href: null` from the layout
+
+**Files to modify**:
+- `app/(tabs)/_layout.tsx` - Tab navigation configuration
+- `app/(tabs)/index.tsx` - Home screen (currently combined, revert to courses only)
+- `app/(tabs)/tools.tsx` - Tools screen (already complete, just hidden)
+

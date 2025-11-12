@@ -29,10 +29,6 @@ export default function TabsLayout() {
           <Label>{t("tabs.home")}</Label>
           <Icon sf="book.fill" />
         </NativeTabs.Trigger>
-        <NativeTabs.Trigger name="tools">
-          <Label>{t("tabs.tools")}</Label>
-          <Icon sf="wrench.and.screwdriver.fill" />
-        </NativeTabs.Trigger>
         <NativeTabs.Trigger name="progress">
           <Label>{t("tabs.progress")}</Label>
           <Icon sf="chart.bar.fill" />
@@ -70,13 +66,13 @@ export default function TabsLayout() {
             "home";
 
           if (route.name === "index") {
-            iconName = "auto-stories";
-          } else if (route.name === "tools") {
-            iconName = "handyman";
+            iconName = "home";
           } else if (route.name === "settings") {
             iconName = "settings";
           } else if (route.name === "progress") {
             iconName = "insights";
+          } else if (route.name === "tools") {
+            iconName = "handyman";
           }
 
           return <MaterialIcons name={iconName} size={size} color={color} />;
@@ -84,7 +80,7 @@ export default function TabsLayout() {
       })}
     >
       <Tabs.Screen name="index" options={{ title: t("tabs.home"), tabBarLabel: t("tabs.home") }} />
-  <Tabs.Screen name="tools" options={{ title: t("tabs.tools"), tabBarLabel: t("tabs.tools") }} />
+      <Tabs.Screen name="tools" options={{ href: null }} />
       <Tabs.Screen name="progress" options={{ title: t("tabs.progress"), tabBarLabel: t("tabs.progress") }} />
       <Tabs.Screen name="settings" options={{ title: t("tabs.settings"), tabBarLabel: t("tabs.settings") }} />
     </Tabs>
