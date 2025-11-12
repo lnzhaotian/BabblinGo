@@ -58,7 +58,6 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const mountedRef = useRef(true)
   const hasStartedRef = useRef(false)
   const hasCalledFinishRef = useRef(false)
-  const lastProgressLogAt = useRef<number>(0)
   // Track the intended play state (avoids relying on laggy status.playing during rate changes)
   const shouldBePlayingRef = useRef(false)
   const ensurePlayingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -189,13 +188,6 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // (didJustFinish + near-end idle can arrive closely together on some devices).
   useEffect(() => {
     if (typeof status?.playing === 'boolean') setIsPlaying(status.playing)
-
-    if (DEBUG && status?.duration > 0 && status?.currentTime >= 0) {
-      if (status.currentTime - (lastProgressLogAt.current || 0) >= 2) {
-        lastProgressLogAt.current = status.currentTime
-        console.log(`[SingleTrack#${sessionIdRef.current}] Progress: ${status.currentTime.toFixed(2)} / ${status.duration.toFixed(2)}, playing=${status.playing}`)
-      }
-    }
 
     // Preferred finish signal
     if (status?.didJustFinish) {

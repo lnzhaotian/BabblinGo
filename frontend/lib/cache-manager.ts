@@ -46,11 +46,7 @@ async function withCacheIndexLock<T>(fn: () => Promise<T>): Promise<T> {
 async function ensureCacheDir() {
   try {
     if (!CACHE_DIR.exists) {
-      console.log(`[cache-manager] Creating cache directory: ${CACHE_DIR.uri}`);
       await CACHE_DIR.create();
-      console.log(`[cache-manager] Cache directory created successfully`);
-    } else {
-      console.log(`[cache-manager] Cache directory exists: ${CACHE_DIR.uri}`);
     }
   } catch (error) {
     console.error('[cache-manager] Failed to ensure cache directory:', error);
@@ -93,12 +89,12 @@ function getCacheKey(url: string): string {
 /**
  * Check if a file is cached and up-to-date
  * @param url - Remote file URL
- * @param version - Server version (updatedAt timestamp)
+ * @param version - Server version (optional - if not provided, any cached version is accepted)
  * @returns Local file path if cached and up-to-date, null otherwise
  */
 export async function getCachedFile(
   url: string,
-  version: string
+  version?: string
 ): Promise<string | null> {
   try {
     const index = await getCacheIndex();
@@ -106,27 +102,21 @@ export async function getCachedFile(
     const cached = index[cacheKey];
 
     if (!cached) {
-      console.log(`[cache-manager] No cache entry for ${url}`);
-      return null; // Not cached
-    }
-
-    // Check if version matches
-    if (cached.version !== version) {
-      console.log(`[cache-manager] Cache outdated for ${url}: ${cached.version} vs ${version}`);
-      return null; // Outdated
+      return null;
     }
 
     // Check if file still exists
     const file = new File(cached.localPath);
     if (!file.exists) {
-      console.log(`[cache-manager] Cache file missing: ${cached.localPath}`);
-      // Remove from index
-      delete index[cacheKey];
-      await saveCacheIndex(index);
+      // Remove from index with lock to prevent race conditions
+      await withCacheIndexLock(async () => {
+        const currentIndex = await getCacheIndex();
+        delete currentIndex[cacheKey];
+        await saveCacheIndex(currentIndex);
+      });
       return null;
     }
 
-    console.log(`[cache-manager] Cache hit for ${url}: ${cached.localPath}`);
     return cached.localPath;
   } catch (error) {
     console.error('[cache-manager] Failed to check cache:', error);
@@ -140,61 +130,75 @@ const activeDownloads = new Map<string, Promise<string>>();
 /**
  * Download and cache a file
  * @param url - Remote file URL
- * @param version - Server version (updatedAt timestamp)
+ * @param version - Server version (optional - used for tracking but not validation)
  * @param onProgress - Progress callback (0-1)
  * @returns Local file path
  */
 export async function downloadAndCache(
   url: string,
-  version: string,
+  version?: string,
   onProgress?: (progress: number) => void
 ): Promise<string> {
   const cacheKey = getCacheKey(url);
   
+  // First check if already cached and valid
+  const existingCache = await getCachedFile(url, version);
+  if (existingCache) {
+    onProgress?.(1.0);
+    return existingCache;
+  }
+  
   // Check if this URL is already being downloaded
   const existingDownload = activeDownloads.get(cacheKey);
   if (existingDownload) {
-    console.log(`[cache-manager] Download already in progress for ${url}, waiting...`);
-    try {
-      const result = await existingDownload;
-      console.log(`[cache-manager] Existing download completed: ${result}`);
-      return result;
-    } catch (error) {
-      console.error(`[cache-manager] Existing download failed:`, error);
-      throw error;
-    }
+    return await existingDownload;
   }
 
   // Create download promise
   const downloadPromise = (async () => {
     try {
-      console.log(`[cache-manager] Starting download for ${url}`);
       await ensureCacheDir();
 
-      const filename = url.split('/').pop() || cacheKey;
+      // Use cache key as filename to ensure uniqueness, append original extension
+      const originalFilename = url.split('/').pop() || '';
+      const extension = originalFilename.includes('.') 
+        ? '.' + originalFilename.split('.').pop() 
+        : '';
+      const filename = cacheKey + extension;
       const targetFile = new File(CACHE_DIR, filename);
 
       // Check if file already exists from a previous partial/failed download
       if (targetFile.exists) {
-        console.log(`[cache-manager] Removing existing file before download: ${targetFile.uri}`);
         try {
           await targetFile.delete();
-          // Give the file system a moment to complete the deletion
           await new Promise(resolve => setTimeout(resolve, 100));
-          console.log(`[cache-manager] Successfully deleted existing file`);
-        } catch (deleteError) {
-          console.error(`[cache-manager] Failed to delete existing file:`, deleteError);
-          // File might be locked or in use, throw error to prevent corrupted cache
+        } catch {
           throw new Error(`Cannot delete existing file: ${targetFile.uri}`);
         }
       }
 
-      // Use the static download method
-      console.log(`[cache-manager] Downloading to cache directory...`);
-      
-      // Start the download (no timeout - let large files complete)
+      // Download the file
       const downloadedFile = await File.downloadFileAsync(url, CACHE_DIR);
-      console.log(`[cache-manager] Download complete: ${downloadedFile.uri} (${downloadedFile.size} bytes)`);
+
+      // Rename file to use our custom naming scheme
+      const finalPath = targetFile.uri;
+      let finalFile = downloadedFile;
+      
+      if (downloadedFile.uri !== finalPath) {
+        if (targetFile.exists) {
+          // Target already exists, delete temp download
+          await downloadedFile.delete();
+          finalFile = targetFile;
+        } else {
+          // Rename to target
+          try {
+            await downloadedFile.move(targetFile);
+            finalFile = targetFile;
+          } catch {
+            finalFile = downloadedFile;
+          }
+        }
+      }
 
       // Call progress callback with 100% after completion
       if (onProgress) {
@@ -204,23 +208,36 @@ export async function downloadAndCache(
       // Update cache index with lock to prevent race conditions
       await withCacheIndexLock(async () => {
         const index = await getCacheIndex();
+        const existingEntry = index[cacheKey];
+        
+        // If entry already exists and points to a valid file, don't overwrite
+        if (existingEntry && existingEntry.version === version) {
+          const existingFile = new File(existingEntry.localPath);
+          if (existingFile.exists) {
+            return;
+          }
+        }
+        
         index[cacheKey] = {
           url,
-          localPath: downloadedFile.uri,
-          version,
+          localPath: finalFile.uri,
+          version: version || url,
           downloadedAt: Date.now(),
-          size: downloadedFile.size || 0,
+          size: finalFile.size || 0,
         };
         await saveCacheIndex(index);
-        console.log(`[cache-manager] Cache index updated for ${url}`);
       });
 
-      return downloadedFile.uri;
+      return finalFile.uri;
     } catch (error) {
-      console.error(`[cache-manager] Download failed for ${url}:`, error);
+      console.error(`[cache-manager] Download failed:`, error);
       // Clean up partial download if exists
       try {
-        const filename = url.split('/').pop() || cacheKey;
+        const originalFilename = url.split('/').pop() || '';
+        const extension = originalFilename.includes('.') 
+          ? '.' + originalFilename.split('.').pop() 
+          : '';
+        const filename = cacheKey + extension;
         const targetFile = new File(CACHE_DIR, filename);
         if (targetFile.exists) {
           await targetFile.delete();
@@ -232,7 +249,6 @@ export async function downloadAndCache(
     } finally {
       // Remove from active downloads
       activeDownloads.delete(cacheKey);
-      console.log(`[cache-manager] Removed ${url} from active downloads`);
     }
   })();
 
@@ -244,30 +260,21 @@ export async function downloadAndCache(
 
 /**
  * Get or download a file (with caching)
- * @param url - Remote file URL
- * @param version - Server version (updatedAt timestamp)
- * @param forceDownload - Skip cache and always download fresh
- * @param onProgress - Progress callback (0-1)
- * @returns Local file path (cached or freshly downloaded)
  */
 export async function getOrDownloadFile(
   url: string,
-  version: string,
+  version?: string,
   forceDownload: boolean = false,
   onProgress?: (progress: number) => void
 ): Promise<string> {
-  console.log(`[cache-manager] getOrDownloadFile: ${url}, forceDownload: ${forceDownload}`);
-  
   if (!forceDownload) {
     const cached = await getCachedFile(url, version);
     if (cached) {
-      console.log(`[cache-manager] Using cached file: ${cached}`);
-      onProgress?.(1); // Already complete
+      onProgress?.(1);
       return cached;
     }
   }
 
-  console.log(`[cache-manager] Cache miss, downloading: ${url}`);
   return downloadAndCache(url, version, onProgress);
 }
 
@@ -347,12 +354,12 @@ export interface LessonCacheInfo {
 /**
  * Get cache status for a specific lesson
  * @param mediaUrls - Array of media URLs from the lesson
- * @param version - Expected version (lesson.updatedAt)
+ * @param version - Expected version (optional - not used for validation, kept for compatibility)
  * @returns Cache status information
  */
 export async function getLessonCacheStatus(
   mediaUrls: string[],
-  version: string
+  version?: string
 ): Promise<LessonCacheInfo> {
   const index = await getCacheIndex();
   let cachedCount = 0;
@@ -362,8 +369,8 @@ export async function getLessonCacheStatus(
     const cacheKey = getCacheKey(url);
     const cached = index[cacheKey];
 
-    if (cached && cached.version === version) {
-      // Verify file still exists
+    if (cached) {
+      // Verify file still exists (don't check version - URL is the source of truth)
       const file = new File(cached.localPath);
       if (file.exists) {
         cachedCount++;
@@ -399,7 +406,6 @@ export async function getLessonCacheStatus(
 export async function clearLessonCache(mediaUrls: string[]): Promise<void> {
   await withCacheIndexLock(async () => {
     const index = await getCacheIndex();
-    let deletedCount = 0;
 
     for (const url of mediaUrls) {
       const cacheKey = getCacheKey(url);
@@ -407,7 +413,6 @@ export async function clearLessonCache(mediaUrls: string[]): Promise<void> {
 
       // Clear any ongoing downloads for this URL
       if (activeDownloads.has(cacheKey)) {
-        console.log(`[cache-manager] Clearing active download for ${url}`);
         activeDownloads.delete(cacheKey);
       }
 
@@ -416,29 +421,27 @@ export async function clearLessonCache(mediaUrls: string[]): Promise<void> {
           const file = new File(cached.localPath);
           if (file.exists) {
             await file.delete();
-            deletedCount++;
           }
           delete index[cacheKey];
         } catch (error) {
-          console.error(`[cache-manager] Failed to delete ${url}:`, error);
+          console.error(`[cache-manager] Failed to delete cached file:`, error);
         }
       }
     }
 
     await saveCacheIndex(index);
-    console.log(`[cache-manager] Cleared ${deletedCount} cached files for lesson`);
   });
 }
 
 /**
  * Force re-download all media for a lesson
  * @param mediaUrls - Array of media URLs
- * @param version - Current version
+ * @param version - Current version (optional - used for tracking)
  * @param onProgress - Progress callback (url, progress)
  */
 export async function redownloadLessonMedia(
   mediaUrls: string[],
-  version: string,
+  version?: string,
   onProgress?: (url: string, progress: number) => void
 ): Promise<void> {
   // First clear existing cache

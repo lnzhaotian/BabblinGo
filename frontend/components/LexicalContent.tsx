@@ -254,9 +254,6 @@ const parseLexicalContent = (body: LexicalRichText | null | undefined): ContentB
         }
         case "upload":
         case "image": {
-          // Debug log for image/upload node
-          // eslint-disable-next-line no-console
-          console.log('[LexicalContent] image/upload node:', JSON.stringify(node, null, 2))
           const value = node.value ?? null
           let url = resolveMediaUrl(value)
           // Fallback: if resolveMediaUrl fails, use value.url directly
@@ -267,8 +264,6 @@ const parseLexicalContent = (body: LexicalRichText | null | undefined): ContentB
             // Determine media type from the value object
             const mimeType = value?.mimeType || value?.mime_type || ""
             let blockType: "image" | "audio" | "video" = "image"
-            console.log('[LexicalContent] resolved mimeType:', mimeType)
-            console.log('[LexicalContent] resolved blockType:', blockType)
             
             if (mimeType.startsWith("audio/")) {
               blockType = "audio"
