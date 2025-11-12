@@ -285,12 +285,16 @@ export default function ProgressScreen() {
     const points: ChartPoint[] = []
 
     if (timeframe === "7d") {
+      // Generate points for the last 7 days (including today)
+      const todayTimestamp = today.getTime()
       for (let offset = 6; offset >= 0; offset -= 1) {
-        const day = new Date(today)
-        day.setDate(today.getDate() - offset)
-        const key = day.getTime()
-        const total = totalsByDay.get(key) ?? 0
-        points.push({ id: key.toString(), label: formatWeekday.format(day), total })
+        const dayTimestamp = todayTimestamp - (offset * 24 * 60 * 60 * 1000)
+        // Create a date for display using the actual local date, not the UTC representation
+        const displayDate = new Date()
+        displayDate.setHours(0, 0, 0, 0)
+        displayDate.setDate(displayDate.getDate() - offset)
+        const total = totalsByDay.get(dayTimestamp) ?? 0
+        points.push({ id: dayTimestamp.toString(), label: formatWeekday.format(displayDate), total })
       }
     } else if (timeframe === "30d") {
       const start = new Date(today)
@@ -384,18 +388,20 @@ export default function ProgressScreen() {
   const chartBars = chart.points.map((point) => {
     const normalized = chart.max > 0 ? point.total / chart.max : 0
     const height = Math.max(4, Math.round(normalized * BAR_MAX_HEIGHT))
+    // Use narrower bars for 7-day view to fit all 7 bars on screen
+    const barWidth = timeframe === "7d" ? 18 : 22
     return (
-      <View key={point.id} style={{ alignItems: "center", justifyContent: "flex-end", width: 48 }}>
+      <View key={point.id} style={{ alignItems: "center", justifyContent: "flex-end", flex: timeframe === "7d" ? 1 : 0, minWidth: timeframe === "7d" ? 0 : 48 }}>
         <View
           style={{
-            width: 22,
+            width: barWidth,
             height,
             borderRadius: 8,
             backgroundColor: colorScheme === 'dark' ? '#6366f1' : '#6366f1',
           }}
         />
         <Text
-          style={{ marginTop: 6, fontSize: 12, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", textAlign: "center" }}
+          style={{ marginTop: 6, fontSize: 11, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", textAlign: "center" }}
           numberOfLines={2}
         >
           {point.label}
@@ -562,7 +568,7 @@ export default function ProgressScreen() {
               </View>
               {/* Bars layer */}
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: 4, paddingRight: 16 }}>
-                <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12 }}>{chartBars}</View>
+                <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: timeframe === "7d" ? 8 : 12 }}>{chartBars}</View>
               </ScrollView>
             </View>
           </View>
@@ -592,7 +598,7 @@ export default function ProgressScreen() {
                 ))}
               </View>
               {/* Bars layer */}
-              <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: 12, paddingVertical: 4 }}>{chartBars}</View>
+              <View style={{ flexDirection: "row", alignItems: "flex-end", minHeight: BAR_MAX_HEIGHT, gap: timeframe === "7d" ? 4 : 12, paddingVertical: 4 }}>{chartBars}</View>
             </View>
           </View>
         )}
@@ -611,12 +617,12 @@ export default function ProgressScreen() {
         ListFooterComponent={() => (
           hasMore ? (
             <View style={{ paddingVertical: 16, alignItems: "center" }}>
-              <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }}>Loading more…</Text>
+              <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }}>{t("progress.loadingMore")}</Text>
             </View>
           ) : (
             filteredSessions.length > 0 ? (
               <View style={{ paddingVertical: 16, alignItems: "center" }}>
-                <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }}>End of history</Text>
+                <Text style={{ color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280' }}>{t("progress.endOfHistory")}</Text>
               </View>
             ) : null
           )
@@ -656,11 +662,22 @@ export default function ProgressScreen() {
           const detailLine = [courseTitle, meta?.levelLabel].filter(Boolean).join(" • ")
           return (
             <Swipeable
+              friction={2}
+              overshootRight={false}
+              rightThreshold={40}
               renderRightActions={() => (
-                <View style={{ justifyContent: "center", alignItems: "center" }}>
+                <View style={{ justifyContent: "center", alignItems: "flex-end", width: 100, marginRight: 0 }}>
                   <Pressable
                     onPress={() => deleteSession(item.id)}
-                    style={{ backgroundColor: colorScheme === 'dark' ? '#ef4444' : "#ef4444", paddingHorizontal: 16, paddingVertical: 12, borderRadius: 8, marginRight: 12 }}
+                    style={{ 
+                      backgroundColor: colorScheme === 'dark' ? '#ef4444' : "#ef4444", 
+                      paddingHorizontal: 24, 
+                      paddingVertical: 12, 
+                      borderRadius: 8, 
+                      marginRight: 12,
+                      justifyContent: 'center',
+                      height: '80%'
+                    }}
                   >
                     <Text style={{ color: '#fff', fontWeight: "700" }}>{t("progress.delete")}</Text>
                   </Pressable>

@@ -178,3 +178,69 @@ When you have enough content to justify separate tabs, follow these steps:
 - `app/(tabs)/index.tsx` - Home screen (currently combined, revert to courses only)
 - `app/(tabs)/tools.tsx` - Tools screen (already complete, just hidden)
 
+## Recent Updates
+
+### November 12, 2025
+
+#### Image Rendering Fix
+- **Issue**: Audio playlist module pages were not rendering images from LexicalContent
+- **Solution**: Added `LexicalContent` component to `AudioPlaylistModuleView` to properly render rich content including images
+- **Enhancement**: Implemented aspect ratio calculation from image dimensions for proper display
+
+#### Audio Player Improvements
+- **Progress Bar**: Added native seekable progress bar using `@react-native-community/slider`
+  - Shows current time and duration in mm:ss format
+  - Smooth dragging for seeking to any position
+  - Only displays in audio playlist modules (conditional via `showProgressBar` prop)
+  - Not shown in audioSlideshow modules to avoid redundancy
+- **Cleanup**: Removed deprecated `expo-av` dependency, fully migrated to `expo-audio`
+
+#### Cache System Major Refactor
+- **Critical Bug Fixed**: Infinite download loop when multiple lessons shared the same media file
+- **Root Cause**: Version-based caching was incompatible with shared resources (different lessons had different `updatedAt` timestamps)
+- **Solution**: Migrated from version-based to URL-based caching (CDN best practice)
+  - URL is now the source of truth for cache identification
+  - Version parameter made optional throughout cache manager
+  - Same media file cached once and reused across all lessons/modules
+  - Unique filenames using cache keys prevent collisions
+- **Benefits**: Proper multi-lesson shared media support, no version conflicts, reduced storage usage
+
+#### Progress Tab Enhancements
+- **Total Filtered Time**: Added summary card showing total learning time for current filter selection
+  - Displays between filter pills and chart
+  - Updates dynamically with timeframe and course filters
+  - Formatted consistently with other time displays
+- **Chart Y-Axis**: Added vertical scale with three evenly-spaced labels (max, half, zero)
+- **Grid Lines**: Added subtle horizontal grid lines aligned with Y-axis labels
+  - Very light opacity to not interfere with data visualization
+  - Makes bar value estimation much easier
+- **Translations**: Added "Total Learning Time" / "学习总时长"
+
+#### Swipe-to-Delete Improvements
+- **Enhanced Gesture**: Improved `Swipeable` component configuration for better responsiveness
+  - Added `friction={2}` for more natural feel
+  - Added `overshootRight={false}` to prevent over-scrolling
+  - Lowered `rightThreshold={40}` for easier triggering
+  - Better button sizing and alignment
+- **Previous Issue**: Swipe gesture was difficult to trigger due to missing configuration properties
+
+#### Learning Records Management
+- **New Settings Screen**: Added "Learning Records" management (`/settings/records`)
+  - Similar interface to cache management
+  - Shows total sessions count and total learning time
+  - Statistics display with refresh capability
+  - Clear all records with safety confirmation dialog
+  - Prominent warning about permanent deletion
+  - Located between Cache and Theme in settings menu
+  - Icon: Orange history icon
+- **Translations**: Full English and Chinese support for all new strings
+- **Safety**: Prevents accidental deletion by requiring confirmation and showing clear warnings
+
+#### Debug Logging Cleanup
+- Removed excessive console logs from:
+  - Cache manager operations (kept only error logs)
+  - Audio player progress updates
+  - Image/upload node processing in LexicalContent
+- Cleaner console output for production while maintaining error visibility for debugging
+
+

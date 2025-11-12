@@ -111,6 +111,15 @@ export default function Settings() {
       showChevron: true,
     },
     {
+      id: "records",
+      icon: "history" as keyof typeof MaterialIcons.glyphMap,
+      iconColor: "#f59e0b",
+      titleKey: "settings.records.title",
+      descriptionKey: "settings.records.description",
+      route: "/settings/records",
+      showChevron: true,
+    },
+    {
       id: "theme",
       icon: "dark-mode" as keyof typeof MaterialIcons.glyphMap,
       iconColor: "#6366f1",

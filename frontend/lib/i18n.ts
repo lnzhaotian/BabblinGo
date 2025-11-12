@@ -58,7 +58,7 @@ const resources = {
       "profile.invalidUrl": "Please enter a valid URL",
       // Tabs
       "tabs.home": "Home",
-  "tabs.tools": "Toolbox",
+      "tabs.tools": "Toolbox",
       "tabs.progress": "History",
       "tabs.settings": "Settings",
 
@@ -137,11 +137,11 @@ const resources = {
       "lesson.video.controls.forward": "Forward 10s",
       "lesson.video.controls.speed": "Speed",
       "lesson.video.controls.speedLabel": "{{value}}x",
-  "lesson.video.controls.mute": "Mute",
-  "lesson.video.controls.unmute": "Unmute",
-  "lesson.video.controls.fullscreen": "Fullscreen",
-  "lesson.video.controls.exitFullscreen": "Exit fullscreen",
-  "lesson.video.controls.scrub": "Seek position",
+      "lesson.video.controls.mute": "Mute",
+      "lesson.video.controls.unmute": "Unmute",
+      "lesson.video.controls.fullscreen": "Fullscreen",
+      "lesson.video.controls.exitFullscreen": "Exit fullscreen",
+      "lesson.video.controls.scrub": "Seek position",
 
       // Timer
       "timer.set": "Set session timer",
@@ -189,6 +189,8 @@ const resources = {
       "progress.actual": "actual",
       "progress.unfinished": "unfinished",
       "progress.totalFiltered": "Total Learning Time",
+      "progress.loadingMore": "Loading more…",
+      "progress.endOfHistory": "End of history",
 
       // Settings
       "settings.title": "Settings",
@@ -218,6 +220,21 @@ const resources = {
       "settings.cache.cleared": "Cache Cleared",
       "settings.cache.clearedMessage": "All cached files have been removed.",
       "settings.cache.clearError": "Failed to clear cache. Please try again.",
+      "settings.records.title": "Learning Records",
+      "settings.records.description":
+        "Manage your learning history and statistics",
+      "settings.records.sessions": "Sessions",
+      "settings.records.totalTime": "Total Time",
+      "settings.records.clearConfirmTitle": "Clear All Records?",
+      "settings.records.clearConfirmMessage":
+        "This will permanently delete all your learning history. This action cannot be undone.",
+      "settings.records.cleared": "Records Cleared",
+      "settings.records.clearedMessage":
+        "All learning records have been removed.",
+      "settings.records.clearError":
+        "Failed to clear records. Please try again.",
+      "settings.records.warning":
+        "Warning: Clearing records will permanently delete all your learning history. This action cannot be undone.",
       "settings.learning.title": "Learning Preferences",
       "settings.learning.sessionLength": "Default Session Length",
       "settings.learning.sessionLengthDesc":
@@ -322,7 +339,7 @@ const resources = {
       "profile.invalidUrl": "请输入有效的网址",
       // Tabs
       "tabs.home": "首页",
-  "tabs.tools": "工具",
+      "tabs.tools": "工具",
       "tabs.progress": "记录",
       "tabs.settings": "设置",
 
@@ -390,11 +407,11 @@ const resources = {
       "lesson.video.controls.forward": "前进 10 秒",
       "lesson.video.controls.speed": "播放速度",
       "lesson.video.controls.speedLabel": "{{value}} 倍",
-  "lesson.video.controls.mute": "静音",
-  "lesson.video.controls.unmute": "取消静音",
-  "lesson.video.controls.fullscreen": "全屏",
-  "lesson.video.controls.exitFullscreen": "退出全屏",
-  "lesson.video.controls.scrub": "拖动进度",
+      "lesson.video.controls.mute": "静音",
+      "lesson.video.controls.unmute": "取消静音",
+      "lesson.video.controls.fullscreen": "全屏",
+      "lesson.video.controls.exitFullscreen": "退出全屏",
+      "lesson.video.controls.scrub": "拖动进度",
 
       // Course screen
       "course.loading": "正在加载课程...",
@@ -448,6 +465,8 @@ const resources = {
       "progress.actual": "实际",
       "progress.unfinished": "未完成",
       "progress.totalFiltered": "学习总时长",
+      "progress.loadingMore": "加载更多…",
+      "progress.endOfHistory": "已到底部",
 
       // Settings
       "settings.title": "设置",
@@ -476,6 +495,18 @@ const resources = {
       "settings.cache.cleared": "缓存已清除",
       "settings.cache.clearedMessage": "所有缓存文件已删除。",
       "settings.cache.clearError": "清除缓存失败，请重试。",
+      "settings.records.title": "学习记录",
+      "settings.records.description": "管理您的学习历史和统计数据",
+      "settings.records.sessions": "学习次数",
+      "settings.records.totalTime": "总时长",
+      "settings.records.clearConfirmTitle": "清除全部记录？",
+      "settings.records.clearConfirmMessage":
+        "这将永久删除您的所有学习历史记录。此操作无法撤销。",
+      "settings.records.cleared": "记录已清除",
+      "settings.records.clearedMessage": "所有学习记录已删除。",
+      "settings.records.clearError": "清除记录失败，请重试。",
+      "settings.records.warning":
+        "警告：清除记录将永久删除您的所有学习历史。此操作无法撤销。",
       "settings.learning.title": "学习偏好设置",
       "settings.learning.sessionLength": "默认学习时长",
       "settings.learning.sessionLengthDesc": "开始学习时的默认时长",
