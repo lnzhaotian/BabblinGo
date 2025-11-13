@@ -227,7 +227,7 @@ export default function Index() {
           backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
           padding: 18,
           shadowColor: colorScheme === 'dark' ? '#000' : '#000',
-          shadowOpacity: colorScheme === 'dark' ? 0.35 : 0.07,
+          shadowOpacity: colorScheme === 'dark' ? 0.4 : 0.08,
           shadowRadius: 12,
           shadowOffset: { width: 0, height: 4 },
           elevation: 2,
