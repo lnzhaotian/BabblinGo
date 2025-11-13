@@ -443,21 +443,19 @@ export default function ProgressScreen() {
 
   const deleteSession = useCallback(async (id: string) => {
     try {
-      console.log('[progress] deleteSession invoked', { id })
       // Read current records to capture serverId before local removal
       const key = LEARNING_SESSIONS_STORAGE_KEY
       const raw = await AsyncStorage.getItem(key)
       const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
       const rec = arr.find((s) => s.id === id)
       const serverId = rec?.serverId
-      console.log('[progress] deleteSession serverId lookup', { id, hasServerId: !!serverId })
       const next = arr.filter((s) => s.id !== id)
       await AsyncStorage.setItem(key, JSON.stringify(next))
       setSessions((cur) => cur.filter((s) => s.id !== id))
 
       // Best-effort server deletion
-      deleteLearningRecord(id, serverId).catch((e) => {
-        console.warn('[progress] deleteSession remote delete failed', { id, error: e?.message || String(e) })
+      deleteLearningRecord(id, serverId).catch(() => {
+        // Silently continue if server delete fails
       })
     } catch {}
   }, [])
