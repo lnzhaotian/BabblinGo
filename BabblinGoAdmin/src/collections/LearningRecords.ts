@@ -1,19 +1,16 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
 import type { LearningRecord, User } from '../payload-types'
 
-type ManageArgs = {
-  req: PayloadRequest
-  doc?: {
-    user?: string | { id?: string | null } | null
-  } | null
-}
-
-const canManage = ({ req, doc }: ManageArgs) => {
-  const user = req?.user
+// Access helpers: allow managers/editors full access; otherwise constrain by ownership via where clause
+const canManageWhere = ({ req }: { req: PayloadRequest }) => {
+  const user = req?.user as User | undefined
   if (!user) return false
   if (user.role === 'manager' || user.role === 'editor') return true
-  const ownerId = typeof doc?.user === 'string' ? doc.user : doc?.user?.id
-  return ownerId === user.id
+  return {
+    user: {
+      equals: user.id,
+    },
+  } as const
 }
 
 export const LearningRecords: CollectionConfig = {
@@ -168,7 +165,7 @@ export const LearningRecords: CollectionConfig = {
   ],
   access: {
     read: ({ req }) => {
-      const user = req?.user
+      const user = req?.user as User | undefined
       if (!user) return false
       if (user.role === 'manager' || user.role === 'editor') {
         return true
@@ -177,11 +174,11 @@ export const LearningRecords: CollectionConfig = {
         user: {
           equals: user.id,
         },
-      }
+      } as const
     },
     create: ({ req }) => !!req?.user,
-    update: (args) => canManage(args),
-    delete: (args) => canManage(args),
+    update: canManageWhere,
+    delete: canManageWhere,
   },
   hooks: {
     beforeValidate: [
