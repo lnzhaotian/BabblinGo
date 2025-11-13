@@ -9,6 +9,7 @@ import { useThemeMode } from "../theme-context";
 import { ThemedHeader } from "@/components/ThemedHeader";
 import { LEARNING_SESSIONS_STORAGE_KEY } from "@/lib/learning-types";
 import type { SessionRecord } from "@/lib/learning-types";
+import { clearAllLearningRecords } from "@/lib/learning-sync";
 
 export default function RecordsSettings() {
   const { t } = useTranslation();
@@ -62,7 +63,11 @@ export default function RecordsSettings() {
           onPress: async () => {
             setClearing(true);
             try {
-              await AsyncStorage.removeItem(LEARNING_SESSIONS_STORAGE_KEY);
+              // Attempt remote deletion if authenticated; always clear local
+              const result = await clearAllLearningRecords();
+              if (result.unauthorized) {
+                console.warn("Clear all learning records: unauthorized; cleared locally only");
+              }
               await loadRecordsStats();
               Alert.alert(
                 t("settings.records.cleared"),

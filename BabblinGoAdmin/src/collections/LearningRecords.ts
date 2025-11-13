@@ -1,4 +1,5 @@
 import type { CollectionConfig, PayloadRequest } from 'payload'
+import type { LearningRecord, User } from '../payload-types'
 
 type ManageArgs = {
   req: PayloadRequest
@@ -23,6 +24,148 @@ export const LearningRecords: CollectionConfig = {
     defaultColumns: ['user', 'lessonTitle', 'finished', 'updatedAt'],
   },
   timestamps: true,
+  endpoints: [
+    {
+      // DELETE /api/learning-records
+      path: '/',
+      method: 'delete',
+      handler: async (req: PayloadRequest) => {
+        try {
+          const user = req?.user as User | undefined
+          if (!user) return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+
+          const isManager = user.role === 'manager' || user.role === 'editor'
+          const where = isManager
+            ? undefined
+            : {
+                user: {
+                  equals: user.id,
+                },
+              } as const
+
+          let deleted = 0
+          // Iterate through pages to delete all matching docs
+          // Use a reasonable page size to avoid long transactions
+          const pageSize = 100
+          while (true) {
+            const batch = await req.payload.find({
+              collection: 'learning-records',
+              where,
+              limit: pageSize,
+              page: 1,
+              depth: 0,
+            })
+            const docsContainer = batch as unknown as { docs?: LearningRecord[] }
+            const docs = Array.isArray(docsContainer.docs) ? docsContainer.docs : []
+            if (docs.length === 0) break
+
+            for (const doc of docs) {
+              try {
+                // For safety, re-check ownership for non-managers
+                if (!isManager) {
+                  const ownerId = typeof doc.user === 'string' ? doc.user : (doc.user as User)?.id
+                  if (ownerId !== user.id) continue
+                }
+                await req.payload.delete({ collection: 'learning-records', id: doc.id })
+                deleted += 1
+              } catch (_) {
+                // continue deleting others on failure
+              }
+            }
+
+            // If fewer than page size, we're done
+            if (docs.length < pageSize) break
+          }
+
+          return Response.json({ ok: true, deleted })
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e)
+          return Response.json({ errors: [{ message }] }, { status: 500 })
+        }
+      },
+    },
+    {
+      // POST /api/learning-records/bulk-delete  { ids?: string[] }
+      path: '/bulk-delete',
+      method: 'post',
+      handler: async (req: PayloadRequest) => {
+        try {
+          const user = req?.user as User | undefined
+          if (!user) return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
+          const isManager = user.role === 'manager' || user.role === 'editor'
+          let ids: string[] = []
+          const incoming: unknown = (req as PayloadRequest).body as unknown
+          if (
+            incoming &&
+            typeof incoming === 'object' &&
+            'ids' in (incoming as Record<string, unknown>) &&
+            Array.isArray((incoming as { ids?: unknown }).ids)
+          ) {
+            ids = ((incoming as { ids?: unknown }).ids as unknown[]).filter((v): v is string => typeof v === 'string')
+          }
+          let deleted = 0
+
+          if (ids.length > 0) {
+            // Targeted deletion
+            for (const id of ids) {
+              try {
+                const doc = (await req.payload.findByID({ collection: 'learning-records', id, depth: 0 })) as unknown as LearningRecord
+                if (!doc) continue
+                if (!isManager) {
+                  const ownerId = typeof doc.user === 'string' ? doc.user : (doc.user as User)?.id
+                  if (ownerId !== user.id) continue
+                }
+                await req.payload.delete({ collection: 'learning-records', id })
+                deleted += 1
+              } catch (_) {
+                // ignore and continue
+              }
+            }
+          } else {
+            // Delete all for current user (or all if manager)
+            const where = isManager
+              ? undefined
+              : {
+                  user: {
+                    equals: user.id,
+                  },
+                } as const
+            const pageSize = 100
+            while (true) {
+              const batch = await req.payload.find({
+                collection: 'learning-records',
+                where,
+                limit: pageSize,
+                page: 1,
+                depth: 0,
+              })
+              const docsContainer = batch as unknown as { docs?: LearningRecord[] }
+              const docs = Array.isArray(docsContainer.docs) ? docsContainer.docs : []
+              if (docs.length === 0) break
+              for (const doc of docs) {
+                try {
+                  if (!isManager) {
+                    const ownerId = typeof doc.user === 'string' ? doc.user : (doc.user as User)?.id
+                    if (ownerId !== user.id) continue
+                  }
+                  await req.payload.delete({ collection: 'learning-records', id: doc.id })
+                  deleted += 1
+                } catch (_) {
+                  // ignore and continue
+                }
+              }
+              if (docs.length < pageSize) break
+            }
+          }
+
+          return Response.json({ ok: true, deleted })
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e)
+          return Response.json({ errors: [{ message }] }, { status: 500 })
+        }
+      },
+    },
+  ],
   access: {
     read: ({ req }) => {
       const user = req?.user

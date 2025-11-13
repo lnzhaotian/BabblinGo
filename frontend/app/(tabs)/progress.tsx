@@ -8,7 +8,7 @@ import { CourseDoc, fetchCourseById, fetchLessonById, resolveLocalizedField } fr
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import type { SessionRecord } from "@/lib/learning-types"
 import { LEARNING_SESSIONS_STORAGE_KEY } from "@/lib/learning-types"
-import { scheduleLearningRecordSync } from "../../lib/learning-sync"
+import { scheduleLearningRecordSync, deleteLearningRecord } from "../../lib/learning-sync"
 import { useThemeMode } from "../theme-context"
 
 type LessonMeta = {
@@ -443,13 +443,22 @@ export default function ProgressScreen() {
 
   const deleteSession = useCallback(async (id: string) => {
     try {
-  const key = LEARNING_SESSIONS_STORAGE_KEY
-  const raw = await AsyncStorage.getItem(key)
+      console.log('[progress] deleteSession invoked', { id })
+      // Read current records to capture serverId before local removal
+      const key = LEARNING_SESSIONS_STORAGE_KEY
+      const raw = await AsyncStorage.getItem(key)
       const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
+      const rec = arr.find((s) => s.id === id)
+      const serverId = rec?.serverId
+      console.log('[progress] deleteSession serverId lookup', { id, hasServerId: !!serverId })
       const next = arr.filter((s) => s.id !== id)
       await AsyncStorage.setItem(key, JSON.stringify(next))
-      // Update state
       setSessions((cur) => cur.filter((s) => s.id !== id))
+
+      // Best-effort server deletion
+      deleteLearningRecord(id, serverId).catch((e) => {
+        console.warn('[progress] deleteSession remote delete failed', { id, error: e?.message || String(e) })
+      })
     } catch {}
   }, [])
 

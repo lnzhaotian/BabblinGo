@@ -8,7 +8,7 @@ import {
 } from "./analytics"
 import type { LearningSyncFetchStatus } from "./analytics"
 import type { SessionRecord } from "./learning-types"
-import { LEARNING_SESSIONS_STORAGE_KEY } from "./learning-types"
+import { LEARNING_SESSIONS_STORAGE_KEY, LEARNING_SESSIONS_IGNORED_IDS_KEY } from "./learning-types"
 import { clearAuthSession, getAuthToken } from "./auth-session"
 
 const ENDPOINT = `${config.apiUrl}/api/learning-records`
@@ -47,6 +47,25 @@ const normalizeSpeed = (value: unknown) => {
 
 const countDirtySessions = (sessions: SessionRecord[]): number =>
   sessions.reduce((acc, session) => acc + ((session.dirty || !session.serverId) ? 1 : 0), 0)
+
+// Local ignore list (tombstones) for records the user deleted but server refused.
+async function loadIgnoredIds(): Promise<Set<string>> {
+  try {
+    const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_IGNORED_IDS_KEY)
+    const arr: string[] = raw ? JSON.parse(raw) : []
+    return new Set(arr)
+  } catch {
+    return new Set()
+  }
+}
+
+async function saveIgnoredIds(ids: Set<string>): Promise<void> {
+  try {
+    await AsyncStorage.setItem(LEARNING_SESSIONS_IGNORED_IDS_KEY, JSON.stringify(Array.from(ids)))
+  } catch (e) {
+    console.warn("[learning] failed to persist ignored ids", e)
+  }
+}
 
 type RemoteRecord = {
   id: string
@@ -164,9 +183,17 @@ async function fetchRemoteRecords(token: string): Promise<RemoteFetchResult> {
         ? data.data
         : []
 
+    const ignored = await loadIgnoredIds()
     const records = docs
       .map((doc) => fromRemoteRecord(doc))
       .filter((doc): doc is SessionRecord => Boolean(doc))
+      .filter((rec) => {
+        const drop = ignored.has(rec.id) || (rec.serverId ? ignored.has(rec.serverId) : false)
+        if (drop) {
+          console.log("[learning] fetchRemoteRecords:ignored-remote", { id: rec.id, serverId: rec.serverId })
+        }
+        return !drop
+      })
 
     return { records, status: 'ok' }
   } catch (error) {
@@ -419,4 +446,213 @@ export function scheduleLearningRecordSync(): Promise<void> {
       })
   }
   return inFlight
+}
+
+// Delete a single learning record locally by client id
+async function deleteLocalRecordById(id: string): Promise<void> {
+  try {
+    const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
+    const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
+    const next = arr.filter((s) => s.id !== id)
+    await AsyncStorage.setItem(LEARNING_SESSIONS_STORAGE_KEY, JSON.stringify(next))
+  } catch (e) {
+    console.warn("Failed to delete local learning record", e)
+  }
+}
+
+// Attempt to delete a single learning record on the server (if logged in), then remove locally
+export async function deleteLearningRecord(id: string, serverIdOverride?: string): Promise<{
+  ok: boolean
+  remote: boolean
+  unauthorized?: boolean
+  statusCode?: number
+  errorMessage?: string
+}> {
+  console.log("[learning] deleteLearningRecord:start", { id, providedServerId: !!serverIdOverride })
+  // Look up the local record to get serverId if not provided
+  const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
+  const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
+  const rec = arr.find((s) => s.id === id)
+  const serverId = serverIdOverride ?? rec?.serverId
+
+  let remote = false
+  let unauthorized = false
+  let statusCode: number | undefined
+  let errorMessage: string | undefined
+
+  const token = await getAuthToken()
+  if (token && serverId) {
+    try {
+      console.log("[learning] deleteLearningRecord:attempt-remote", { id, hasToken: !!token, serverId })
+      const res = await fetch(`${ENDPOINT}/${serverId}`, {
+        method: "DELETE",
+        headers: headersFor(token),
+      })
+      statusCode = res.status
+      if (res.status === 401 || res.status === 403) {
+        unauthorized = true
+        errorMessage = await res.text().catch(() => "")
+        console.warn("[learning] deleteLearningRecord:unauthorized", { id, status: res.status, errorMessage })
+      } else if (res.ok || res.status === 404) {
+        // 404: treat as already deleted server-side
+        remote = true
+        console.log("[learning] deleteLearningRecord:remote-ok", { id, status: res.status })
+      } else {
+        errorMessage = await res.text().catch(() => `status ${res.status}`)
+        console.warn("[learning] deleteLearningRecord:remote-failed", { id, status: res.status, errorMessage })
+      }
+    } catch (e) {
+      errorMessage = e instanceof Error ? e.message : String(e)
+      console.warn("[learning] deleteLearningRecord:remote-error", { id, errorMessage })
+    }
+  } else {
+    console.log("[learning] deleteLearningRecord:skip-remote", { id, hasToken: !!token, hasServerId: !!serverId })
+  }
+
+  // Always delete locally regardless of remote outcome to respect user intent
+  console.log("[learning] deleteLearningRecord:local-delete", { id })
+  await deleteLocalRecordById(id)
+
+  // Maintain tombstone if remote failed/unauthorized, remove tombstone if remote succeeded
+  try {
+    const ignored = await loadIgnoredIds()
+    if (remote) {
+      // ensure any tombstone is cleared
+      ignored.delete(id)
+      if (serverId) ignored.delete(serverId)
+    } else {
+      ignored.add(id)
+      if (serverId) ignored.add(serverId)
+    }
+    await saveIgnoredIds(ignored)
+  } catch (e) {
+    console.warn("[learning] deleteLearningRecord:ignored-set-update-failed", e)
+  }
+
+  return {
+    ok: true,
+    remote,
+    unauthorized,
+    statusCode,
+    errorMessage,
+  }
+}
+
+// Clear all learning records both server-side (best-effort) and locally
+export async function clearAllLearningRecords(): Promise<{
+  ok: boolean
+  remoteAttempted: boolean
+  remoteDeleted: number
+  unauthorized?: boolean
+  statusCode?: number
+  errorMessage?: string
+}> {
+  console.log("[learning] clearAllLearningRecords:start")
+  const token = await getAuthToken()
+  let remoteAttempted = false
+  let remoteDeleted = 0
+  let unauthorized = false
+  let statusCode: number | undefined
+  let errorMessage: string | undefined
+
+  try {
+    if (token) {
+      remoteAttempted = true
+      console.log("[learning] clearAllLearningRecords:has-token")
+      // Try bulk delete endpoint first (DELETE /api/learning-records)
+      let bulkResp: Response | null = null
+      try {
+        bulkResp = await fetch(ENDPOINT, {
+          method: "DELETE",
+          headers: headersFor(token),
+        })
+      } catch {
+        // network or other failure, fall through to per-record
+        bulkResp = null
+      }
+
+      if (bulkResp) {
+        statusCode = bulkResp.status
+        if (bulkResp.status === 401 || bulkResp.status === 403) {
+          unauthorized = true
+          errorMessage = await bulkResp.text().catch(() => "")
+          console.warn("[learning] clearAllLearningRecords:unauthorized", { status: bulkResp.status, errorMessage })
+        } else if (bulkResp.ok || bulkResp.status === 404 || bulkResp.status === 405) {
+          // 404/405: treat as unsupported; we'll do per-record fallback
+          if (bulkResp.ok) {
+            // If server reports how many deleted, try to read it; otherwise assume success
+            try {
+              const json = await bulkResp.json().catch(() => null)
+              if (json && typeof json.deleted === 'number') {
+                remoteDeleted = json.deleted
+              }
+            } catch {}
+            console.log("[learning] clearAllLearningRecords:bulk-ok", { deleted: remoteDeleted })
+          }
+        } else {
+          errorMessage = await bulkResp.text().catch(() => `status ${bulkResp.status}`)
+          console.warn("[learning] clearAllLearningRecords:bulk-failed", { status: bulkResp.status, errorMessage })
+        }
+      }
+
+      // If bulk not ok or unsupported, fall back to deleting each known server record
+      if (!unauthorized && (statusCode == null || !bulkResp || (!bulkResp.ok && bulkResp.status !== 404 && bulkResp.status !== 405))) {
+        const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
+        const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
+        const serverIds = arr.map((s) => s.serverId).filter((v): v is string => !!v)
+        console.log("[learning] clearAllLearningRecords:fallback-per-record", { count: serverIds.length })
+        for (const sid of serverIds) {
+          try {
+            const res = await fetch(`${ENDPOINT}/${sid}`, {
+              method: "DELETE",
+              headers: headersFor(token),
+            })
+            if (res.status === 401 || res.status === 403) {
+              unauthorized = true
+              statusCode = res.status
+              errorMessage = await res.text().catch(() => "")
+              break
+            }
+            if (res.ok || res.status === 404) {
+              remoteDeleted += 1
+            }
+          } catch {
+            // ignore per-item failure
+          }
+        }
+        console.log("[learning] clearAllLearningRecords:fallback-result", { remoteDeleted })
+      }
+    }
+  } catch (e) {
+    errorMessage = e instanceof Error ? e.message : String(e)
+  }
+
+  // Always clear local storage
+  try {
+    await AsyncStorage.removeItem(LEARNING_SESSIONS_STORAGE_KEY)
+    console.log("[learning] clearAllLearningRecords:local-cleared")
+  } catch (e) {
+    console.warn("Failed to clear local learning records", e)
+  }
+
+  // If remote wasn't allowed or failed, set tombstones for all known records to avoid resurrection on fetch
+  try {
+    if (unauthorized || (remoteAttempted && remoteDeleted === 0)) {
+      const rawExisting = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
+      const arr: SessionRecord[] = rawExisting ? JSON.parse(rawExisting) : []
+      const ids = new Set<string>()
+      for (const s of arr) {
+        ids.add(s.id)
+        if (s.serverId) ids.add(s.serverId)
+      }
+      const ignored = await loadIgnoredIds()
+      for (const v of ids) ignored.add(v)
+      await saveIgnoredIds(ignored)
+      console.log("[learning] clearAllLearningRecords:set-tombstones", { count: ids.size })
+    }
+  } catch (e) {
+    console.warn("[learning] clearAllLearningRecords:tombstone-failed", e)
+  }
+
+  return { ok: true, remoteAttempted, remoteDeleted, unauthorized, statusCode, errorMessage }
 }

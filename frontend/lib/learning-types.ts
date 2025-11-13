@@ -20,3 +20,4 @@ export interface SessionRecord {
 }
 
 export const LEARNING_SESSIONS_STORAGE_KEY = "learning.sessions"
+export const LEARNING_SESSIONS_IGNORED_IDS_KEY = "learning.sessions.ignored"
