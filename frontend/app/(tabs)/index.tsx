@@ -120,7 +120,6 @@ export default function Index() {
           marginHorizontal: 16,
           marginBottom: 16,
           borderRadius: 16,
-          overflow: "hidden",
           backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
           borderWidth: colorScheme === 'dark' ? 1 : 0,
           borderColor: colorScheme === 'dark' ? '#2f2f36' : 'transparent',
@@ -225,7 +224,7 @@ export default function Index() {
           marginBottom: 16,
           borderRadius: 16,
           backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
-          padding: 18,
+          // padding: 18,
           shadowColor: colorScheme === 'dark' ? '#000' : '#000',
           shadowOpacity: colorScheme === 'dark' ? 0.4 : 0.08,
           shadowRadius: 12,
@@ -235,19 +234,20 @@ export default function Index() {
           borderColor: colorScheme === 'dark' ? '#2f2f36' : 'transparent',
         }}
       >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
+        <View style={{ flexDirection: "row", padding: 16 }}>
           <View
             style={{
-              width: 48,
-              height: 48,
+              width: 72,
+              height: 72,
               borderRadius: 12,
-              backgroundColor: colorScheme === 'dark' ? '#1e1e26' : '#eef2ff',
+              backgroundColor: colorScheme === 'dark' ? '#18181b' : '#eef2ff',
               justifyContent: "center",
               alignItems: "center",
+              overflow: "hidden",
               marginRight: 16,
             }}
           >
-            <MaterialIcons name={iconName} size={28} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
+            <MaterialIcons name={iconName} size={32} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
           </View>
 
           <View style={{ flex: 1 }}>
@@ -275,12 +275,12 @@ export default function Index() {
 
             {category ? (
               <View style={{
-                marginTop: 12,
-                alignSelf: "flex-start",
-                borderRadius: 999,
                 paddingHorizontal: 10,
                 paddingVertical: 4,
+                borderRadius: 999,
                 backgroundColor: colorScheme === 'dark' ? '#312e81' : '#e0e7ff',
+                marginRight: 8,
+                marginBottom: 8,
               }}>
                 <Text style={{ color: colorScheme === 'dark' ? '#c7d2fe' : '#4338ca', fontSize: 12, fontWeight: "600" }}>
                   {category}
@@ -288,8 +288,9 @@ export default function Index() {
               </View>
             ) : null}
           </View>
-
-          <MaterialIcons name="chevron-right" size={24} color={colorScheme === 'dark' ? '#a1a1aa' : '#9ca3af'} />
+          <View style={{ justifyContent: "center", marginLeft: 8 }}>
+            <MaterialIcons name="chevron-right" size={28} color={colorScheme === 'dark' ? '#a1a1aa' : '#9ca3af'} />
+          </View>
         </View>
       </Pressable>
     );

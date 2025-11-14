@@ -61,6 +61,9 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const hasCalledFinishRef = useRef(false)
   // Track the intended play state (avoids relying on laggy status.playing during rate changes)
   const shouldBePlayingRef = useRef(false)
+  // Track and apply playback rate at the right time
+  const initialRateAppliedRef = useRef(false)
+  const lastSpeedRef = useRef<PlaybackSpeed>(speed)
   const ensurePlayingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const colorScheme = useColorScheme()
   const [themeMode, setThemeMode] = useState<string | null>(null)
@@ -89,20 +92,37 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Loading: ${track.title || track.id}`)
         await player.replace({ uri: track.audioUrl } as AudioSource)
         if (cancelled || !mountedRef.current) return
-        
-        // Don't block startup waiting for isLoaded; proceed and let status-driven
-        // auto-play handle any late load.
-        if (DEBUG && player.isLoaded) {
-          console.log(`[SingleTrack#${sessionIdRef.current}] Track already loaded`)
+
+        // Wait for isLoaded and valid duration before setting rate and playing
+        const waitForLoad = async () => {
+          let tries = 0
+          while (
+            (!player.isLoaded || !player.duration || !isFinite(player.duration)) &&
+            tries < 40 &&
+            !cancelled &&
+            mountedRef.current
+          ) {
+            await new Promise(res => setTimeout(res, 50))
+            tries++
+          }
         }
-        
-        await player.setPlaybackRate(speed)
+
+        if (!player.isLoaded || !player.duration || !isFinite(player.duration)) {
+          await waitForLoad()
+        }
+
+        if (DEBUG && player.isLoaded) {
+          console.log(`[SingleTrack#${sessionIdRef.current}] Track loaded for rate/play`)
+        }
+
         try { await player.seekTo(0) } catch {}
         if (cancelled || !mountedRef.current) return
 
         if (autoPlay && !suspend) {
           try {
+            // Always play first, then set playback rate (iOS/Expo AV applies rate only after play)
             await player.play()
+            await player.setPlaybackRate(speed)
             hasStartedRef.current = true
             shouldBePlayingRef.current = true
             startAtMsRef.current = Date.now()
@@ -118,10 +138,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
                 if (!suspend && shouldBePlayingRef.current && !nearEnd) {
                   // If status reports paused shortly after start, try to resume
                   if (!player.playing) {
-                    // Suppress extra log to avoid perceived flicker
-                    await player.setPlaybackRate(speed)
                     await player.play()
-                    // Keep UI state stable; avoid flipping icon during stabilization window
+                    await player.setPlaybackRate(speed)
                   }
                 }
               } catch {}
@@ -145,24 +163,29 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // When parent updates speed, set the playback rate and, if we intend to be playing,
   // explicitly resume. This avoids relying on status.playing, which can lag and cause
   // a missed resume on some platforms.
+  // Remember the latest requested speed for status-driven application
   useEffect(() => {
-    ;(async () => {
-      try {
-        const before = shouldBePlayingRef.current && !suspend
-        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] setPlaybackRate(${speed}) (intendsPlaying=${before})`)
-        await player.setPlaybackRate(speed)
-        // Some platforms pause on rate change; resume if we intend to be playing.
-        if (before) {
-          try {
-            await player.play()
-            if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Resume after rate change`)
-            hasStartedRef.current = true
-            startAtMsRef.current = Date.now()
-          } catch {}
-        }
-      } catch {}
+    lastSpeedRef.current = speed
+    if (DEBUG) {
+      const before = shouldBePlayingRef.current && !suspend
+      console.log(`[SingleTrack#${sessionIdRef.current}] setPlaybackRate(${speed}) (intendsPlaying=${before})`)
+    }
+  }, [speed, DEBUG, suspend])
+
+  // Apply playback rate when actually playing and loaded (handles long files and iOS engine timing)
+  useEffect(() => {
+    (async () => {
+      if (!status?.isLoaded) return
+      const durationValid = typeof status.duration === 'number' && isFinite(status.duration) && status.duration > 0
+      if (!durationValid) return
+      if (shouldBePlayingRef.current && status.playing) {
+        try {
+          await player.setPlaybackRate(lastSpeedRef.current)
+          initialRateAppliedRef.current = true
+        } catch {}
+      }
     })()
-  }, [player, speed, suspend, DEBUG])
+  }, [status, player])
 
   // Respond to suspend changes
   useEffect(() => {
@@ -184,8 +207,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       try {
         try { await player.seekTo(0) } catch {}
         hasCalledFinishRef.current = false
-        await player.setPlaybackRate(speed)
         await player.play()
+        try { await player.setPlaybackRate(lastSpeedRef.current) } catch {}
         setIsPlaying(true)
         shouldBePlayingRef.current = true
         hasStartedRef.current = true
@@ -378,8 +401,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           await player.seekTo(0)
           hasCalledFinishRef.current = false
         }
-        try { await player.setPlaybackRate(speed) } catch {}
         await player.play()
+        try { await player.setPlaybackRate(lastSpeedRef.current) } catch {}
         setIsPlaying(true)
         shouldBePlayingRef.current = true
         hasStartedRef.current = true
