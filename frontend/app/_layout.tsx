@@ -5,6 +5,7 @@ import i18n from "@/lib/i18n";
 import { ThemeProvider, useThemeMode } from "./theme-context";
 import * as SplashScreen from "expo-splash-screen";
 import { scheduleLearningRecordSync } from "../lib/learning-sync";
+import { setAudioModeAsync } from "expo-audio";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -37,6 +38,17 @@ function AppNavigator() {
       });
     }
   }, [hydrated, i18nReady]);
+
+  // Pre-warm audio mode once at app start so first playback isn't penalized.
+  React.useEffect(() => {
+    (async () => {
+      try {
+        await setAudioModeAsync({ playsInSilentMode: true });
+      } catch {
+        // Non-fatal; component-level fallback remains
+      }
+    })();
+  }, []);
 
   return (
     <Stack>

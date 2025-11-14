@@ -57,6 +57,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const sessionIdRef = useRef<string>(Math.random().toString(36).slice(2))
   const mountedRef = useRef(true)
   const hasStartedRef = useRef(false)
+  const startAtMsRef = useRef<number>(0)
   const hasCalledFinishRef = useRef(false)
   // Track the intended play state (avoids relying on laggy status.playing during rate changes)
   const shouldBePlayingRef = useRef(false)
@@ -88,6 +89,13 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Loading: ${track.title || track.id}`)
         await player.replace({ uri: track.audioUrl } as AudioSource)
         if (cancelled || !mountedRef.current) return
+        
+        // Don't block startup waiting for isLoaded; proceed and let status-driven
+        // auto-play handle any late load.
+        if (DEBUG && player.isLoaded) {
+          console.log(`[SingleTrack#${sessionIdRef.current}] Track already loaded`)
+        }
+        
         await player.setPlaybackRate(speed)
         try { await player.seekTo(0) } catch {}
         if (cancelled || !mountedRef.current) return
@@ -96,6 +104,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           try {
             await player.play()
             hasStartedRef.current = true
+            shouldBePlayingRef.current = true
+            startAtMsRef.current = Date.now()
             setIsPlaying(true)
             shouldBePlayingRef.current = true
             if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Started`)
@@ -108,10 +118,10 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
                 if (!suspend && shouldBePlayingRef.current && !nearEnd) {
                   // If status reports paused shortly after start, try to resume
                   if (!player.playing) {
-                    if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Post-start ensure play`)
+                    // Suppress extra log to avoid perceived flicker
                     await player.setPlaybackRate(speed)
                     await player.play()
-                    setIsPlaying(true)
+                    // Keep UI state stable; avoid flipping icon during stabilization window
                   }
                 }
               } catch {}
@@ -146,6 +156,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           try {
             await player.play()
             if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Resume after rate change`)
+            hasStartedRef.current = true
+            startAtMsRef.current = Date.now()
           } catch {}
         }
       } catch {}
@@ -176,6 +188,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         await player.play()
         setIsPlaying(true)
         shouldBePlayingRef.current = true
+        hasStartedRef.current = true
+        startAtMsRef.current = Date.now()
       } catch (error) {
         if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Replay failed`, error)
       }
@@ -187,7 +201,51 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // We guard onFinish with hasCalledFinishRef to avoid duplicate signals
   // (didJustFinish + near-end idle can arrive closely together on some devices).
   useEffect(() => {
-    if (typeof status?.playing === 'boolean') setIsPlaying(status.playing)
+  // Auto-play when track finishes loading if we should be playing BUT haven't started yet.
+      // This avoids double-playing immediately after we called play() on mount where
+      // status.playing can momentarily report false at t=0.
+      if (status?.isLoaded && shouldBePlayingRef.current && !status.playing && !hasStartedRef.current && !suspend) {
+        const timeRemaining = status.duration > 0 ? status.duration - status.currentTime : 0
+        // Only auto-play if not near the end (avoid triggering on finished tracks)
+        if (timeRemaining > 1.0 && !hasCalledFinishRef.current) {
+          (async () => {
+            try {
+              if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Track loaded, auto-playing`)
+              await player.play()
+              setIsPlaying(true)
+              hasStartedRef.current = true
+              startAtMsRef.current = Date.now()
+            } catch (err) {
+              if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Auto-play failed:`, err)
+            }
+          })()
+        }
+      }
+    
+    if (typeof status?.playing === 'boolean') {
+      const now = Date.now()
+      const startAge = now - (startAtMsRef.current || 0)
+      const nearStart = status.currentTime <= 0.15 // broaden from strict 0
+      const invalidDuration = !status.duration || !isFinite(status.duration)
+      const withinStartStabilization = shouldBePlayingRef.current && hasStartedRef.current && startAge < 900 && nearStart
+      const suppressDueToInvalidEarly = withinStartStabilization && (invalidDuration || !status.isLoaded)
+
+      const shouldLog = DEBUG && status.playing !== isPlaying && !withinStartStabilization && !suppressDueToInvalidEarly
+      if (shouldLog) {
+        console.log(`[SingleTrack#${sessionIdRef.current}] Status playing changed:`, {
+          from: isPlaying,
+          to: status.playing,
+          currentTime: status.currentTime,
+          duration: status.duration,
+          shouldBePlaying: shouldBePlayingRef.current,
+        })
+      }
+
+      // Only update UI when outside stabilization or when truly loaded and valid.
+      if (!withinStartStabilization && !suppressDueToInvalidEarly) {
+        setIsPlaying(status.playing)
+      }
+    }
 
     // Preferred finish signal
     if (status?.didJustFinish) {
@@ -208,19 +266,50 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           onFinish?.()
         }
       }
-      // If we unexpectedly paused not near the end and we intend to be playing, try to recover.
-      if (!status.playing && timeRemaining > 1.0 && shouldBePlayingRef.current && !suspend) {
+      // If we unexpectedly paused mid-track (not near start or end) and we intend to be playing, try to recover.
+      // Guard against false positives at t=0 where status.playing can briefly be false.
+      if (
+        status.isLoaded &&
+        hasStartedRef.current &&
+        !status.playing &&
+        status.currentTime > 0.3 &&
+        timeRemaining > 1.0 &&
+        shouldBePlayingRef.current &&
+        !suspend
+      ) {
         (async () => {
           try {
-            if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Unexpected pause mid-track; attempting resume`)
+            if (DEBUG) {
+              console.log(`[SingleTrack#${sessionIdRef.current}] Unexpected pause mid-track; attempting resume`)
+              console.log(`[SingleTrack#${sessionIdRef.current}] Pause diagnostics:`, {
+                currentTime: status.currentTime,
+                duration: status.duration,
+                timeRemaining,
+                isPlaying: status.playing,
+                isLoaded: status.isLoaded,
+                didJustFinish: status.didJustFinish,
+                // Additional expo-audio status fields that might reveal the cause
+                playbackState: (status as any).playbackState,
+                androidAudioSessionId: (status as any).androidAudioSessionId,
+              })
+            }
+            
+            // Don't try to resume if the track isn't loaded yet - wait for load to complete
+            if (!status.isLoaded) {
+              if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Skip resume - track not loaded yet`)
+              return
+            }
+            
             await player.setPlaybackRate(speed)
             await player.play()
             setIsPlaying(true)
-          } catch {}
+          } catch (err) {
+            if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Resume failed:`, err)
+          }
         })()
       }
     }
-  }, [status, DEBUG, onFinish, player, speed, suspend])
+  }, [status, DEBUG, onFinish, player, speed, suspend, isPlaying])
 
   // Update current time and duration for the progress slider
   useEffect(() => {
@@ -278,10 +367,12 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const handlePlayPause = async () => {
     try {
       if (player.playing) {
+        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] User paused`)
         await player.pause()
         setIsPlaying(false)
         shouldBePlayingRef.current = false
       } else {
+        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] User play`)
         // If at end, seek to start before playing
         if (status && status.duration > 0 && status.currentTime >= status.duration - 0.5) {
           await player.seekTo(0)
@@ -291,6 +382,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         await player.play()
         setIsPlaying(true)
         shouldBePlayingRef.current = true
+        hasStartedRef.current = true
       }
     } catch (e) {
       console.error(`[SingleTrack#${sessionIdRef.current}] Play/Pause error`, e)
