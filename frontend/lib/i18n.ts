@@ -151,11 +151,7 @@ const resources = {
       "timer.cancel": "Cancel timer",
       "timer.start": "Start",
       "timer.restart": "Restart",
-      "timer.timeUp": "Time's up",
-      "timer.timeUpMessage":
-        "Would you like to set a new timer and continue, or end this session?",
-      "timer.setNew": "Set new timer",
-      "timer.endSession": "End session",
+      
 
       // Player
       "player.speed": "Speed",
@@ -428,10 +424,7 @@ const resources = {
       "timer.cancel": "取消计时",
       "timer.start": "开始",
       "timer.restart": "重新开始",
-      "timer.timeUp": "时间到",
-      "timer.timeUpMessage": "是否设置新的计时并继续练习，还是结束本次练习？",
-      "timer.setNew": "设置新计时",
-      "timer.endSession": "结束练习",
+      
 
       // Player
       "player.speed": "速度",

@@ -8,7 +8,6 @@ import { LEARNING_SESSIONS_STORAGE_KEY } from "./learning-types"
  * Learning preferences structure
  */
 export interface LearningPreferences {
-  sessionLength: number // seconds
   playbackSpeed: PlaybackSpeed
 }
 
@@ -16,7 +15,6 @@ export interface LearningPreferences {
  * Default preferences
  */
 const DEFAULT_PREFERENCES: LearningPreferences = {
-  sessionLength: 600, // 10 minutes
   playbackSpeed: 1.0 as PlaybackSpeed,
 }
 
@@ -31,18 +29,11 @@ export const MIN_SESSION_DURATION = 0
  */
 export async function loadLearningPreferences(): Promise<LearningPreferences> {
   try {
-    const [[, lengthStr], [, speedStr]] = await AsyncStorage.multiGet([
-      "learning.sessionLength",
-      "learning.playbackSpeed",
-    ])
-
-    const sessionLength =
-      lengthStr != null ? parseInt(lengthStr, 10) : DEFAULT_PREFERENCES.sessionLength
+    const raw = await AsyncStorage.getItem("learning.playbackSpeed")
     const playbackSpeed =
-      speedStr != null ? (parseFloat(speedStr) as PlaybackSpeed) : DEFAULT_PREFERENCES.playbackSpeed
+      raw != null ? (parseFloat(raw) as PlaybackSpeed) : DEFAULT_PREFERENCES.playbackSpeed
 
     return {
-      sessionLength: !isNaN(sessionLength) ? sessionLength : DEFAULT_PREFERENCES.sessionLength,
       playbackSpeed: !isNaN(playbackSpeed) ? playbackSpeed : DEFAULT_PREFERENCES.playbackSpeed,
     }
   } catch (error) {
@@ -58,16 +49,9 @@ export async function saveLearningPreferences(
   preferences: Partial<LearningPreferences>
 ): Promise<void> {
   try {
-    const entries: [string, string][] = []
-
-    if (preferences.sessionLength != null) {
-      entries.push(["learning.sessionLength", String(preferences.sessionLength)])
-    }
     if (preferences.playbackSpeed != null) {
-      entries.push(["learning.playbackSpeed", String(preferences.playbackSpeed)])
+      await AsyncStorage.setItem("learning.playbackSpeed", String(preferences.playbackSpeed))
     }
-
-    await AsyncStorage.multiSet(entries)
   } catch (error) {
     console.error("Failed to save learning preferences:", error)
     throw error
