@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from "react"
-import { Pressable, Text, View, useColorScheme } from "react-native"
+import { Pressable, Text, View, useColorScheme, ActivityIndicator } from "react-native"
 import { MaterialIcons } from "@expo/vector-icons"
 import { useAudioPlayer, useAudioPlayerStatus, AudioSource, setAudioModeAsync } from "expo-audio"
 import AsyncStorage from "@react-native-async-storage/async-storage"
@@ -60,7 +60,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const startAtMsRef = useRef<number>(0)
   const hasCalledFinishRef = useRef(false)
   // Track the intended play state (avoids relying on laggy status.playing during rate changes)
-  const shouldBePlayingRef = useRef(false)
+  // Initialize based on autoPlay so loading state works from the start
+  const shouldBePlayingRef = useRef(autoPlay && !suspend)
   // Track and apply playback rate at the right time
   const initialRateAppliedRef = useRef(false)
   const lastSpeedRef = useRef<PlaybackSpeed>(speed)
@@ -123,10 +124,10 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             // Always play first, then set playback rate (iOS/Expo AV applies rate only after play)
             await player.play()
             await player.setPlaybackRate(speed)
+            // Don't set shouldBePlayingRef or setIsPlaying here; let status-driven effect handle it
+            // once the engine confirms playback has actually started with valid duration.
             hasStartedRef.current = true
-            shouldBePlayingRef.current = true
             startAtMsRef.current = Date.now()
-            setIsPlaying(true)
             shouldBePlayingRef.current = true
             if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Started`)
             // Post-start guard: re-assert playing shortly after start to catch
@@ -209,7 +210,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         hasCalledFinishRef.current = false
         await player.play()
         try { await player.setPlaybackRate(lastSpeedRef.current) } catch {}
-        setIsPlaying(true)
+        // Let status-driven effect update UI state
         shouldBePlayingRef.current = true
         hasStartedRef.current = true
         startAtMsRef.current = Date.now()
@@ -224,27 +225,6 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // We guard onFinish with hasCalledFinishRef to avoid duplicate signals
   // (didJustFinish + near-end idle can arrive closely together on some devices).
   useEffect(() => {
-  // Auto-play when track finishes loading if we should be playing BUT haven't started yet.
-      // This avoids double-playing immediately after we called play() on mount where
-      // status.playing can momentarily report false at t=0.
-      if (status?.isLoaded && shouldBePlayingRef.current && !status.playing && !hasStartedRef.current && !suspend) {
-        const timeRemaining = status.duration > 0 ? status.duration - status.currentTime : 0
-        // Only auto-play if not near the end (avoid triggering on finished tracks)
-        if (timeRemaining > 1.0 && !hasCalledFinishRef.current) {
-          (async () => {
-            try {
-              if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Track loaded, auto-playing`)
-              await player.play()
-              setIsPlaying(true)
-              hasStartedRef.current = true
-              startAtMsRef.current = Date.now()
-            } catch (err) {
-              if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Auto-play failed:`, err)
-            }
-          })()
-        }
-      }
-    
     if (typeof status?.playing === 'boolean') {
       const now = Date.now()
       const startAge = now - (startAtMsRef.current || 0)
@@ -389,7 +369,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // user presses Play, we seek to the start so it replays without remounting.
   const handlePlayPause = async () => {
     try {
-      if (player.playing) {
+      if (isPlaying || shouldBePlayingRef.current) {
         if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] User paused`)
         await player.pause()
         setIsPlaying(false)
@@ -403,7 +383,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         }
         await player.play()
         try { await player.setPlaybackRate(lastSpeedRef.current) } catch {}
-        setIsPlaying(true)
+        // Let status-driven effect update UI state when playback confirms
         shouldBePlayingRef.current = true
         hasStartedRef.current = true
       }
@@ -419,6 +399,11 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   }, [])
 
   const isDark = (themeMode === "dark") || (themeMode === "system" && colorScheme === "dark")
+
+  // Determine if we're loading:
+  // - If autoPlay is true, show loading from the start until playback confirms
+  // - If user initiated play, show loading until playback confirms
+  const isLoading = (autoPlay || hasStartedRef.current) && shouldBePlayingRef.current && !isPlaying
 
   return (
     <View>
@@ -443,14 +428,19 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         </Pressable>
         <Pressable
           onPress={handlePlayPause}
+          disabled={isLoading}
           style={({ pressed }) => ({
             borderRadius: 999,
             backgroundColor: isDark ? "#6366f1" : "#6366f1",
             padding: 12,
-            opacity: pressed ? 0.8 : 1
+            opacity: pressed ? 0.8 : (isLoading ? 0.7 : 1)
           })}
         >
-          <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={32} color={isDark ? "#fff" : "#fff"} />
+          {isLoading ? (
+            <ActivityIndicator size={32} color={isDark ? "#fff" : "#fff"} />
+          ) : (
+            <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={32} color={isDark ? "#fff" : "#fff"} />
+          )}
         </Pressable>
         <Pressable
           onPress={() => {
