@@ -10,8 +10,7 @@ import { ThemedHeader } from "@/components/ThemedHeader";
 // Replaced by ThemedHeader
 
 export default function AboutSettings() {
-  const { i18n } = useTranslation();
-  const isZh = i18n.language.startsWith("zh");
+  const { t } = useTranslation();
   const { colorScheme } = useThemeMode();
 
   const openWebsite = () => {
@@ -62,43 +61,75 @@ export default function AboutSettings() {
             />
           </View>
           <Text style={{ fontSize: 24, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#1f2937", marginBottom: 4 }}>
-            {isZh ? "语言漫游指南" : "BabblinGuide"}
+            {t("settings.about.appName")}
           </Text>
           <Text style={{ fontSize: 16, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", textAlign: "center" }}>
-            {isZh ? "用自然的方式学语言" : "Learning languages the natural way"}
+            {t("settings.about.tagline")}
           </Text>
+        </View>
+
+        {/* App Description */}
+        <View style={{ backgroundColor: colorScheme === 'dark' ? '#23232a' : "#fff", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 22, marginBottom: 16 }}>
+            {t("settings.about.appDescription")}
+          </Text>
+
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#1f2937", marginBottom: 12 }}>
+            {t("settings.about.whatWeDo")}
+          </Text>
+          <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 22, marginBottom: 16 }}>
+            {t("settings.about.whatWeDoDesc")}
+          </Text>
+
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#1f2937", marginBottom: 12 }}>
+            {t("settings.about.features")}
+          </Text>
+          <View style={{ gap: 8 }}>
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20 }}>
+              • {t("settings.about.feature1")}
+            </Text>
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20 }}>
+              • {t("settings.about.feature2")}
+            </Text>
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20 }}>
+              • {t("settings.about.feature3")}
+            </Text>
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20 }}>
+              • {t("settings.about.feature4")}
+            </Text>
+          </View>
         </View>
 
         {/* Our Philosophy */}
         <View style={{ backgroundColor: colorScheme === 'dark' ? '#23232a' : "#fff", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#1f2937", marginBottom: 12 }}>
-            {isZh ? "我们的理念" : "Our Philosophy"}
+            {t("settings.about.philosophy")}
           </Text>
 
           <View style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 15, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#374151", marginBottom: 4 }}>
-              {isZh ? "语言的本质" : "The Nature of Language"}
+              {t("settings.about.philosophyNature")}
             </Text>
             <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20 }}>
-              {isZh ? "用声音来表达意象" : "Expressing mental representations through sound"}
+              {t("settings.about.philosophyNatureDesc")}
             </Text>
           </View>
 
           <View style={{ marginBottom: 12 }}>
             <Text style={{ fontSize: 15, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#374151", marginBottom: 4 }}>
-              {isZh ? "语言学习的本质" : "The Nature of Language Learning"}
+              {t("settings.about.philosophyLearning")}
             </Text>
             <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20 }}>
-              {isZh ? "建立声音与意象的连接" : "Building connections between sound and mental representations"}
+              {t("settings.about.philosophyLearningDesc")}
             </Text>
           </View>
 
           <View>
             <Text style={{ fontSize: 15, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#374151", marginBottom: 4 }}>
-              {isZh ? "习得激活期" : "Acquisition Activation Phase"}
+              {t("settings.about.philosophyActivation")}
             </Text>
             <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20 }}>
-              {isZh ? "搞定习得激活期，不怕走弯路" : "Activate your LAD properly, learn without detours"}
+              {t("settings.about.philosophyActivationDesc")}
             </Text>
           </View>
         </View>
@@ -106,27 +137,23 @@ export default function AboutSettings() {
         {/* About Us */}
         <View style={{ backgroundColor: colorScheme === 'dark' ? '#23232a' : "#fff", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <Text style={{ fontSize: 18, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#1f2937", marginBottom: 12 }}>
-            {isZh ? "关于我们" : "About Us"}
+            {t("settings.about.aboutUs")}
           </Text>
           <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", lineHeight: 20, marginBottom: 12 }}>
-            {isZh ? "破除迷思，解构语言学习" : "Breaking myths, deconstructing language learning"}
+            {t("settings.about.aboutUsDesc")}
           </Text>
 
           <View style={{ marginBottom: 8 }}>
-            <Text style={{ fontSize: 14, color: "#374151", lineHeight: 20 }}>
-              <Text style={{ fontWeight: "600" }}>{isZh ? "创始人 - 赵金海：" : "Founder - Zhao Jinhai: "}</Text>
-              {isZh
-                ? "北京奥运会志愿者外语培训教学总监、教材主编"
-                : "Teaching Director & Chief Editor, Beijing Olympics Volunteer Language Training"}
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#374151", lineHeight: 20 }}>
+              <Text style={{ fontWeight: "600" }}>{t("settings.about.founder1")}</Text>
+              {t("settings.about.founder1Desc")}
             </Text>
           </View>
 
           <View>
-            <Text style={{ fontSize: 14, color: "#374151", lineHeight: 20 }}>
-              <Text style={{ fontWeight: "600" }}>{isZh ? "创始人 - 曾易：" : "Founder - Zeng Yi: "}</Text>
-              {isZh
-                ? "北京海淀10年资深少儿英语教师"
-                : "10-Year Senior Children's English Teacher, Beijing Haidian"}
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#374151", lineHeight: 20 }}>
+              <Text style={{ fontWeight: "600" }}>{t("settings.about.founder2")}</Text>
+              {t("settings.about.founder2Desc")}
             </Text>
           </View>
         </View>
@@ -148,7 +175,7 @@ export default function AboutSettings() {
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
             <MaterialIcons name="language" size={24} color="#6366f1" />
             <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#1f2937" }}>
-              {isZh ? "官方网站" : "Official Website"}
+              {t("settings.about.website")}
             </Text>
           </View>
           <MaterialIcons name="open-in-new" size={20} color={colorScheme === 'dark' ? '#d1d5db' : "#9ca3af"} />
@@ -157,7 +184,7 @@ export default function AboutSettings() {
         {/* Company Info */}
         <View style={{ backgroundColor: colorScheme === 'dark' ? '#23232a' : "#fff", borderRadius: 12, padding: 16, marginBottom: 16 }}>
           <Text style={{ fontSize: 13, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280", textAlign: "center", marginBottom: 8 }}>
-            ©2024 {isZh ? "北京巴布布文化传媒有限公司" : "Beijing BabblinGuide Culture Communications Co., Ltd."}
+            ©2024 {t("settings.about.company")}
           </Text>
 
           <Pressable onPress={openICP} style={{ marginBottom: 4 }}>
