@@ -205,6 +205,22 @@ export const LearningRecords: CollectionConfig = {
       },
     },
     {
+      // OPTIONS /api/learning-records (CORS/preflight support)
+      path: '/',
+      method: 'options',
+      handler: async () => {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET,POST,PATCH,DELETE,OPTIONS,HEAD',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '86400',
+          },
+        })
+      },
+    },
+    {
       // POST /api/learning-records/manual
       path: '/manual',
       method: 'post',
@@ -374,6 +390,34 @@ export const LearningRecords: CollectionConfig = {
           console.error('[manual-endpoint] handler failed', { message, error: e })
           return Response.json({ errors: [{ message }] }, { status: 500 })
         }
+      },
+    },
+    {
+      // HEAD /api/learning-records/manual (preflight/health)
+      path: '/manual',
+      method: 'head',
+      handler: async (req: PayloadRequest) => {
+        const user = req?.user as User | undefined
+        if (!user) {
+          return new Response(null, { status: 401 })
+        }
+        return new Response(null, { status: 204 })
+      },
+    },
+    {
+      // OPTIONS /api/learning-records/manual (CORS/preflight support)
+      path: '/manual',
+      method: 'options',
+      handler: async () => {
+        return new Response(null, {
+          status: 204,
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST,OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Max-Age': '86400',
+          },
+        })
       },
     },
     {
