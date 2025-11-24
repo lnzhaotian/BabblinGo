@@ -14,6 +14,7 @@ import { normalizeSessionRecord } from "./session-normalizer"
 
 const ENDPOINT = `${config.apiUrl}/api/learning-records`
 const MANUAL_ENDPOINT = `${ENDPOINT}/manual`
+const ENDPOINT_HEALTH = `${ENDPOINT}?limit=1`
 let inFlight: Promise<void> | null = null
 
 const headersFor = (token: string, includeJson = false) => {
@@ -162,6 +163,15 @@ const toPayload = (record: SessionRecord) => {
 
 async function fetchRemoteRecords(token: string): Promise<RemoteFetchResult> {
   try {
+    const head = await fetch(ENDPOINT_HEALTH, {
+      method: "HEAD",
+      headers: headersFor(token),
+    })
+
+    if (!head.ok && head.status !== 405 && head.status !== 404) {
+      console.warn("Learning record sync: HEAD probe failed", head.status)
+    }
+
     const res = await fetch(`${ENDPOINT}?limit=250&sort=-updatedAt`, {
       headers: headersFor(token),
     })
@@ -328,15 +338,13 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
 
       if (!response.ok) {
         const text = await response.text()
-        if (isManual) {
-          console.warn("[learning-sync] manual sync response", {
-            status: response.status,
-            statusText: response.statusText,
-            url: isManual ? MANUAL_ENDPOINT : ENDPOINT,
-            payload,
-            body: text,
-          })
-        }
+        console.warn("[learning-sync] manual sync response", {
+          status: response.status,
+          statusText: response.statusText,
+          url: isManual ? MANUAL_ENDPOINT : ENDPOINT,
+          payload,
+          body: text,
+        })
         throw new Error(text || "Failed to sync learning record")
       }
 
