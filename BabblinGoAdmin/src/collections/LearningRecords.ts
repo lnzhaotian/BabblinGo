@@ -1,5 +1,171 @@
+import { Buffer } from 'node:buffer'
 import type { CollectionConfig, PayloadRequest } from 'payload'
 import type { LearningRecord, User } from '../payload-types'
+
+type JsonCapableRequest = PayloadRequest & {
+  body?: unknown
+  json?: () => Promise<unknown>
+  bodyUsed?: boolean
+}
+
+type WebReadableStreamReader = {
+  read: () => Promise<{ value?: Uint8Array; done: boolean }>
+  releaseLock?: () => void
+}
+
+type WebReadableStreamLike = {
+  getReader?: () => WebReadableStreamReader | undefined
+}
+
+type AsyncIterableStreamLike = {
+  [Symbol.asyncIterator]?: () => AsyncIterator<unknown>
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const safeJsonParse = (value: string): Record<string, unknown> => {
+  try {
+    const parsed = JSON.parse(value)
+    return isRecord(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+const readWebStream = async (stream: unknown): Promise<string> => {
+  if (!stream || typeof stream !== 'object') return ''
+  const streamLike = stream as WebReadableStreamLike
+  const reader = streamLike.getReader?.()
+  if (!reader || typeof reader.read !== 'function') return ''
+  const decoder = new TextDecoder()
+  let result = ''
+  try {
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      if (value && value instanceof Uint8Array) {
+        result += decoder.decode(value, { stream: true })
+      }
+    }
+    result += decoder.decode()
+  } finally {
+    if (typeof reader.releaseLock === 'function') {
+      reader.releaseLock()
+    }
+  }
+  return result
+}
+
+const readNodeStream = async (stream: unknown): Promise<string> => {
+  if (!stream || typeof stream !== 'object') {
+    return ''
+  }
+  const streamLike = stream as AsyncIterableStreamLike
+  if (typeof streamLike[Symbol.asyncIterator] !== 'function') {
+    return ''
+  }
+  const chunks: Uint8Array[] = []
+  for await (const chunk of streamLike as AsyncIterable<unknown>) {
+    if (chunk == null) continue
+    if (typeof chunk === 'string') {
+      chunks.push(Buffer.from(chunk))
+    } else if (chunk instanceof Uint8Array) {
+      chunks.push(chunk)
+    } else if (Buffer.isBuffer(chunk)) {
+      chunks.push(chunk)
+    } else {
+      const text = String(chunk)
+      if (text) {
+        chunks.push(Buffer.from(text))
+      }
+    }
+  }
+  return Buffer.concat(chunks).toString('utf-8')
+}
+
+const resolveRequestBody = async (
+  req: PayloadRequest
+): Promise<{
+  rawBody: unknown
+  parsedBody: Record<string, unknown>
+  rawText?: string
+  via: string
+}> => {
+  const jsonReq = req as JsonCapableRequest
+  const rawBody = jsonReq.body ?? null
+
+  if (typeof jsonReq.json === 'function' && !jsonReq.bodyUsed) {
+    try {
+      const data = await jsonReq.json()
+      if (isRecord(data)) {
+        return {
+          rawBody,
+          parsedBody: data,
+          rawText: JSON.stringify(data),
+          via: 'req.json()',
+        }
+      }
+      if (typeof data === 'string') {
+        return {
+          rawBody,
+          parsedBody: safeJsonParse(data),
+          rawText: data,
+          via: 'req.json-string',
+        }
+      }
+    } catch (error) {
+      console.warn('[manual-endpoint] req.json() failed', error)
+    }
+  }
+
+  if (typeof rawBody === 'string') {
+    return {
+      rawBody,
+      parsedBody: safeJsonParse(rawBody),
+      rawText: rawBody,
+      via: 'string-body',
+    }
+  }
+
+  if (rawBody && typeof rawBody === 'object') {
+    const webStream = rawBody as WebReadableStreamLike
+    if (typeof webStream.getReader === 'function') {
+      const rawText = await readWebStream(webStream)
+      return {
+        rawBody,
+        parsedBody: rawText ? safeJsonParse(rawText) : {},
+        rawText,
+        via: 'web-stream',
+      }
+    }
+
+    const asyncStream = rawBody as AsyncIterableStreamLike
+    if (typeof asyncStream[Symbol.asyncIterator] === 'function') {
+      const rawText = await readNodeStream(asyncStream)
+      return {
+        rawBody,
+        parsedBody: rawText ? safeJsonParse(rawText) : {},
+        rawText,
+        via: 'node-stream',
+      }
+    }
+
+    if (isRecord(rawBody)) {
+      return {
+        rawBody,
+        parsedBody: rawBody,
+        via: 'object-body',
+      }
+    }
+  }
+
+  return {
+    rawBody,
+    parsedBody: {},
+    via: 'unhandled',
+  }
+}
 
 // Access helpers: allow managers/editors full access; otherwise constrain by ownership via where clause
 const canManageWhere = ({ req }: { req: PayloadRequest }) => {
@@ -33,20 +199,8 @@ export const LearningRecords: CollectionConfig = {
             return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
           }
 
-          const rawBody: unknown = (req as PayloadRequest).body as unknown
-          const body: Record<string, unknown> = (() => {
-            if (!rawBody) return {}
-            if (typeof rawBody === 'object') return rawBody as Record<string, unknown>
-            if (typeof rawBody === 'string') {
-              try {
-                const parsed = JSON.parse(rawBody)
-                return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
-              } catch {
-                return {}
-              }
-            }
-            return {}
-          })()
+          const { rawBody, parsedBody, rawText, via } = await resolveRequestBody(req)
+          const body = parsedBody
 
           const trimString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
           const parseDate = (value: unknown): Date | null => {
@@ -98,7 +252,11 @@ export const LearningRecords: CollectionConfig = {
           const startedAtDate = parseDate(body.startedAt ?? body.start)
           const endedAtDate = parseDate(body.endedAt ?? body.end)
           console.log('[manual-endpoint] incoming payload', {
-            rawBody,
+            rawBodyType: rawBody ? typeof rawBody : typeof rawBody,
+            rawBodyConstructor:
+              rawBody && typeof rawBody === 'object' ? (rawBody as { constructor?: { name?: string } })?.constructor?.name : undefined,
+            rawText,
+            via,
             parsedBody: body,
             startedAt: body.startedAt ?? body.start,
             endedAt: body.endedAt ?? body.end,
