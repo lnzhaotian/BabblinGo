@@ -1,0 +1,115 @@
+UPCOMING WORK PLAN
+===================
+
+Scope
+-----
+Plan covers five upcoming capabilities:
+1. Course-level learning record toggle defaults.
+2. Admin UI controls for the default toggle state.
+3. Per-user overrides for course logging preference.
+4. Alternate playback mode for audio slideshow lessons.
+5. Course list indicator for newly updated lessons.
+
+Global Assumptions
+------------------
+- Backend: NestJS + Payload CMS (MongoDB) remain source of truth for courses/lessons.
+- Frontend: Expo React Native app syncing learning sessions via AsyncStorage + manual sync API.
+- Authentication context and existing course/lesson APIs stay unchanged unless noted.
+- We maintain localization (en, zh) for all user-facing text.
+
+Feature 1: Course Logging Defaults (backend groundwork)
+-------------------------------------------------------
+Goal: Each course stores a boolean flag `trackLearningRecordsByDefault` (name TBD) that drives default logging behavior.
+
+Tasks
+- Extend Payload CMS course collection schema with new boolean field (default true) + admin description.
+- Update NestJS course DTOs, GraphQL/REST responses (if applicable) to expose the flag.
+- Adjust seed data/migrations so existing courses set flag to true (preserve current behavior).
+- Update frontend course fetching utilities (`lib/payload.ts`, course list loaders) to read the new field.
+- Ensure caching/storage layers include the flag where courses are serialized.
+
+Open Questions
+- Should flag be localized or global? Currently assumed global boolean.
+- Any reporting/analytics dependency on this default setting?
+
+Feature 2: Admin UI Controls
+----------------------------
+Goal: Allow editors/admins to set the course default flag inside AdminJS.
+
+Tasks
+- Add toggle field to AdminJS course form, with contextual copy explaining purpose.
+- Include flag in list/detail views for quick scanning.
+- Ensure admin changes propagate to API responses (already covered by Feature 1).
+
+Open Questions
+- Should non-admin editors also manage this field? Need role-check confirmation.
+
+Feature 3: User Overrides for Course Logging
+--------------------------------------------
+Goal: Users can opt in/out per course without affecting global default.
+
+Backend Tasks
+- Design new collection/table storing per-user course preferences (userId, courseId, overrideState, timestamps).
+- Expose REST endpoints: fetch preferences for current user, upsert preference, remove override (revert to default).
+- Consider server enforcement during learning-record sync: server should respect user override when determining whether to store uploaded records.
+
+Frontend Tasks
+- Extend session logging pipeline to consult overrides when deciding to record local sessions (manual + auto).
+- Provide UI in course screen (or settings) to toggle tracking per course; show effective state (default vs override).
+- Persist override states locally and sync with backend (optimistic updates + fallback).
+- Update progress/history views to respect overrides (e.g., hide sessions when logging disabled? Need clarity).
+
+Open Questions
+- Exact UX location for toggle (course detail header? settings panel?).
+- Behavior for existing stored sessions when user disables logging (hide future only vs purge past?).
+- Offline handling when user toggles while disconnected.
+
+Feature 4: Audio Slideshow Playback Modes
+-----------------------------------------
+Goal: Support two playback modes: current autoplay and new "listen & repeat" mode (play clip, pause for imitation or optional speech recognition).
+
+Tasks
+- Define module-level mode enum (`auto`, `listenRepeat`). Defaults to current autoplay.
+- Backend: allow content editors to set desired mode per audio slideshow module version.
+- Frontend player changes:
+  * Detect mode and adjust playback behavior.
+  * For listen-repeat: insert configurable delays or steps (play clip -> wait N seconds -> continue). Consider per-slide settings vs global default.
+  * Provide UI affordances to restart, skip, continue.
+  * If speech recognition pursued: scope spike for feasibility (platform APIs, privacy, offline fallback). Otherwise implement timed pause first.
+- Update download/cache logic if timing metadata added.
+- QA for both modes across locales/devices.
+
+Open Questions
+- Are delays fixed, editor-configurable, or user-configurable?
+- Speech recognition requirement? If yes, decide library/platform plan.
+- Interaction with background audio / system controls.
+
+Feature 5: Course Update Indicator
+----------------------------------
+Goal: Display a dot or badge on course list items when lessons recently changed until user views updates.
+
+Tasks
+- Backend support: track `updatedAt` on lessons (already present). Need course-level aggregate update timestamp.
+- Define criteria for "new content" (any lesson updated since user last opened course?).
+- Create user-specific state storing last-seen timestamp per course (client + server for multi-device consistency).
+- Frontend course list: render badge when `courseUpdatedAt > lastSeenAt`.
+- Update course detail screen to mark course as seen when opened (and sync state to server).
+
+Open Questions
+- Time window vs last viewed semantics? (e.g., show dot for 7 days vs until user opens course).
+- Need push notifications or only in-app indicator?
+
+Cross-Cutting Considerations
+-----------------------------
+- Authorization: ensure new endpoints respect user roles (admins vs standard users).
+- Migration strategy: data backfill for existing records when deploying.
+- Telemetry/analytics: decide if toggles or mode changes require tracking.
+- Testing: plan unit/integration/e2e coverage for backend and frontend changes. Update manual QA checklist.
+- Documentation: update admin guides, user help copy, and release notes.
+
+Next Steps
+----------
+1. Review open questions with stakeholders to finalize UX/behavior decisions.
+2. Break plan into tickets grouped by feature (backend + frontend tasks paired).
+3. Sequence work: start with backend schema + API for course logging defaults (Feature 1), then admin UI (Feature 2), followed by user overrides (Feature 3). Parallel spike for Feature 4 requirements, then implement once logging features stabilize. Feature 5 depends on decision about user last-seen tracking.
+4. Schedule design review for UI touchpoints (course screen toggle, audio player mode selector, course list badges).
