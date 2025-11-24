@@ -103,4 +103,27 @@ export default buildConfig({
       acl: 'public-read', // or 'private' if using signed URLs
     }),
   ],
+  onInit: async (payloadInstance) => {
+    const maybeExpress = (payloadInstance as unknown as { express?: unknown }).express as
+      | {
+          use: (handler: (req: unknown, res: unknown, next: () => void) => void) => void
+        }
+      | undefined
+    if (!maybeExpress) return
+    maybeExpress.use((req, _res, next) => {
+      const url = typeof (req as { originalUrl?: unknown }).originalUrl === 'string'
+        ? (req as { originalUrl?: string }).originalUrl
+        : undefined
+      const method = typeof (req as { method?: unknown }).method === 'string'
+        ? (req as { method?: string }).method
+        : undefined
+      if (url?.startsWith('/api/learning-records')) {
+        console.log('[learning-records] express request', {
+          method,
+          url,
+        })
+      }
+      next()
+    })
+  },
 })
