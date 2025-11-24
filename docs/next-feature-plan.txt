@@ -3,12 +3,13 @@ UPCOMING WORK PLAN
 
 Scope
 -----
-Plan covers five upcoming capabilities:
+Plan covers six upcoming capabilities:
 1. Course-level learning record toggle defaults.
 2. Admin UI controls for the default toggle state.
 3. Per-user overrides for course logging preference.
 4. Alternate playback mode for audio slideshow lessons.
 5. Course list indicator for newly updated lessons.
+6. Integrate Dify agent APIs into the app.
 
 Global Assumptions
 ------------------
@@ -98,6 +99,25 @@ Tasks
 Open Questions
 - Time window vs last viewed semantics? (e.g., show dot for 7 days vs until user opens course).
 - Need push notifications or only in-app indicator?
+
+Feature 6: In-App Dify Agent Integration
+----------------------------------------
+Goal: Expose Dify-powered agent capabilities within the mobile app for context-aware assistance.
+
+Tasks
+- Evaluate Dify API surface: authentication, rate limits, streaming vs batch responses.
+- Backend: decide whether requests proxy through our server (for auth/secrets) or go direct from client. Implement proxy endpoint if needed.
+- Security: store Dify API credentials securely (server-side env/secret manager). Add request validation, usage limits, and audit logging per user.
+- Frontend: design agent entry point (e.g., chat panel, contextual assistant in lessons). Implement UI to send prompts, render responses (streaming if available), and handle errors/retries.
+- Context injection: determine what course/lesson/session metadata should be passed to the agent (respect privacy and consent). Implement payload shaping.
+- Offline handling + fallback messaging when service unavailable.
+- Analytics/telemetry: track usage volumes, user satisfaction prompts.
+
+Open Questions
+- Primary use cases (general Q&A, lesson help, translation?). Need to define to scope UI and context payloads.
+- Should assistant be global or course-specific? Multi-language response requirements?
+- Rate limiting per user/session to control costs.
+- Do we need moderation filters before showing responses?
 
 Cross-Cutting Considerations
 -----------------------------

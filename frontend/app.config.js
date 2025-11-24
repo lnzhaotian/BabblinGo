@@ -13,6 +13,8 @@ module.exports = ({ config }) => ({
   plugins: [
     ...(config.plugins || []),
     'expo-localization',
+    'expo-audio',
+    'expo-video',
   ],
   extra: {
     ...(config.extra || {}),
