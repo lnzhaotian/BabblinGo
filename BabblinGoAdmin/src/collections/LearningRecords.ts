@@ -97,6 +97,16 @@ export const LearningRecords: CollectionConfig = {
 
           const startedAtDate = parseDate(body.startedAt ?? body.start)
           const endedAtDate = parseDate(body.endedAt ?? body.end)
+          console.log('[manual-endpoint] incoming payload', {
+            rawBody,
+            parsedBody: body,
+            startedAt: body.startedAt ?? body.start,
+            endedAt: body.endedAt ?? body.end,
+            startedAtDate: startedAtDate?.toISOString?.() ?? null,
+            endedAtDate: endedAtDate?.toISOString?.() ?? null,
+            nowIso: new Date().toISOString(),
+            userId: user?.id,
+          })
           if (!startedAtDate || !endedAtDate) {
             return Response.json({ errors: [{ message: 'Invalid startedAt or endedAt' }] }, { status: 400 })
           }

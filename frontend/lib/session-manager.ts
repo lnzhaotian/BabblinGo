@@ -148,6 +148,21 @@ export async function saveLearningSession(
     console.log(
       `Saved learning session: ${segmentDurationSeconds}s for ${normalizedLessonTitle} (finished: ${record.finished}, runId: ${record.runId ?? "-"})`
     );
+    if (sessionSource === "manual") {
+      console.log("[session-manager] manual session stored", {
+        id: normalizedBase.id,
+        lessonId: normalizedBase.lessonId,
+        startedAtMs: normalizedBase.startedAt,
+        startedAtIso: Number.isFinite(normalizedBase.startedAt)
+          ? new Date(normalizedBase.startedAt).toISOString()
+          : null,
+        endedAtMs: normalizedBase.endedAt,
+        endedAtIso: Number.isFinite(normalizedBase.endedAt)
+          ? new Date(normalizedBase.endedAt).toISOString()
+          : null,
+        durationSeconds: normalizedBase.durationSeconds,
+      });
+    }
     scheduleLearningRecordSync().catch(() => {
       // already logged inside scheduler
     });

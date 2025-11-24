@@ -260,14 +260,31 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
   let unauthorizedMessage: string | undefined
 
   for (let index = 0; index < sessions.length; index += 1) {
-    let session = updatedSessions[index]
+    let session = normalizeSessionRecord(updatedSessions[index])
+    updatedSessions[index] = session
     if (!(session.dirty || !session.serverId)) {
       continue
     }
 
     const payload = toPayload(session)
-    if (session.source === "manual" && typeof __DEV__ !== "undefined" && __DEV__) {
-      console.log("[learning-sync] manual payload", payload)
+    if (session.source === "manual" && typeof console !== "undefined") {
+      const safeIso = (value: number) => (Number.isFinite(value) ? new Date(value).toISOString() : null)
+      console.log("[learning-sync] manual debug", {
+        id: session.id,
+        startedAtMs: session.startedAt,
+        startedAtIso: safeIso(session.startedAt),
+        endedAtMs: session.endedAt,
+        endedAtIso: safeIso(session.endedAt),
+        durationSeconds: session.durationSeconds,
+        plannedSeconds: session.plannedSeconds,
+        deviceNowIso: new Date().toISOString(),
+      })
+      console.log("[learning-sync] manual payload", {
+        ...payload,
+        startedAtMs: session.startedAt,
+        endedAtMs: session.endedAt,
+        deviceNowMs: Date.now(),
+      })
     }
     const headers = headersFor(token, true)
     let response: Response | null = null
@@ -311,6 +328,15 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
 
       if (!response.ok) {
         const text = await response.text()
+        if (isManual) {
+          console.warn("[learning-sync] manual sync response", {
+            status: response.status,
+            statusText: response.statusText,
+            url: isManual ? MANUAL_ENDPOINT : ENDPOINT,
+            payload,
+            body: text,
+          })
+        }
         throw new Error(text || "Failed to sync learning record")
       }
 
@@ -336,7 +362,7 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
       failed += 1
     }
 
-    updatedSessions[index] = updatedSession
+  updatedSessions[index] = normalizeSessionRecord(updatedSession)
 
     if (unauthorized) {
       break
