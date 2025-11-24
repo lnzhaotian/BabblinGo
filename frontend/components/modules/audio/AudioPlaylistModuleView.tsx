@@ -212,7 +212,7 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
       />
 
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
+        style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#18181b" : "#fff" }}
         edges={["bottom"]}
       >
 

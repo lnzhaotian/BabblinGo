@@ -145,7 +145,7 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
 
       {showSessionResult ? (
         <SafeAreaView
-          style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#111827" : "#fff" }}
+          style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#18181b" : "#fff" }}
           edges={["bottom"]}
         >
           <LessonSessionResult
@@ -157,7 +157,7 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
         </SafeAreaView>
       ) : (
         <SafeAreaView
-          style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#111827" : "#fff" }}
+          style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#18181b" : "#fff" }}
           edges={["bottom"]}
         >
           {showSessionLanding ? (

@@ -368,7 +368,7 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
         )}
       />
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#0f172a" : "#fff" }}
+        style={{ flex: 1, backgroundColor: colorScheme === "dark" ? "#18181b" : "#fff" }}
         edges={["bottom"]}
       >
       <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 32, gap: 20 }}>
