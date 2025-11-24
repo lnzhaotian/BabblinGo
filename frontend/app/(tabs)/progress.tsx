@@ -96,8 +96,15 @@ export default function ProgressScreen() {
     const loadMeta = async () => {
       try {
         const limitForMeta = Math.min(sessions.length, visibleCount + PAGE_SIZE)
-        const ids = Array.from(new Set(sessions.slice(0, limitForMeta).map((s) => s.lessonId)))
-        if (ids.length === 0) {
+        const sessionSlice = sessions.slice(0, limitForMeta)
+        const uniqueSessions = new Map<string, SessionRecord>()
+        sessionSlice.forEach((session) => {
+          if (!uniqueSessions.has(session.lessonId)) {
+            uniqueSessions.set(session.lessonId, session)
+          }
+        })
+
+        if (uniqueSessions.size === 0) {
           setLessonMetaById({})
           return
         }
@@ -105,7 +112,17 @@ export default function ProgressScreen() {
         const courseCache = new Map<string, CourseDoc>()
 
         const entries = await Promise.all(
-          ids.map(async (id) => {
+          Array.from(uniqueSessions.entries()).map(async ([id, session]) => {
+            if (session.source === "manual" || id.startsWith("manual-")) {
+              const savedTitle = session.lessonTitle?.trim().length ? session.lessonTitle : id
+              return [
+                id,
+                {
+                  title: savedTitle,
+                } satisfies LessonMeta,
+              ] as const
+            }
+
             try {
               const doc = await fetchLessonById(id, i18n.language)
 

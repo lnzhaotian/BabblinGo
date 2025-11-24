@@ -193,10 +193,6 @@ export const LearningRecords: CollectionConfig = {
       path: '/',
       method: 'head',
       handler: async (req: PayloadRequest) => {
-        console.log('[learning-records] head probe', {
-          userId: (req?.user as User | undefined)?.id,
-          url: req?.url,
-        })
         const user = req?.user as User | undefined
         if (!user) {
           return new Response(null, { status: 401 })
@@ -231,8 +227,7 @@ export const LearningRecords: CollectionConfig = {
             return Response.json({ errors: [{ message: 'Unauthorized' }] }, { status: 401 })
           }
 
-          const { rawBody, parsedBody, rawText, via } = await resolveRequestBody(req)
-          const body = parsedBody
+          const { parsedBody: body } = await resolveRequestBody(req)
 
           const trimString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
           const parseDate = (value: unknown): Date | null => {
@@ -283,20 +278,6 @@ export const LearningRecords: CollectionConfig = {
 
           const startedAtDate = parseDate(body.startedAt ?? body.start)
           const endedAtDate = parseDate(body.endedAt ?? body.end)
-          console.log('[manual-endpoint] incoming payload', {
-            rawBodyType: rawBody ? typeof rawBody : typeof rawBody,
-            rawBodyConstructor:
-              rawBody && typeof rawBody === 'object' ? (rawBody as { constructor?: { name?: string } })?.constructor?.name : undefined,
-            rawText,
-            via,
-            parsedBody: body,
-            startedAt: body.startedAt ?? body.start,
-            endedAt: body.endedAt ?? body.end,
-            startedAtDate: startedAtDate?.toISOString?.() ?? null,
-            endedAtDate: endedAtDate?.toISOString?.() ?? null,
-            nowIso: new Date().toISOString(),
-            userId: user?.id,
-          })
           if (!startedAtDate || !endedAtDate) {
             return Response.json({ errors: [{ message: 'Invalid startedAt or endedAt' }] }, { status: 400 })
           }
@@ -359,13 +340,6 @@ export const LearningRecords: CollectionConfig = {
             runId: runId || null,
           }
 
-          console.log('[manual-endpoint] creating record', {
-            userId: payloadData.user,
-            lessonId: payloadData.lessonId,
-            startedAt: payloadData.startedAt,
-            endedAt: payloadData.endedAt,
-          })
-
           let created: LearningRecord
           try {
             created = (await req.payload.create({
@@ -377,12 +351,6 @@ export const LearningRecords: CollectionConfig = {
             console.error('[manual-endpoint] create failed', createError)
             throw createError
           }
-
-          console.log('[manual-endpoint] create succeeded', {
-            recordId: created.id,
-            startedAt: created.startedAt,
-            endedAt: created.endedAt,
-          })
 
           return Response.json({ ok: true, record: created }, { status: 201 })
         } catch (e) {
@@ -579,43 +547,8 @@ export const LearningRecords: CollectionConfig = {
     delete: canManageWhere,
   },
   hooks: {
-    beforeOperation: [
-      (hookArgs) => {
-        try {
-          const { args, req } = hookArgs
-          const operation = (hookArgs as { operation?: string }).operation
-          const url = req?.url
-          const method = req?.method
-          const id = typeof args === 'object' && args && 'id' in args ? (args as { id?: unknown }).id : undefined
-          console.log('[learning-records] beforeOperation', {
-            operation,
-            method,
-            url,
-            id,
-          })
-        } catch (error) {
-          console.warn('[learning-records] beforeOperation log failed', error)
-        }
-      },
-    ],
-    afterError: [
-      (hookArgs) => {
-        try {
-          const { error, req } = hookArgs
-          const operation = (hookArgs as { operation?: string }).operation
-          const status = (error as { status?: number })?.status
-          console.error('[learning-records] afterError', {
-            operation,
-            method: req?.method,
-            url: req?.url,
-            status,
-            message: error instanceof Error ? error.message : String(error),
-          })
-        } catch (logError) {
-          console.warn('[learning-records] afterError log failed', logError)
-        }
-      },
-    ],
+    beforeOperation: [],
+    afterError: [],
     beforeValidate: [
       ({ data, req }) => {
         const next = data || {}
