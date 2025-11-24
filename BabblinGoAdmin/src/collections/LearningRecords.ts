@@ -189,6 +189,18 @@ export const LearningRecords: CollectionConfig = {
   timestamps: true,
   endpoints: [
     {
+      // HEAD /api/learning-records (lightweight auth check for sync health probes)
+      path: '/',
+      method: 'head',
+      handler: async (req: PayloadRequest) => {
+        const user = req?.user as User | undefined
+        if (!user) {
+          return new Response(null, { status: 401 })
+        }
+        return new Response(null, { status: 204 })
+      },
+    },
+    {
       // POST /api/learning-records/manual
       path: '/manual',
       method: 'post',
