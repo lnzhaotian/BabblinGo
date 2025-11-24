@@ -113,7 +113,8 @@ export default function ProgressScreen() {
 
         const entries = await Promise.all(
           Array.from(uniqueSessions.entries()).map(async ([id, session]) => {
-            if (session.source === "manual" || id.startsWith("manual-")) {
+            const isManualId = id.startsWith("manual-")
+            if (isManualId) {
               const savedTitle = session.lessonTitle?.trim().length ? session.lessonTitle : id
               return [
                 id,
@@ -701,7 +702,14 @@ export default function ProgressScreen() {
           const date = new Date(item.startedAt)
           const dateStr = date.toLocaleString()
           const meta = lessonMetaById[item.lessonId]
-          const lessonTitle = meta?.title || item.lessonTitle || item.lessonId
+          const fallbackTitle = item.lessonTitle?.trim().length ? item.lessonTitle.trim() : item.lessonId
+          const metaTitle = typeof meta?.title === "string" ? meta.title.trim() : ""
+          const isManualGeneratedId = item.lessonId.startsWith("manual-")
+          const lessonTitle = isManualGeneratedId
+            ? fallbackTitle
+            : metaTitle.length > 0
+            ? metaTitle
+            : fallbackTitle
           const courseTitle = meta?.courseTitle && meta.courseTitle.trim().length > 0
             ? meta.courseTitle
             : meta?.courseId
