@@ -1,6 +1,8 @@
 import { beforeAll, afterAll, describe, expect, it } from 'vitest'
-import { getPayload, Payload } from 'payload'
+import { getPayload, Payload, type Endpoint, type PayloadRequest } from 'payload'
 import config from '@/payload.config'
+import { LearningRecords } from '@/collections/LearningRecords'
+import type { LearningRecord } from '@/payload-types'
 
 let payload: Payload
 
@@ -55,9 +57,11 @@ describe('Learning Records Deletion E2E', () => {
     const record = await payload.create({
       collection: 'learning-records',
       overrideAccess: true,
+      draft: false,
       data: {
         user: user.id,
         clientId,
+        source: 'auto',
         lessonId: 'test-lesson-123',
         lessonTitle: 'Test Lesson',
         startedAt: new Date().toISOString(),
@@ -73,6 +77,7 @@ describe('Learning Records Deletion E2E', () => {
 
     // Verify record was created
     expect(record).toBeDefined()
+  expect(record.source).toBe('auto')
     // User is populated as an object when created with overrideAccess
     const recordUserId = typeof record.user === 'string' ? record.user : (record.user as { id: string })?.id
     expect(recordUserId).toBe(user.id)
@@ -133,9 +138,11 @@ describe('Learning Records Deletion E2E', () => {
     const record = await payload.create({
       collection: 'learning-records',
       overrideAccess: true,
+      draft: false,
       data: {
         user: userA.id,
         clientId,
+        source: 'auto',
         lessonId: 'test-lesson-456',
         lessonTitle: 'Another Test Lesson',
         startedAt: new Date().toISOString(),
@@ -175,6 +182,63 @@ describe('Learning Records Deletion E2E', () => {
     expect(found.docs).toHaveLength(1)
   })
 
+  it('creates a manual learning record via the dedicated endpoint', async () => {
+    const manualEndpoints = LearningRecords.endpoints
+    const manualEndpoint = Array.isArray(manualEndpoints)
+      ? manualEndpoints.find((endpoint: Endpoint) => endpoint.path === '/manual' && endpoint.method === 'post')
+      : undefined
+    expect(manualEndpoint).toBeDefined()
+    if (!manualEndpoint) return
+
+    const manualUserEmail = `manual-${uniqueSuffix()}@example.com`
+    const manualUser = await payload.create({
+      collection: 'users',
+      overrideAccess: true,
+      data: {
+        email: manualUserEmail,
+        password: 'password123',
+        displayName: 'Manual User',
+        role: 'user',
+      },
+    })
+    createdUserIds.push(manualUser.id)
+
+    const startedAt = new Date(Date.now() - 45 * 60 * 1000)
+    const endedAt = new Date(startedAt.getTime() + 30 * 60 * 1000)
+
+    const response = await manualEndpoint.handler({
+      payload,
+      user: manualUser,
+      body: {
+        lessonTitle: 'Manual Session Example',
+        startedAt: startedAt.toISOString(),
+        endedAt: endedAt.toISOString(),
+        plannedSeconds: 35 * 60,
+        durationSeconds: 30 * 60,
+        segments: 2,
+        notes: '  Offline practice  ',
+      },
+    } as unknown as PayloadRequest)
+
+    expect(response.status).toBe(201)
+    const { ok, record } = (await response.json()) as { ok: boolean; record: LearningRecord }
+    expect(ok).toBe(true)
+    expect(record.source).toBe('manual')
+    expect(record.notes).toBe('Offline practice')
+    expect(record.lessonId).toMatch(/^manual-/)
+    expect(record.clientId).toMatch(/^manual-/)
+    expect(record.segments).toBe(2)
+    createdRecordIds.push(record.id)
+
+    const fetched = (await payload.findByID({
+      collection: 'learning-records',
+      id: record.id,
+      overrideAccess: true,
+    })) as unknown as LearningRecord
+    expect(fetched.source).toBe('manual')
+    expect(fetched.notes).toBe('Offline practice')
+  })
+
   it('allows manager/editor to delete any learning record', async () => {
     // Create a normal user
     const userEmail = `normaluser-${uniqueSuffix()}@example.com`
@@ -209,9 +273,11 @@ describe('Learning Records Deletion E2E', () => {
     const record = await payload.create({
       collection: 'learning-records',
       overrideAccess: true,
+      draft: false,
       data: {
         user: user.id,
         clientId,
+        source: 'auto',
         lessonId: 'test-lesson-789',
         lessonTitle: 'Manager Test Lesson',
         startedAt: new Date().toISOString(),
@@ -267,9 +333,11 @@ describe('Learning Records Deletion E2E', () => {
     const record1 = await payload.create({
       collection: 'learning-records',
       overrideAccess: true,
+      draft: false,
       data: {
         user: user.id,
         clientId: `client-${uniqueSuffix()}`,
+        source: 'auto',
         lessonId: 'test-lesson-bulk-1',
         lessonTitle: 'Bulk Test 1',
         startedAt: new Date().toISOString(),
@@ -286,9 +354,11 @@ describe('Learning Records Deletion E2E', () => {
     const record2 = await payload.create({
       collection: 'learning-records',
       overrideAccess: true,
+      draft: false,
       data: {
         user: user.id,
         clientId: `client-${uniqueSuffix()}`,
+        source: 'auto',
         lessonId: 'test-lesson-bulk-2',
         lessonTitle: 'Bulk Test 2',
         startedAt: new Date().toISOString(),

@@ -491,6 +491,7 @@ export interface Module {
 export interface LearningRecord {
   id: string;
   user: string | User;
+  source: 'auto' | 'manual';
   clientId: string;
   lessonId: string;
   lessonTitle?: string | null;
@@ -502,6 +503,10 @@ export interface LearningRecord {
   speed?: number | null;
   finished?: boolean | null;
   segments?: number | null;
+  /**
+   * Optional learner-supplied context for manual entries.
+   */
+  notes?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -784,6 +789,7 @@ export interface MediaSelect<T extends boolean = true> {
  */
 export interface LearningRecordsSelect<T extends boolean = true> {
   user?: T;
+  source?: T;
   clientId?: T;
   lessonId?: T;
   lessonTitle?: T;
@@ -795,6 +801,7 @@ export interface LearningRecordsSelect<T extends boolean = true> {
   speed?: T;
   finished?: T;
   segments?: T;
+  notes?: T;
   updatedAt?: T;
   createdAt?: T;
 }
