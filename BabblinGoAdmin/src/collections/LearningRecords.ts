@@ -193,6 +193,10 @@ export const LearningRecords: CollectionConfig = {
       path: '/',
       method: 'head',
       handler: async (req: PayloadRequest) => {
+        console.log('[learning-records] head probe', {
+          userId: (req?.user as User | undefined)?.id,
+          url: req?.url,
+        })
         const user = req?.user as User | undefined
         if (!user) {
           return new Response(null, { status: 401 })
