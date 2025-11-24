@@ -327,15 +327,35 @@ export const LearningRecords: CollectionConfig = {
             runId: runId || null,
           }
 
-          const created = (await req.payload.create({
-            collection: 'learning-records',
-            data: payloadData,
-            draft: false,
-          })) as unknown as LearningRecord
+          console.log('[manual-endpoint] creating record', {
+            userId: payloadData.user,
+            lessonId: payloadData.lessonId,
+            startedAt: payloadData.startedAt,
+            endedAt: payloadData.endedAt,
+          })
+
+          let created: LearningRecord
+          try {
+            created = (await req.payload.create({
+              collection: 'learning-records',
+              data: payloadData,
+              draft: false,
+            })) as unknown as LearningRecord
+          } catch (createError) {
+            console.error('[manual-endpoint] create failed', createError)
+            throw createError
+          }
+
+          console.log('[manual-endpoint] create succeeded', {
+            recordId: created.id,
+            startedAt: created.startedAt,
+            endedAt: created.endedAt,
+          })
 
           return Response.json({ ok: true, record: created }, { status: 201 })
         } catch (e) {
           const message = e instanceof Error ? e.message : String(e)
+          console.error('[manual-endpoint] handler failed', { message, error: e })
           return Response.json({ errors: [{ message }] }, { status: 500 })
         }
       },
