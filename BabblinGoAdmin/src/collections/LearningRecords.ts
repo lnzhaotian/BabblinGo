@@ -519,6 +519,43 @@ export const LearningRecords: CollectionConfig = {
     delete: canManageWhere,
   },
   hooks: {
+    beforeOperation: [
+      (hookArgs) => {
+        try {
+          const { args, req } = hookArgs
+          const operation = (hookArgs as { operation?: string }).operation
+          const url = req?.url
+          const method = req?.method
+          const id = typeof args === 'object' && args && 'id' in args ? (args as { id?: unknown }).id : undefined
+          console.log('[learning-records] beforeOperation', {
+            operation,
+            method,
+            url,
+            id,
+          })
+        } catch (error) {
+          console.warn('[learning-records] beforeOperation log failed', error)
+        }
+      },
+    ],
+    afterError: [
+      (hookArgs) => {
+        try {
+          const { error, req } = hookArgs
+          const operation = (hookArgs as { operation?: string }).operation
+          const status = (error as { status?: number })?.status
+          console.error('[learning-records] afterError', {
+            operation,
+            method: req?.method,
+            url: req?.url,
+            status,
+            message: error instanceof Error ? error.message : String(error),
+          })
+        } catch (logError) {
+          console.warn('[learning-records] afterError log failed', logError)
+        }
+      },
+    ],
     beforeValidate: [
       ({ data, req }) => {
         const next = data || {}
