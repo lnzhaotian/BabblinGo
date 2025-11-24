@@ -34,7 +34,19 @@ export const LearningRecords: CollectionConfig = {
           }
 
           const rawBody: unknown = (req as PayloadRequest).body as unknown
-          const body = rawBody && typeof rawBody === 'object' ? (rawBody as Record<string, unknown>) : {}
+          const body: Record<string, unknown> = (() => {
+            if (!rawBody) return {}
+            if (typeof rawBody === 'object') return rawBody as Record<string, unknown>
+            if (typeof rawBody === 'string') {
+              try {
+                const parsed = JSON.parse(rawBody)
+                return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+              } catch {
+                return {}
+              }
+            }
+            return {}
+          })()
 
           const trimString = (value: unknown): string => (typeof value === 'string' ? value.trim() : '')
           const parseDate = (value: unknown): Date | null => {

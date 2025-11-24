@@ -10,6 +10,8 @@ import type { SessionRecord } from "@/lib/learning-types"
 import { LEARNING_SESSIONS_STORAGE_KEY } from "@/lib/learning-types"
 import { scheduleLearningRecordSync, deleteLearningRecord } from "../../lib/learning-sync"
 import { useThemeMode } from "../theme-context"
+import { useRouter } from "expo-router"
+import { MaterialIcons } from "@expo/vector-icons"
 
 type LessonMeta = {
   title: string
@@ -63,6 +65,7 @@ export default function ProgressScreen() {
   const [visibleCount, setVisibleCount] = useState<number>(PAGE_SIZE)
   const [loadingMore, setLoadingMore] = useState(false)
   const { colorScheme } = useThemeMode();
+  const router = useRouter()
 
   const loadSessions = useCallback(async () => {
     try {
@@ -609,6 +612,27 @@ export default function ProgressScreen() {
             </View>
           </View>
         )}
+      </View>
+
+  {/* Manual entry shortcut */}
+  <View style={{ paddingHorizontal: 16, marginTop: 4 }}>
+        <Pressable
+          onPress={() => router.push("/(stack)/manual-entry")}
+          style={({ pressed }) => ({
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 12,
+            borderRadius: 12,
+            backgroundColor: pressed ? (colorScheme === 'dark' ? '#312e81' : '#eef2ff') : (colorScheme === 'dark' ? '#23232a' : '#fff'),
+            borderWidth: 1,
+            borderColor: colorScheme === 'dark' ? '#312e81' : '#dbeafe',
+            gap: 8,
+          })}
+        >
+          <MaterialIcons name="add-circle-outline" size={20} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
+          <Text style={{ fontSize: 15, fontWeight: "600", color: colorScheme === 'dark' ? '#c7d2fe' : '#312e81' }}>{t("progress.addManualEntry")}</Text>
+        </Pressable>
       </View>
 
   {/* Recents list */}

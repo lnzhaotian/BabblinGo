@@ -138,6 +138,12 @@ function AppNavigator() {
           headerShown: false,
         }}
       />
+      <Stack.Screen
+        name="(stack)/manual-entry"
+        options={{
+          headerShown: false,
+        }}
+      />
     </Stack>
   );
 }

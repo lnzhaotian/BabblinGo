@@ -10,8 +10,10 @@ import type { LearningSyncFetchStatus } from "./analytics"
 import type { SessionRecord } from "./learning-types"
 import { LEARNING_SESSIONS_STORAGE_KEY, LEARNING_SESSIONS_IGNORED_IDS_KEY } from "./learning-types"
 import { clearAuthSession, getAuthToken } from "./auth-session"
+import { normalizeSessionRecord } from "./session-normalizer"
 
 const ENDPOINT = `${config.apiUrl}/api/learning-records`
+const MANUAL_ENDPOINT = `${ENDPOINT}/manual`
 let inFlight: Promise<void> | null = null
 
 const headersFor = (token: string, includeJson = false) => {
@@ -81,6 +83,8 @@ type RemoteRecord = {
   finished?: boolean | null
   segments?: number | null
   updatedAt?: string | null
+  source?: 'auto' | 'manual' | null
+  notes?: string | null
 }
 
 type RemoteFetchResult = {
@@ -111,8 +115,10 @@ const fromRemoteRecord = (doc: RemoteRecord): SessionRecord | null => {
   const endedAt = doc.endedAt ? Date.parse(doc.endedAt) : startedAt
   const durationSeconds = doc.durationSeconds != null ? doc.durationSeconds : Math.max(0, Math.floor((endedAt - startedAt) / 1000))
   const remoteUpdatedAt = doc.updatedAt ? Date.parse(doc.updatedAt) : undefined
+  const source: SessionRecord["source"] = doc.source === "manual" ? "manual" : "auto"
+  const notes = typeof doc.notes === "string" ? doc.notes : null
 
-  return {
+  return normalizeSessionRecord({
     id: clientId,
     lessonId,
     lessonTitle: (doc.lessonTitle && doc.lessonTitle.trim().length ? doc.lessonTitle : lessonId) ?? lessonId,
@@ -129,22 +135,28 @@ const fromRemoteRecord = (doc: RemoteRecord): SessionRecord | null => {
     dirty: false,
     lastModifiedAt: remoteUpdatedAt,
     remoteUpdatedAt,
-  }
+    source,
+    notes,
+  })
 }
 
 const toPayload = (record: SessionRecord) => {
+  const normalized = normalizeSessionRecord(record)
+  const durationSeconds = normalized.durationSeconds ?? Math.max(0, Math.floor((normalized.endedAt - normalized.startedAt) / 1000))
   return {
-    clientId: record.id,
-    lessonId: record.lessonId,
-    lessonTitle: record.lessonTitle,
-    runId: record.runId ?? null,
-    startedAt: toISOString(record.startedAt),
-    endedAt: toISOString(record.endedAt),
-    plannedSeconds: record.plannedSeconds ?? 0,
-    durationSeconds: record.durationSeconds ?? Math.max(0, Math.floor((record.endedAt - record.startedAt) / 1000)),
-    speed: Number(record.speed),
-    finished: !!record.finished,
-    segments: record.segments ?? 1,
+    clientId: normalized.id,
+    lessonId: normalized.lessonId,
+    lessonTitle: normalized.lessonTitle,
+    runId: normalized.runId ?? null,
+    startedAt: toISOString(normalized.startedAt),
+    endedAt: toISOString(normalized.endedAt),
+    plannedSeconds: normalized.plannedSeconds ?? 0,
+    durationSeconds,
+    speed: Number(normalized.speed),
+    finished: !!normalized.finished,
+    segments: normalized.segments ?? 1,
+    source: normalized.source,
+    notes: normalized.notes ?? null,
   }
 }
 
@@ -240,7 +252,7 @@ const mergeLocalAndRemote = (
 }
 
 async function pushDirtySessions(token: string, sessions: SessionRecord[]): Promise<PushResult> {
-  const updatedSessions = [...sessions]
+  const updatedSessions = sessions.map((session) => normalizeSessionRecord(session))
   let attempted = 0
   let failed = 0
   let unauthorized = false
@@ -248,15 +260,19 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
   let unauthorizedMessage: string | undefined
 
   for (let index = 0; index < sessions.length; index += 1) {
-    const session = sessions[index]
+    let session = updatedSessions[index]
     if (!(session.dirty || !session.serverId)) {
       continue
     }
 
     const payload = toPayload(session)
+    if (session.source === "manual" && typeof __DEV__ !== "undefined" && __DEV__) {
+      console.log("[learning-sync] manual payload", payload)
+    }
     const headers = headersFor(token, true)
     let response: Response | null = null
-    let updatedSession = { ...session }
+    let updatedSession = normalizeSessionRecord(session)
+    const isManual = session.source === "manual"
 
     attempted += 1
 
@@ -274,7 +290,8 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
       }
 
       if (!response) {
-        response = await fetch(ENDPOINT, {
+        const url = isManual ? MANUAL_ENDPOINT : ENDPOINT
+        response = await fetch(url, {
           method: "POST",
           headers,
           body: JSON.stringify(payload),
@@ -302,19 +319,20 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
       const serverId: string | undefined = doc?.id ?? doc?._id ?? updatedSession.serverId
       const remoteUpdatedAt = doc?.updatedAt ? Date.parse(doc.updatedAt) : Date.now()
 
-      updatedSession = {
+      updatedSession = normalizeSessionRecord({
         ...updatedSession,
         serverId,
         syncedAt: Date.now(),
         remoteUpdatedAt,
         dirty: false,
-      }
+      })
     } catch (error) {
       console.warn(`Learning record sync: push failed for ${session.id}`, error)
-      updatedSession = {
+      updatedSession = normalizeSessionRecord({
         ...updatedSession,
         dirty: true,
-      }
+        lastModifiedAt: Date.now(),
+      })
       failed += 1
     }
 
@@ -326,9 +344,10 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
   }
 
   const succeeded = Math.max(0, attempted - failed)
+  const normalizedSessions = updatedSessions.map((session) => normalizeSessionRecord(session))
 
   return {
-    sessions: updatedSessions,
+    sessions: normalizedSessions,
     attempted,
     failed,
     succeeded,
@@ -345,10 +364,12 @@ async function persistSessions(sessions: SessionRecord[]): Promise<void> {
 
     const map = new Map<string, SessionRecord>()
     for (const session of existing) {
-      map.set(session.id, session)
+      const normalized = normalizeSessionRecord(session)
+      map.set(normalized.id, normalized)
     }
     for (const session of sessions) {
-      map.set(session.id, session)
+      const normalized = normalizeSessionRecord(session)
+      map.set(normalized.id, normalized)
     }
 
     const merged = Array.from(map.values())
@@ -364,7 +385,8 @@ export async function syncLearningRecords(): Promise<void> {
   const startedAt = Date.now()
 
   const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
-  const localSessions: SessionRecord[] = raw ? JSON.parse(raw) : []
+  const parsedLocal: SessionRecord[] = raw ? JSON.parse(raw) : []
+  const localSessions = parsedLocal.map((session) => normalizeSessionRecord(session))
   const localCount = localSessions.length
   const dirtyBefore = countDirtySessions(localSessions)
 
@@ -451,7 +473,8 @@ async function deleteLocalRecordById(id: string): Promise<void> {
     const raw = await AsyncStorage.getItem(LEARNING_SESSIONS_STORAGE_KEY)
     const arr: SessionRecord[] = raw ? JSON.parse(raw) : []
     const next = arr.filter((s) => s.id !== id)
-    await AsyncStorage.setItem(LEARNING_SESSIONS_STORAGE_KEY, JSON.stringify(next))
+    const normalized = next.map((session) => normalizeSessionRecord(session))
+    await AsyncStorage.setItem(LEARNING_SESSIONS_STORAGE_KEY, JSON.stringify(normalized))
   } catch (e) {
     console.warn("Failed to delete local learning record", e)
   }

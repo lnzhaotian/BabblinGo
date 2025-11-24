@@ -3,6 +3,7 @@ import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import { scheduleLearningRecordSync } from "@/lib/learning-sync"
 import type { SessionRecord } from "./learning-types"
 import { LEARNING_SESSIONS_STORAGE_KEY } from "./learning-types"
+import { normalizeSessionRecord } from "./session-normalizer"
 
 /**
  * Learning preferences structure
@@ -62,7 +63,12 @@ export async function saveLearningPreferences(
  * Save a learning session record to AsyncStorage
  * Only saves if duration meets minimum threshold
  */
-export async function saveLearningSession(record: Omit<SessionRecord, "id">): Promise<void> {
+export async function saveLearningSession(
+  record: Omit<SessionRecord, "id" | "source"> & {
+    source?: SessionRecord["source"]
+    notes?: string | null
+  }
+): Promise<void> {
   try {
     const rawDurationMs = record.endedAt - record.startedAt;
     const segmentDurationSeconds = Math.max(0, Math.floor(rawDurationMs / 1000));
@@ -79,10 +85,14 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
     const raw = await AsyncStorage.getItem(key);
     const sessions: SessionRecord[] = raw ? JSON.parse(raw) : [];
 
+  const sessionSource: SessionRecord["source"] = record.source === "manual" ? "manual" : "auto"
+  const normalizedNotes = record.notes ?? null
+  const { source: _ignoredSource, notes: _ignoredNotes, ...rest } = record
+
     const normalizedLessonTitle = record.lessonTitle?.trim().length ? record.lessonTitle : record.lessonId;
     const baseSession: SessionRecord = {
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
-      ...record,
+      ...rest,
       lessonTitle: normalizedLessonTitle,
       durationSeconds: segmentDurationSeconds,
       segments: record.segments ?? 1,
@@ -90,7 +100,11 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
       syncedAt: undefined,
       serverId: undefined,
       lastModifiedAt: Date.now(),
+      source: sessionSource,
+      notes: normalizedNotes,
     };
+
+    const normalizedBase = normalizeSessionRecord(baseSession);
 
     if (record.runId) {
       const existingIndex = sessions.findIndex((session) => session.runId === record.runId);
@@ -110,10 +124,13 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
           segments: (existing.segments ?? 1) + (record.segments ?? 1),
           dirty: true,
           lastModifiedAt: Date.now(),
+          source: existing.source ?? sessionSource,
+          notes: existing.notes ?? normalizedNotes,
         };
 
-        sessions[existingIndex] = merged;
-        await AsyncStorage.setItem(key, JSON.stringify(sessions));
+        sessions[existingIndex] = normalizeSessionRecord(merged);
+        const normalizedSessions = sessions.map((session) => normalizeSessionRecord(session));
+        await AsyncStorage.setItem(key, JSON.stringify(normalizedSessions));
         console.log(
           `Updated aggregated session ${record.runId}: +${segmentDurationSeconds}s (segments=${merged.segments}, total=${merged.durationSeconds}s)`
         );
@@ -124,8 +141,9 @@ export async function saveLearningSession(record: Omit<SessionRecord, "id">): Pr
       }
     }
 
-    sessions.push(baseSession);
-    await AsyncStorage.setItem(key, JSON.stringify(sessions));
+  sessions.push(normalizedBase);
+  const normalizedSessions = sessions.map((session) => normalizeSessionRecord(session));
+    await AsyncStorage.setItem(key, JSON.stringify(normalizedSessions));
 
     console.log(
       `Saved learning session: ${segmentDurationSeconds}s for ${normalizedLessonTitle} (finished: ${record.finished}, runId: ${record.runId ?? "-"})`

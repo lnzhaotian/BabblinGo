@@ -17,6 +17,8 @@ export interface SessionRecord {
   dirty?: boolean
   lastModifiedAt?: number
   remoteUpdatedAt?: number
+  source: 'auto' | 'manual'
+  notes?: string | null
 }
 
 export const LEARNING_SESSIONS_STORAGE_KEY = "learning.sessions"
