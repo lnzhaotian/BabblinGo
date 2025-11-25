@@ -74,6 +74,7 @@ export interface Config {
     media: Media;
     'learning-records': LearningRecord;
     tools: Tool;
+    'user-preferences': UserPreference;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -87,6 +88,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     'learning-records': LearningRecordsSelect<false> | LearningRecordsSelect<true>;
     tools: ToolsSelect<false> | ToolsSelect<true>;
+    'user-preferences': UserPreferencesSelect<false> | UserPreferencesSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -215,6 +217,10 @@ export interface Course {
   coverImage?: (string | null) | Media;
   order?: number | null;
   status: 'draft' | 'published';
+  /**
+   * If enabled, user learning sessions for this course will be recorded unless the user opts out.
+   */
+  defaultTrackingEnabled: boolean;
   levels?:
     | {
         key: string;
@@ -537,6 +543,27 @@ export interface Tool {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "user-preferences".
+ */
+export interface UserPreference {
+  id: string;
+  user: string | User;
+  global?: {
+    playbackSpeed?: number | null;
+    sessionDuration?: number | null;
+  };
+  courseOverrides?:
+    | {
+        course: string | Course;
+        trackingEnabled: boolean;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -569,6 +596,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'tools';
         value: string | Tool;
+      } | null)
+    | ({
+        relationTo: 'user-preferences';
+        value: string | UserPreference;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -661,6 +692,7 @@ export interface CoursesSelect<T extends boolean = true> {
   coverImage?: T;
   order?: T;
   status?: T;
+  defaultTrackingEnabled?: T;
   levels?:
     | T
     | {
@@ -817,6 +849,28 @@ export interface ToolsSelect<T extends boolean = true> {
   icon?: T;
   status?: T;
   order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "user-preferences_select".
+ */
+export interface UserPreferencesSelect<T extends boolean = true> {
+  user?: T;
+  global?:
+    | T
+    | {
+        playbackSpeed?: T;
+        sessionDuration?: T;
+      };
+  courseOverrides?:
+    | T
+    | {
+        course?: T;
+        trackingEnabled?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

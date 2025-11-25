@@ -18,52 +18,43 @@ Global Assumptions
 - Authentication context and existing course/lesson APIs stay unchanged unless noted.
 - We maintain localization (en, zh) for all user-facing text.
 
-Feature 1: Course Logging Defaults (backend groundwork)
--------------------------------------------------------
-Goal: Each course stores a boolean flag `trackLearningRecordsByDefault` (name TBD) that drives default logging behavior.
+Feature Set 1-3: User Preferences & Course Configuration System
+---------------------------------------------------------------
+Goal: Implement a robust "Configuration Hierarchy" for learning records and sync global user settings (playback speed, etc.) to the server.
 
-Tasks
-- Extend Payload CMS course collection schema with new boolean field (default true) + admin description.
-- Update NestJS course DTOs, GraphQL/REST responses (if applicable) to expose the flag.
-- Adjust seed data/migrations so existing courses set flag to true (preserve current behavior).
-- Update frontend course fetching utilities (`lib/payload.ts`, course list loaders) to read the new field.
-- Ensure caching/storage layers include the flag where courses are serialized.
+Core Concept: Configuration Hierarchy
+1. Level 1 (Global/System): App default (Tracking: On).
+2. Level 2 (Course Admin): Course default (set by Admin).
+3. Level 3 (User Preference): User override (set by User).
+Logic: Effective State = User_Override ?? Course_Default ?? True
 
-Open Questions
-- Should flag be localized or global? Currently assumed global boolean.
-- Any reporting/analytics dependency on this default setting?
+Backend Tasks (Payload CMS & NestJS)
+- Update `courses` Collection:
+  * Add `defaultTrackingEnabled` (Boolean, default: true).
+  * Expose in API responses.
+- Create `user-preferences` Collection (One document per user):
+  * Fields:
+    - `user`: Relationship to User (unique).
+    - `global`: Object storing general settings (e.g., `{ playbackSpeed: number, sessionDuration: number }`).
+    - `courseOverrides`: Array of `{ course: Relationship, trackingEnabled: Boolean }`.
+  * API: `GET /api/user-preferences/me` (fetch all), `PATCH /api/user-preferences/me` (update global or specific course override).
 
-Feature 2: Admin UI Controls
-----------------------------
-Goal: Allow editors/admins to set the course default flag inside AdminJS.
-
-Tasks
-- Add toggle field to AdminJS course form, with contextual copy explaining purpose.
-- Include flag in list/detail views for quick scanning.
-- Ensure admin changes propagate to API responses (already covered by Feature 1).
-
-Open Questions
-- Should non-admin editors also manage this field? Need role-check confirmation.
-
-Feature 3: User Overrides for Course Logging
---------------------------------------------
-Goal: Users can opt in/out per course without affecting global default.
-
-Backend Tasks
-- Design new collection/table storing per-user course preferences (userId, courseId, overrideState, timestamps).
-- Expose REST endpoints: fetch preferences for current user, upsert preference, remove override (revert to default).
-- Consider server enforcement during learning-record sync: server should respect user override when determining whether to store uploaded records.
-
-Frontend Tasks
-- Extend session logging pipeline to consult overrides when deciding to record local sessions (manual + auto).
-- Provide UI in course screen (or settings) to toggle tracking per course; show effective state (default vs override).
-- Persist override states locally and sync with backend (optimistic updates + fallback).
-- Update progress/history views to respect overrides (e.g., hide sessions when logging disabled? Need clarity).
+Frontend Tasks (Expo/React Native)
+- State Management:
+  * Create `PreferencesContext` to hold global settings and course overrides.
+  * On launch/login: Fetch `user-preferences` and cache in AsyncStorage (offline support).
+  * Migration: On first run, read legacy local-only settings (playback speed) and sync to server.
+- Logic Implementation:
+  * Update `session-manager.ts`: Check `User_Override ?? Course_Default` before saving a session.
+  * Update Settings Screen: Bind controls (Speed, Duration) to the new synced context.
+  * Update Course Detail: Add "Record Learning History" toggle.
+- UI/UX:
+  * Show "History Paused" indicator on course screens if tracking is disabled.
+  * Ensure settings work offline (optimistic updates).
 
 Open Questions
-- Exact UX location for toggle (course detail header? settings panel?).
-- Behavior for existing stored sessions when user disables logging (hide future only vs purge past?).
-- Offline handling when user toggles while disconnected.
+- Conflict resolution: If user changes settings on two devices offline, last write wins?
+- Should we migrate existing local settings silently or ask user? (Silent migration preferred).
 
 Feature 4: Audio Slideshow Playback Modes
 -----------------------------------------

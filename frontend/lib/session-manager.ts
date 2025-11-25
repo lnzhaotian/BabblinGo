@@ -67,9 +67,38 @@ export async function saveLearningSession(
   record: Omit<SessionRecord, "id" | "source"> & {
     source?: SessionRecord["source"]
     notes?: string | null
+    courseId?: string
+    defaultTrackingEnabled?: boolean
   }
 ): Promise<void> {
   try {
+    // Check tracking preferences
+    const prefsRaw = await AsyncStorage.getItem("user.preferences")
+    let shouldTrack = true
+
+    if (prefsRaw) {
+      const prefs = JSON.parse(prefsRaw)
+      const globalEnabled = prefs.globalTrackingEnabled ?? true
+      
+      if (record.courseId) {
+        const override = prefs.courseOverrides?.[record.courseId]
+        if (typeof override === "boolean") {
+          shouldTrack = override
+        } else {
+          shouldTrack = record.defaultTrackingEnabled ?? globalEnabled
+        }
+      } else {
+        shouldTrack = globalEnabled
+      }
+    } else {
+      shouldTrack = record.defaultTrackingEnabled ?? true
+    }
+
+    if (!shouldTrack) {
+      console.log(`Tracking disabled. Skipping save.`)
+      return
+    }
+
     const rawDurationMs = record.endedAt - record.startedAt;
     const segmentDurationSeconds = Math.max(0, Math.floor(rawDurationMs / 1000));
 
@@ -87,7 +116,7 @@ export async function saveLearningSession(
 
   const sessionSource: SessionRecord["source"] = record.source === "manual" ? "manual" : "auto"
   const normalizedNotes = record.notes ?? null
-  const { source: _ignoredSource, notes: _ignoredNotes, ...rest } = record
+  const { source: _ignoredSource, notes: _ignoredNotes, courseId: _ignoredCourseId, defaultTrackingEnabled: _ignoredDefaultTracking, ...rest } = record
 
     const normalizedLessonTitle = record.lessonTitle?.trim().length ? record.lessonTitle : record.lessonId;
     const baseSession: SessionRecord = {

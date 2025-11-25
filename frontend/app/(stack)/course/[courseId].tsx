@@ -4,6 +4,7 @@ import {
   FlatList,
   Image,
   Pressable,
+  Switch,
   Text,
   View,
 } from "react-native";
@@ -27,6 +28,7 @@ import { recordCourseView, recordLessonOpened } from "@/lib/analytics";
 import { getLessonCacheStatus, LessonCacheStatus } from "@/lib/cache-manager";
 import { ThemedHeader } from "@/components/ThemedHeader";
 import { useThemeMode } from "../../theme-context";
+import { usePreferences } from "../../preferences-context";
 import { collectLessonMediaUrls } from "@/lib/lesson-media";
 
 const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>
@@ -41,6 +43,7 @@ const CourseDetail = () => {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const { colorScheme } = useThemeMode();
+  const { courseOverrides, globalTrackingEnabled, setCourseTracking } = usePreferences();
 
   const [course, setCourse] = useState<CourseDoc | null>(null);
   const [lessons, setLessons] = useState<LessonDoc[]>([]);
@@ -360,6 +363,35 @@ const CourseDetail = () => {
           </Text>
         ) : null}
 
+        <View style={{ 
+          flexDirection: 'row', 
+          alignItems: 'center', 
+          justifyContent: 'space-between',
+          marginTop: 16,
+          padding: 12,
+          backgroundColor: colorScheme === "dark" ? "#27272a" : "#f3f4f6",
+          borderRadius: 8
+        }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={{ fontSize: 14, fontWeight: '600', color: colorScheme === "dark" ? "#fff" : "#111827" }}>
+              {t('settings.trackingEnabled')}
+            </Text>
+            <Text style={{ fontSize: 12, color: colorScheme === "dark" ? "#9ca3af" : "#6b7280", marginTop: 2 }}>
+              {t('course.trackingDescription')}
+            </Text>
+          </View>
+          <Switch
+            value={courseOverrides[course.id] ?? (course.defaultTrackingEnabled ?? globalTrackingEnabled)}
+            onValueChange={(val) => setCourseTracking(course.id, val)}
+            trackColor={{ false: "#767577", true: "#6366f1" }}
+            thumbColor={
+              (courseOverrides[course.id] ?? (course.defaultTrackingEnabled ?? globalTrackingEnabled))
+                ? "#fff"
+                : "#f4f3f4"
+            }
+          />
+        </View>
+
         {levels.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 16 }}>
             {levels.map((level) => {
@@ -397,7 +429,7 @@ const CourseDetail = () => {
         ) : null}
       </View>
     );
-  }, [course, colorScheme, locale, selectedLevelKey, sortedLevels]);
+  }, [course, colorScheme, locale, selectedLevelKey, sortedLevels, courseOverrides, globalTrackingEnabled, setCourseTracking, t]);
 
   return (
     <>

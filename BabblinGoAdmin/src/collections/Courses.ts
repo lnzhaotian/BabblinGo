@@ -56,6 +56,16 @@ const Courses: CollectionConfig = {
       index: true,
     },
     {
+      name: 'defaultTrackingEnabled',
+      type: 'checkbox',
+      label: 'Enable Learning Records by Default',
+      defaultValue: true,
+      required: true,
+      admin: {
+        description: 'If enabled, user learning sessions for this course will be recorded unless the user opts out.',
+      },
+    },
+    {
       name: 'levels',
       type: 'array',
       required: false,

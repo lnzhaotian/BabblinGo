@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from "react"
-import { View, Text, Pressable, ScrollView } from "react-native"
+import { View, Text, Pressable, ScrollView, Switch } from "react-native"
 // import { Stack } from "expo-router"
 import { SafeAreaView } from "react-native-safe-area-context"
 import * as Haptics from "expo-haptics"
 import { useTranslation } from "react-i18next"
 import { useThemeMode } from "../theme-context"
+import { usePreferences } from "../preferences-context"
 import { ThemedHeader } from "@/components/ThemedHeader"
 import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 import {
@@ -25,6 +26,7 @@ const SPEED_OPTIONS: PlaybackSpeed[] = [0.5, 0.7, 1.0, 1.3, 1.5, 1.7, 2.0]
 export default function LearningSettingsScreen() {
   const { t } = useTranslation()
   const { colorScheme } = useThemeMode();
+  const { globalTrackingEnabled, setGlobalTrackingEnabled } = usePreferences();
 
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
 
@@ -80,6 +82,33 @@ export default function LearningSettingsScreen() {
       <ThemedHeader titleKey="settings.learning.title" />
       <SafeAreaView style={{ flex: 1, backgroundColor: colorScheme === 'dark' ? '#18181b' : "#f9fafb" }} edges={["bottom"]}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, gap: 24 }}>
+
+        {/* Privacy Section */}
+        <View style={{ gap: 12, display: 'none' }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>
+            {t("settings.privacy")}
+          </Text>
+          <View style={{
+            backgroundColor: colorScheme === 'dark' ? '#27272a' : '#fff',
+            borderRadius: 12,
+            padding: 16,
+          }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 16, fontWeight: '600', color: colorScheme === 'dark' ? '#fff' : '#111827' }}>
+                {t('settings.trackingEnabled')}
+              </Text>
+              <Switch
+                value={globalTrackingEnabled}
+                onValueChange={setGlobalTrackingEnabled}
+                trackColor={{ false: "#767577", true: "#6366f1" }}
+                thumbColor={globalTrackingEnabled ? "#fff" : "#f4f3f4"}
+              />
+            </View>
+            <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : '#6b7280', lineHeight: 20 }}>
+              {t('settings.trackingDescription')}
+            </Text>
+          </View>
+        </View>
 
         {/* Playback Speed Section */}
         <View style={{ gap: 12 }}>

@@ -38,6 +38,8 @@ type LinkedLesson = {
   id: string
   title: string
   courseTitle?: string | null
+  courseId?: string | null
+  defaultTrackingEnabled?: boolean | null
 }
 
 const readRecentLessons = async (): Promise<LinkedLesson[]> => {
@@ -265,15 +267,24 @@ export default function ManualEntryScreen() {
             }
 
             let courseTitle: string | null = null
+            let courseId: string | null = null
+            let defaultTrackingEnabled: boolean | null = null
+
             if (doc.course && typeof doc.course === "object") {
               const courseDoc = doc.course as CourseDoc
               courseTitle = resolveLocalizedField(courseDoc.title, i18n.language) ?? courseDoc.slug ?? null
+              courseId = courseDoc.id
+              defaultTrackingEnabled = courseDoc.defaultTrackingEnabled ?? null
+            } else if (typeof doc.course === "string") {
+              courseId = doc.course
             }
 
             return {
               id: doc.id,
               title: resolvedTitle,
               courseTitle,
+              courseId,
+              defaultTrackingEnabled,
             }
           }
 
@@ -490,6 +501,10 @@ export default function ManualEntryScreen() {
       ? providedLessonId
       : `manual-${slugify(title) || "session"}-${Date.now().toString(36)}`
 
+    // Extract course info if linked
+    const courseId = isLinked && linkedLesson?.courseId ? linkedLesson.courseId : undefined
+    const defaultTrackingEnabled = isLinked && linkedLesson?.defaultTrackingEnabled != null ? linkedLesson.defaultTrackingEnabled : undefined
+
     setSaving(true)
     try {
       await saveLearningSession({
@@ -503,6 +518,8 @@ export default function ManualEntryScreen() {
         segments: 1,
         source: "manual",
         notes,
+        courseId,
+        defaultTrackingEnabled,
       })
       Alert.alert(t("manualEntry.successTitle"), t("manualEntry.successMessage"), [
         {

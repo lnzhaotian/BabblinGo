@@ -3,6 +3,7 @@ import { Stack } from "expo-router";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import i18n from "@/lib/i18n";
 import { ThemeProvider, useThemeMode } from "./theme-context";
+import { PreferencesProvider } from "./preferences-context";
 import * as SplashScreen from "expo-splash-screen";
 import { scheduleLearningRecordSync } from "../lib/learning-sync";
 import { setAudioModeAsync } from "expo-audio";
@@ -151,9 +152,11 @@ function AppNavigator() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <SafeAreaProvider>
-        <AppNavigator />
-      </SafeAreaProvider>
+      <PreferencesProvider>
+        <SafeAreaProvider>
+          <AppNavigator />
+        </SafeAreaProvider>
+      </PreferencesProvider>
     </ThemeProvider>
   );
 }

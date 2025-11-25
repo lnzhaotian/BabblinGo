@@ -129,6 +129,22 @@ export type CourseDoc = {
   order?: number | null
   status?: string | null
   levels?: CourseLevel[] | null
+  defaultTrackingEnabled?: boolean | null
+}
+
+export type UserPreferencesDoc = {
+  id: string
+  user: string | { id: string }
+  global?: {
+    trackingEnabled?: boolean
+    playbackSpeed?: number
+    sessionDuration?: number
+  }
+  courseOverrides?: {
+    course: string | { id: string }
+    trackingEnabled: boolean
+    id?: string
+  }[]
 }
 
 type ModuleRelation = string | ModuleDoc | null

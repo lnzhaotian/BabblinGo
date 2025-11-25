@@ -22,6 +22,10 @@ const resources = {
       "settings.login": "Log In",
       "settings.register": "Register",
       "settings.logout": "Log Out",
+      "settings.privacy": "Privacy",
+      "settings.privacyDescription": "Manage data collection and tracking preferences",
+      "settings.trackingEnabled": "Enable Learning Tracking",
+      "settings.trackingDescription": "When enabled, your learning progress will be saved to your history. You can override this for specific courses.",
       "profile.title": "User Profile",
       "profile.noEmail": "N/A",
       "profile.noDisplayName": "N/A",
@@ -80,6 +84,7 @@ const resources = {
       "course.empty": "No lessons available yet.",
       "course.defaultTitle": "Course",
       "course.section.ungrouped": "Lessons",
+      "course.trackingDescription": "Track your learning progress for this course.",
 
       // Tools screen
       "tools.title": "Toolbox",
@@ -364,6 +369,10 @@ const resources = {
       "settings.login": "登录",
       "settings.register": "注册",
       "settings.logout": "退出登录",
+      "settings.privacy": "隐私",
+      "settings.privacyDescription": "管理数据收集和追踪偏好",
+      "settings.trackingEnabled": "启用学习追踪",
+      "settings.trackingDescription": "启用后，您的学习进度将被保存到历史记录中。您可以针对特定课程覆盖此设置。",
       "profile.title": "个人信息",
       "profile.noEmail": "无",
       "profile.noDisplayName": "无",
@@ -480,6 +489,7 @@ const resources = {
       "course.empty": "暂无课程内容。",
       "course.defaultTitle": "课程",
       "course.section.ungrouped": "课程列表",
+      "course.trackingDescription": "追踪此课程的学习进度。",
 
       // Timer
       "timer.set": "设置练习计时",
