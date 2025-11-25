@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator, Alert, Modal, TouchableOpacity } from 'react-native'
+import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator, Alert, Modal } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -282,7 +282,7 @@ export default function ChatScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} style={{ marginRight: 8 }} />
               <Text style={{ color: colorScheme === 'dark' ? '#9CA3AF' : '#6B7280', fontStyle: 'italic' }}>
-                Thinking...
+                {t('chat.thinking')}
               </Text>
             </View>
           ) : (
@@ -430,7 +430,7 @@ export default function ChatScreen() {
                 fontWeight: 'bold',
                 color: colorScheme === 'dark' ? '#fff' : '#111827',
               }}>
-                History
+                {t('chat.history.title')}
               </Text>
               {loadingHistory && (
                 <ActivityIndicator size="small" style={{ marginVertical: 0 }} />
@@ -470,7 +470,7 @@ export default function ChatScreen() {
                 fontWeight: '600',
                 color: colorScheme === 'dark' ? '#60A5FA' : '#2563EB',
               }}>
-                New Chat
+                {t('chat.newChat')}
               </Text>
             </Pressable>
 
@@ -496,7 +496,7 @@ export default function ChatScreen() {
                       color: colorScheme === 'dark' ? '#fff' : '#111827',
                       marginBottom: 4,
                     }} numberOfLines={1}>
-                      {item.name || 'Untitled Conversation'}
+                      {item.name || t('chat.untitledConversation')}
                     </Text>
                     <Text style={{
                       fontSize: 12,
@@ -508,11 +508,11 @@ export default function ChatScreen() {
                   <Pressable
                     onPress={() => {
                       Alert.alert(
-                        'Delete Conversation',
-                        'Are you sure you want to delete this conversation?',
+                        t('chat.deleteConversation'),
+                        t('chat.deleteConfirmation'),
                         [
-                          { text: 'Cancel', style: 'cancel' },
-                          { text: 'Delete', style: 'destructive', onPress: () => handleDeleteConversation(item.id) }
+                          { text: t('common.cancel'), style: 'cancel' },
+                          { text: t('chat.delete'), style: 'destructive', onPress: () => handleDeleteConversation(item.id) }
                         ]
                       )
                     }}
@@ -528,7 +528,7 @@ export default function ChatScreen() {
                   marginTop: 40,
                   color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
                 }}>
-                  No history found.
+                  {t('chat.noHistory')}
                 </Text>
               }
             />

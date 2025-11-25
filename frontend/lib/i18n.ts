@@ -354,10 +354,18 @@ const resources = {
 
       // Agents feature
       "agents.title": "BabblinGears",
-      "agents.description": "Chat with AI agents to practice your skills",
+      "agents.description": "Interact with AI agents to refine your language skills",
       "agents.noAgents": "No agents available at the moment.",
       "chat.placeholder": "Type a message...",
       "chat.loginRequired": "Please login to chat with agents.",
+      "chat.history.title": "History",
+      "chat.newChat": "New Chat",
+      "chat.untitledConversation": "Untitled Conversation",
+      "chat.deleteConversation": "Delete Conversation",
+      "chat.deleteConfirmation": "Are you sure you want to delete this conversation?",
+      "chat.delete": "Delete",
+      "chat.noHistory": "No history found.",
+      "chat.thinking": "Thinking...",
     },
   },
   zh: {
@@ -695,11 +703,19 @@ const resources = {
       "auth.backToLogin": "返回登录",
 
       // Agents feature
-      "agents.title": "BabblinGears",
-      "agents.description": "与 AI 智能体聊天以练习您的技能",
+      "agents.title": "AI智能助手",
+      "agents.description": "与AI智能体互动，提升您的语言能力",
       "agents.noAgents": "暂时没有可用的智能体。",
       "chat.placeholder": "输入消息...",
       "chat.loginRequired": "请登录后与智能体聊天。",
+      "chat.history.title": "历史记录",
+      "chat.newChat": "新对话",
+      "chat.untitledConversation": "未命名对话",
+      "chat.deleteConversation": "删除对话",
+      "chat.deleteConfirmation": "确定要删除这个对话吗？",
+      "chat.delete": "删除",
+      "chat.noHistory": "暂无历史记录。",
+      "chat.thinking": "思考中...",
     },
   },
 };
