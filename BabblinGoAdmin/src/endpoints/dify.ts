@@ -85,8 +85,21 @@ export const getConversationsHandler: PayloadHandler = async (req): Promise<Resp
   try {
     const { apiKey, baseUrl } = await getAgentConfig(req.payload, agentId)
 
+    let targetUserId = req.user.id
+    const requestedUserId = url.searchParams.get('userId')
+    
+    if (requestedUserId && requestedUserId !== req.user.id) {
+        // Role check
+        const user = req.user as unknown as { role: string }
+        if (user.role === 'manager') {
+            targetUserId = requestedUserId
+        } else {
+            return new Response('Forbidden: Only managers can view other users history', { status: 403 })
+        }
+    }
+
     const params = new URLSearchParams({
-      user: req.user.id,
+      user: targetUserId,
       limit,
     })
     if (lastId) params.append('last_id', lastId)
@@ -136,8 +149,19 @@ export const getMessagesHandler: PayloadHandler = async (req): Promise<Response>
   try {
     const { apiKey, baseUrl } = await getAgentConfig(req.payload, agentId)
 
+    let targetUserId = req.user.id
+    const requestedUserId = url.searchParams.get('userId')
+    
+    if (requestedUserId && requestedUserId !== req.user.id) {
+        if ((req.user as unknown as { role: string }).role === 'manager') {
+            targetUserId = requestedUserId
+        } else {
+            return new Response('Forbidden: Only managers can view other users history', { status: 403 })
+        }
+    }
+
     const params = new URLSearchParams({
-      user: req.user.id,
+      user: targetUserId,
       conversation_id: conversationId,
       limit,
     })
@@ -181,7 +205,7 @@ export const renameConversationHandler: PayloadHandler = async (req): Promise<Re
     return new Response('Invalid JSON body', { status: 400 })
   }
 
-  const { agentId, conversationId, name } = body
+  const { agentId, conversationId, name, userId } = body
 
   if (!agentId || !conversationId) {
     return new Response('Missing agentId or conversationId', { status: 400 })
@@ -189,6 +213,15 @@ export const renameConversationHandler: PayloadHandler = async (req): Promise<Re
 
   try {
     const { apiKey, baseUrl } = await getAgentConfig(req.payload, agentId)
+
+    let targetUserId = req.user.id
+    if (userId && userId !== req.user.id) {
+        if ((req.user as unknown as { role: string }).role === 'manager') {
+            targetUserId = userId
+        } else {
+            return new Response('Forbidden: Only managers can manage other users history', { status: 403 })
+        }
+    }
 
     const response = await fetch(`${baseUrl}/conversations/${conversationId}/name`, {
       method: 'POST',
@@ -198,7 +231,7 @@ export const renameConversationHandler: PayloadHandler = async (req): Promise<Re
       },
       body: JSON.stringify({
         name,
-        user: req.user.id,
+        user: targetUserId,
       }),
     })
 
@@ -230,7 +263,7 @@ export const deleteConversationHandler: PayloadHandler = async (req): Promise<Re
     return new Response('Invalid JSON body', { status: 400 })
   }
 
-  const { agentId, conversationId } = body
+  const { agentId, conversationId, userId } = body
 
   if (!agentId || !conversationId) {
     console.log('deleteConversationHandler: Missing agentId or conversationId')
@@ -239,6 +272,15 @@ export const deleteConversationHandler: PayloadHandler = async (req): Promise<Re
 
   try {
     const { apiKey, baseUrl } = await getAgentConfig(req.payload, agentId)
+
+    let targetUserId = req.user.id
+    if (userId && userId !== req.user.id) {
+        if ((req.user as unknown as { role: string }).role === 'manager') {
+            targetUserId = userId
+        } else {
+            return new Response('Forbidden: Only managers can manage other users history', { status: 403 })
+        }
+    }
 
     const difyUrl = `${baseUrl}/conversations/${conversationId}`
     console.log(`Deleting conversation at: ${difyUrl}`)
@@ -250,7 +292,7 @@ export const deleteConversationHandler: PayloadHandler = async (req): Promise<Re
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        user: req.user.id,
+        user: targetUserId,
       }),
     })
 
@@ -287,7 +329,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
     return new Response('Invalid JSON body', { status: 400 })
   }
 
-  const { agentId, conversationId } = body
+  const { agentId, conversationId, userId } = body
 
   if (!agentId || !conversationId) {
     return new Response('Missing agentId or conversationId', { status: 400 })
@@ -295,6 +337,15 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
 
   try {
     const { apiKey: agentApiKey, baseUrl: agentBaseUrl } = await getAgentConfig(req.payload, agentId)
+
+    let targetUserId = req.user.id
+    if (userId && userId !== req.user.id) {
+        if ((req.user as unknown as { role: string }).role === 'manager') {
+            targetUserId = userId
+        } else {
+            return new Response('Forbidden: Only managers can manage other users history', { status: 403 })
+        }
+    }
 
     // Get System Settings for Summarizer Agent
     const systemSettings = (await req.payload.findGlobal({
@@ -313,7 +364,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
 
     // 1. Fetch messages to summarize (from original agent)
     const msgsParams = new URLSearchParams({
-      user: req.user.id,
+      user: targetUserId,
       conversation_id: conversationId,
       limit: '5',
     })
@@ -341,7 +392,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
                 inputs: {},
                 query: `Generate a very short title (3-5 words) for this conversation. Do not use quotes. Output only the title.\n\n${transcript}`,
                 response_mode: 'blocking',
-                user: req.user!.id,
+                user: targetUserId,
             }),
         })
     }
@@ -361,7 +412,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
                     query: `Generate a very short title (3-5 words) for this conversation. Do not use quotes. Output only the title.\n\n${transcript}`
                 },
                 response_mode: 'blocking',
-                user: req.user!.id,
+                user: targetUserId,
             }),
         })
     }
@@ -457,7 +508,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
       },
       body: JSON.stringify({
         name: newTitle,
-        user: req.user.id,
+        user: targetUserId,
       }),
     })
     
@@ -479,7 +530,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
                     'Authorization': `Bearer ${activeSummaryApiKey}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ user: req.user.id })
+                body: JSON.stringify({ user: targetUserId })
             })
             
             if (!deleteResponse.ok) {

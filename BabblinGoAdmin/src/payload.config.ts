@@ -21,6 +21,7 @@ import Tools from './collections/Tools'
 import UserPreferences from './collections/UserPreferences'
 import Agents from './collections/Agents'
 import SystemSettings from './globals/SystemSettings'
+import ChatHistory from './globals/ChatHistory'
 import { 
   difyChatHandler, 
   getConversationsHandler, 
@@ -41,7 +42,7 @@ export default buildConfig({
     },
   },
   collections: [Users, Courses, Lessons, Modules, Media, LearningRecords, Tools, UserPreferences, Agents],
-  globals: [SystemSettings],
+  globals: [SystemSettings, ChatHistory],
   endpoints: [
     {
       path: '/dify/chat-messages',

@@ -100,9 +100,11 @@ export interface Config {
   };
   globals: {
     'system-settings': SystemSetting;
+    'chat-history': ChatHistory;
   };
   globalsSelect: {
     'system-settings': SystemSettingsSelect<false> | SystemSettingsSelect<true>;
+    'chat-history': ChatHistorySelect<false> | ChatHistorySelect<true>;
   };
   locale: 'en' | 'zh';
   user: User & {
@@ -983,11 +985,31 @@ export interface SystemSetting {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "chat-history".
+ */
+export interface ChatHistory {
+  id: string;
+  placeholder?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "system-settings_select".
  */
 export interface SystemSettingsSelect<T extends boolean = true> {
   summarizerAgentApiKey?: T;
   summarizerAgentApiUrl?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "chat-history_select".
+ */
+export interface ChatHistorySelect<T extends boolean = true> {
+  placeholder?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

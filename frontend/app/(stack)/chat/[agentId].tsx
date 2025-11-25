@@ -432,6 +432,9 @@ export default function ChatScreen() {
               }}>
                 History
               </Text>
+              {loadingHistory && (
+                <ActivityIndicator size="small" style={{ marginVertical: 0 }} />
+              )}
               <Pressable onPress={() => setHistoryVisible(false)}>
                 <MaterialIcons name="close" size={24} color={colorScheme === 'dark' ? '#fff' : '#000'} />
               </Pressable>
@@ -471,67 +474,64 @@ export default function ChatScreen() {
               </Text>
             </Pressable>
 
-            {loadingHistory ? (
-              <ActivityIndicator size="large" style={{ marginTop: 40 }} />
-            ) : (
-              <FlatList
-                data={conversations}
-                keyExtractor={item => item.id}
-                renderItem={({ item }) => (
-                  <View style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    padding: 16,
-                    borderRadius: 12,
-                    backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f9fafb',
-                  }}>
-                    <Pressable 
-                      style={{ flex: 1 }}
-                      onPress={() => loadConversation(item.id)}
-                    >
-                      <Text style={{
-                        fontSize: 16,
-                        fontWeight: item.id === conversationId ? 'bold' : 'normal',
-                        color: colorScheme === 'dark' ? '#fff' : '#111827',
-                        marginBottom: 4,
-                      }} numberOfLines={1}>
-                        {item.name || 'Untitled Conversation'}
-                      </Text>
-                      <Text style={{
-                        fontSize: 12,
-                        color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
-                      }}>
-                        {new Date(item.created_at * 1000).toLocaleString()}
-                      </Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => {
-                        Alert.alert(
-                          'Delete Conversation',
-                          'Are you sure you want to delete this conversation?',
-                          [
-                            { text: 'Cancel', style: 'cancel' },
-                            { text: 'Delete', style: 'destructive', onPress: () => handleDeleteConversation(item.id) }
-                          ]
-                        )
-                      }}
-                      style={{ padding: 8 }}
-                    >
-                      <MaterialIcons name="delete-outline" size={20} color={colorScheme === 'dark' ? '#ef4444' : '#ef4444'} />
-                    </Pressable>
-                  </View>
-                )}
-                ListEmptyComponent={
-                  <Text style={{
-                    textAlign: 'center',
-                    marginTop: 40,
-                    color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
-                  }}>
-                    No history found.
-                  </Text>
-                }
-              />
-            )}
+            <FlatList
+              data={conversations}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <View style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  padding: 16,
+                  borderRadius: 12,
+                  marginBottom: 8,
+                  backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f9fafb',
+                }}>
+                  <Pressable 
+                    style={{ flex: 1 }}
+                    onPress={() => loadConversation(item.id)}
+                  >
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: item.id === conversationId ? 'bold' : 'normal',
+                      color: colorScheme === 'dark' ? '#fff' : '#111827',
+                      marginBottom: 4,
+                    }} numberOfLines={1}>
+                      {item.name || 'Untitled Conversation'}
+                    </Text>
+                    <Text style={{
+                      fontSize: 12,
+                      color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
+                    }}>
+                      {new Date(item.created_at * 1000).toLocaleString()}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      Alert.alert(
+                        'Delete Conversation',
+                        'Are you sure you want to delete this conversation?',
+                        [
+                          { text: 'Cancel', style: 'cancel' },
+                          { text: 'Delete', style: 'destructive', onPress: () => handleDeleteConversation(item.id) }
+                        ]
+                      )
+                    }}
+                    style={{ padding: 8 }}
+                  >
+                    <MaterialIcons name="delete-outline" size={20} color={colorScheme === 'dark' ? '#ef4444' : '#ef4444'} />
+                  </Pressable>
+                </View>
+              )}
+              ListEmptyComponent={
+                <Text style={{
+                  textAlign: 'center',
+                  marginTop: 40,
+                  color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
+                }}>
+                  No history found.
+                </Text>
+              }
+            />
           </View>
         </Modal>
       </SafeAreaView>
