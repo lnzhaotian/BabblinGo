@@ -19,6 +19,16 @@ import { Users } from './collections/Users'
 import LearningRecords from './collections/LearningRecords'
 import Tools from './collections/Tools'
 import UserPreferences from './collections/UserPreferences'
+import Agents from './collections/Agents'
+import SystemSettings from './globals/SystemSettings'
+import { 
+  difyChatHandler, 
+  getConversationsHandler, 
+  getMessagesHandler, 
+  renameConversationHandler, 
+  deleteConversationHandler,
+  generateTitleHandler
+} from './endpoints/dify'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -30,7 +40,40 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Courses, Lessons, Modules, Media, LearningRecords, Tools, UserPreferences],
+  collections: [Users, Courses, Lessons, Modules, Media, LearningRecords, Tools, UserPreferences, Agents],
+  globals: [SystemSettings],
+  endpoints: [
+    {
+      path: '/dify/chat-messages',
+      method: 'post',
+      handler: difyChatHandler,
+    },
+    {
+      path: '/dify/conversations',
+      method: 'get',
+      handler: getConversationsHandler,
+    },
+    {
+      path: '/dify/messages',
+      method: 'get',
+      handler: getMessagesHandler,
+    },
+    {
+      path: '/dify/conversations/rename',
+      method: 'post',
+      handler: renameConversationHandler,
+    },
+    {
+      path: '/dify/conversations/delete',
+      method: 'post',
+      handler: deleteConversationHandler,
+    },
+    {
+      path: '/dify/conversations/generate-title',
+      method: 'post',
+      handler: generateTitleHandler,
+    },
+  ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   i18n: {

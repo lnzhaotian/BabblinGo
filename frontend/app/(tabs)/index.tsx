@@ -32,6 +32,7 @@ const getIconName = (rawIcon?: string | null): keyof typeof MaterialIcons.glyphM
 type CombinedItem = 
   | { type: 'course'; data: CourseDoc }
   | { type: 'tool'; data: ToolDoc }
+  | { type: 'feature'; data: { id: string; title: string; icon: string; route: string; description: string } }
 
 export default function Index() {
   const router = useRouter();
@@ -99,8 +100,19 @@ export default function Index() {
     courses.forEach(course => items.push({ type: 'course', data: course }));
     tools.forEach(tool => items.push({ type: 'tool', data: tool }));
     
+    items.push({ 
+      type: 'feature', 
+      data: { 
+        id: 'babblingears', 
+        title: t('agents.title'), 
+        icon: 'psychology', 
+        route: '/(stack)/agents',
+        description: t('agents.description')
+      } 
+    });
+
     return items;
-  }, [courses, tools]);
+  }, [courses, tools, t, i18n.language]);
 
   const renderCourse = ({ item }: { item: CourseDoc }) => {
     const locale = i18n.language;
@@ -301,6 +313,55 @@ export default function Index() {
       return renderCourse({ item: item.data });
     } else if (item.type === 'tool') {
       return renderTool({ item: item.data });
+    } else if (item.type === 'feature') {
+      const { title, description, icon, route } = item.data;
+      return (
+        <Pressable
+          onPress={() => router.push(route as any)}
+          android_ripple={{ color: "#e5e7eb" }}
+          style={{
+            marginHorizontal: 16,
+            marginBottom: 16,
+            borderRadius: 16,
+            backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
+            shadowColor: colorScheme === 'dark' ? '#000' : '#000',
+            shadowOpacity: colorScheme === 'dark' ? 0.4 : 0.08,
+            shadowRadius: 12,
+            shadowOffset: { width: 0, height: 4 },
+            elevation: 2,
+            borderWidth: colorScheme === 'dark' ? 1 : 0,
+            borderColor: colorScheme === 'dark' ? '#2f2f36' : 'transparent',
+          }}
+        >
+          <View style={{ flexDirection: "row", padding: 16 }}>
+            <View
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: 12,
+                backgroundColor: colorScheme === 'dark' ? '#18181b' : '#eef2ff',
+                justifyContent: "center",
+                alignItems: "center",
+                overflow: "hidden",
+                marginRight: 16,
+              }}
+            >
+              <MaterialIcons name={icon as any} size={32} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
+            </View>
+            <View style={{ flex: 1, justifyContent: 'center' }}>
+              <Text style={{ fontSize: 18, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : '#111827' }}>
+                {title}
+              </Text>
+              <Text style={{ marginTop: 4, color: colorScheme === 'dark' ? '#d1d5db' : '#4b5563' }}>
+                {description}
+              </Text>
+            </View>
+            <View style={{ justifyContent: "center", marginLeft: 8 }}>
+              <MaterialIcons name="chevron-right" size={28} color={colorScheme === 'dark' ? '#a1a1aa' : '#9ca3af'} />
+            </View>
+          </View>
+        </Pressable>
+      );
     }
     return null;
   };
@@ -327,8 +388,10 @@ export default function Index() {
           keyExtractor={(item) => {
             if (item.type === 'course') {
               return `course-${item.data.id}`;
-            } else {
+            } else if (item.type === 'tool') {
               return `tool-${item.data.id}`;
+            } else {
+              return `feature-${item.data.id}`;
             }
           }}
           renderItem={renderItem}

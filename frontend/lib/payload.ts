@@ -1,4 +1,6 @@
 import { config } from './config'
+// @ts-ignore
+import EventSource from 'react-native-sse'
 
 type PayloadListResponse<T> = {
   docs: T[]
@@ -546,3 +548,227 @@ export const fetchLessonsByCourse = async (
 
 export const fetchLessonById = async (lessonId: string, locale?: string): Promise<LessonDoc> =>
   fetchPayload<LessonDoc>(`/api/lessons/${lessonId}?depth=2`, undefined, locale)
+
+export type AgentDoc = {
+  id: string
+  title: string
+  description?: string
+  icon?: string
+  welcomeMessage?: string
+  order?: number
+  status: 'draft' | 'published'
+}
+
+export const fetchAgents = async (locale?: string): Promise<AgentDoc[]> => {
+  const params = new URLSearchParams({
+    'where[status][equals]': 'published',
+    limit: '100',
+    sort: 'order',
+  })
+
+  const response = await fetchPayload<PayloadListResponse<AgentDoc>>(
+    `/api/agents?${params.toString()}`,
+    undefined,
+    locale
+  )
+
+  return sortByOrder(response.docs)
+}
+
+
+export const streamDifyMessage = async (
+  agentId: string,
+  query: string,
+  conversationId: string | undefined,
+  onMessage: (answer: string, conversationId: string) => void,
+  onCompleted: () => void,
+  onError: (error: any) => void
+): Promise<EventSource> => {
+  const { getAuthToken } = await import('./auth-session')
+  const token = await getAuthToken()
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const es = new EventSource(`${config.apiUrl}/api/dify/chat-messages`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      agentId,
+      query,
+      conversationId,
+      response_mode: 'streaming',
+      inputs: {},
+    }),
+  })
+
+  es.addEventListener('message', (event: any) => {
+    if (!event.data) return
+    
+    try {
+      const data = JSON.parse(event.data)
+      
+      if (data.event === 'message' || data.event === 'agent_message') {
+        onMessage(data.answer, data.conversation_id)
+      } else if (data.event === 'message_end') {
+        onCompleted()
+        es.close()
+      } else if (data.event === 'error') {
+        onError(new Error(data.message || 'Unknown error'))
+        es.close()
+      }
+    } catch (e) {
+      console.error('Failed to parse SSE data', e)
+    }
+  })
+
+  es.addEventListener('error', (event: any) => {
+    if (event.type === 'error') {
+       const error = event.message || 'Connection error'
+       onError(new Error(error))
+    }
+    es.close()
+  })
+  
+  return es
+}
+
+export const sendDifyMessage = async (
+  agentId: string,
+  query: string,
+  conversationId?: string,
+  inputs?: Record<string, any>
+): Promise<Response> => {
+  const { getAuthToken } = await import('./auth-session')
+  const token = await getAuthToken()
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  return fetch(`${config.apiUrl}/api/dify/chat-messages`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      agentId,
+      query,
+      conversationId,
+      inputs,
+    }),
+  })
+}
+
+export const fetchConversations = async (agentId: string, lastId?: string): Promise<any> => {
+  const { getAuthToken } = await import('./auth-session')
+  const token = await getAuthToken()
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const params = new URLSearchParams({ agentId })
+  if (lastId) params.append('last_id', lastId)
+
+  const response = await fetch(`${config.apiUrl}/api/dify/conversations?${params.toString()}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to fetch conversations: ${response.status} ${errorText}`)
+  }
+
+  return response.json()
+}
+
+export const fetchMessages = async (agentId: string, conversationId: string, firstId?: string): Promise<any> => {
+  const { getAuthToken } = await import('./auth-session')
+  const token = await getAuthToken()
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const params = new URLSearchParams({ agentId, conversationId })
+  if (firstId) params.append('first_id', firstId)
+
+  const response = await fetch(`${config.apiUrl}/api/dify/messages?${params.toString()}`, {
+    method: 'GET',
+    headers,
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to fetch messages: ${response.status} ${errorText}`)
+  }
+
+  return response.json()
+}
+
+export const deleteConversation = async (agentId: string, conversationId: string): Promise<void> => {
+  const { getAuthToken } = await import('./auth-session')
+  const token = await getAuthToken()
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${config.apiUrl}/api/dify/conversations/delete`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ agentId, conversationId }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to delete conversation: ${response.status} ${errorText}`)
+  }
+}
+
+export const generateConversationTitle = async (agentId: string, conversationId: string): Promise<{ name: string }> => {
+  const { getAuthToken } = await import('./auth-session')
+  const token = await getAuthToken()
+  
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const response = await fetch(`${config.apiUrl}/api/dify/conversations/generate-title`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ agentId, conversationId }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Failed to generate conversation title: ${response.status} ${errorText}`)
+  }
+
+  return response.json()
+}

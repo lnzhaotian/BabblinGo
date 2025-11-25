@@ -351,6 +351,13 @@ const resources = {
       "auth.resetInstructions":
         "Enter your email and we'll send you a link to reset your password.",
       "auth.backToLogin": "Back to login",
+
+      // Agents feature
+      "agents.title": "BabblinGears",
+      "agents.description": "Chat with AI agents to practice your skills",
+      "agents.noAgents": "No agents available at the moment.",
+      "chat.placeholder": "Type a message...",
+      "chat.loginRequired": "Please login to chat with agents.",
     },
   },
   zh: {
@@ -686,6 +693,13 @@ const resources = {
       "auth.resetError": "发送重置邮件失败：{{error}}",
       "auth.resetInstructions": "请输入您的邮箱，我们会发送密码重置链接。",
       "auth.backToLogin": "返回登录",
+
+      // Agents feature
+      "agents.title": "BabblinGears",
+      "agents.description": "与 AI 智能体聊天以练习您的技能",
+      "agents.noAgents": "暂时没有可用的智能体。",
+      "chat.placeholder": "输入消息...",
+      "chat.loginRequired": "请登录后与智能体聊天。",
     },
   },
 };

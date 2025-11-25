@@ -75,6 +75,7 @@ export interface Config {
     'learning-records': LearningRecord;
     tools: Tool;
     'user-preferences': UserPreference;
+    agents: Agent;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -89,6 +90,7 @@ export interface Config {
     'learning-records': LearningRecordsSelect<false> | LearningRecordsSelect<true>;
     tools: ToolsSelect<false> | ToolsSelect<true>;
     'user-preferences': UserPreferencesSelect<false> | UserPreferencesSelect<true>;
+    agents: AgentsSelect<false> | AgentsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -96,8 +98,12 @@ export interface Config {
   db: {
     defaultIDType: string;
   };
-  globals: {};
-  globalsSelect: {};
+  globals: {
+    'system-settings': SystemSetting;
+  };
+  globalsSelect: {
+    'system-settings': SystemSettingsSelect<false> | SystemSettingsSelect<true>;
+  };
   locale: 'en' | 'zh';
   user: User & {
     collection: 'users';
@@ -564,6 +570,38 @@ export interface UserPreference {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "agents".
+ */
+export interface Agent {
+  id: string;
+  title: string;
+  description?: string | null;
+  /**
+   * Material Icon name (e.g., "psychology", "chat", "school")
+   */
+  icon?: string | null;
+  /**
+   * The API Key from Dify for this agent
+   */
+  difyApiKey: string;
+  /**
+   * The base URL for the Dify API (e.g., https://ai.babblinguide.cn/v1)
+   */
+  difyApiUrl?: string | null;
+  /**
+   * Initial message sent by the agent when chat starts
+   */
+  welcomeMessage?: string | null;
+  /**
+   * Order in the list (lower numbers first)
+   */
+  order?: number | null;
+  status: 'draft' | 'published';
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -600,6 +638,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'user-preferences';
         value: string | UserPreference;
+      } | null)
+    | ({
+        relationTo: 'agents';
+        value: string | Agent;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -876,6 +918,22 @@ export interface UserPreferencesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "agents_select".
+ */
+export interface AgentsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  icon?: T;
+  difyApiKey?: T;
+  difyApiUrl?: T;
+  welcomeMessage?: T;
+  order?: T;
+  status?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents_select".
  */
 export interface PayloadLockedDocumentsSelect<T extends boolean = true> {
@@ -905,6 +963,34 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
   batch?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "system-settings".
+ */
+export interface SystemSetting {
+  id: string;
+  /**
+   * The API Key for the Dify Agent used to summarize conversations.
+   */
+  summarizerAgentApiKey: string;
+  /**
+   * The base URL for the Summarizer Agent API.
+   */
+  summarizerAgentApiUrl?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "system-settings_select".
+ */
+export interface SystemSettingsSelect<T extends boolean = true> {
+  summarizerAgentApiKey?: T;
+  summarizerAgentApiUrl?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
