@@ -28,7 +28,7 @@ import { recordCourseView, recordLessonOpened } from "@/lib/analytics";
 import { getLessonCacheStatus, LessonCacheStatus } from "@/lib/cache-manager";
 import { ThemedHeader } from "@/components/ThemedHeader";
 import { useThemeMode } from "../../theme-context";
-import { usePreferences } from "../../preferences-context";
+import { usePreferences } from "@/lib/preferences-context";
 import { collectLessonMediaUrls } from "@/lib/lesson-media";
 
 const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>

@@ -56,6 +56,8 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
   useLearningSession(lesson.id, lesson.title, {
     enabled: false,
     speed: playerSpeed,
+    courseId: typeof lesson.course === 'string' ? lesson.course : lesson.course.id,
+    defaultTrackingEnabled: typeof lesson.course === 'object' ? (lesson.course.defaultTrackingEnabled ?? undefined) : undefined,
   })
 
   const introduction = useMemo(() => {

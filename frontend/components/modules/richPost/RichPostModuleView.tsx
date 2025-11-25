@@ -25,7 +25,11 @@ export const RichPostModuleView: React.FC<RichPostModuleViewProps> = ({
   const { t } = useTranslation()
   const { colorScheme } = useThemeMode()
 
-  useLearningSession(lesson.id, lesson.title, { enabled: false })
+  useLearningSession(lesson.id, lesson.title, {
+    enabled: false,
+    courseId: typeof lesson.course === 'string' ? lesson.course : lesson.course.id,
+    defaultTrackingEnabled: typeof lesson.course === 'object' ? (lesson.course.defaultTrackingEnabled ?? undefined) : undefined,
+  })
 
   const slide = useMemo(() => {
     const slides = extractModuleSlides(module)

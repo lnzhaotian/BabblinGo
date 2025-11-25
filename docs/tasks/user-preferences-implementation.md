@@ -26,53 +26,62 @@ Logic: `Effective State = User_Override ?? Course_Default ?? True`
 
 ## Phase 2: Frontend (State & Logic)
 
-- [ ] **Preferences Context & Storage**
-    - [ ] Create `PreferencesContext` (or Store).
-    - [ ] Define types for `UserPreferences`.
-    - [ ] Implement `loadPreferences`:
-        - Try fetching from API `/api/user-preferences/me`.
+- [x] **Preferences Context & Storage**
+    - [x] Create `PreferencesContext` (or Store).
+    - [x] Define types for `UserPreferences`.
+    - [x] Implement `loadPreferences`:
+        - Try fetching from API `/api/user-preferences`.
         - Fallback to `AsyncStorage` (offline).
         - If no remote or local, use defaults.
-    - [ ] Implement `savePreferences`:
+    - [x] Implement `savePreferences`:
         - Optimistic update in Context.
         - Persist to `AsyncStorage`.
         - Sync to API (debounce/queue).
 
-- [ ] **Migration Logic**
-    - [ ] On app launch, check for legacy `AsyncStorage` keys (`learning.playbackSpeed`, etc.).
-    - [ ] If found and no remote preferences exist, migrate values to new structure and sync.
-    - [ ] Clear legacy keys after successful sync.
+- [x] **Migration Logic**
+    - [x] On app launch, check for legacy `AsyncStorage` keys (`learning.playbackSpeed`, etc.).
+    - [x] If found and no remote preferences exist, migrate values to new structure and sync.
+    - [x] Clear legacy keys after successful sync.
 
-- [ ] **Session Logic Update**
-    - [ ] Update `session-manager.ts` / `saveLearningSession`.
-    - [ ] Inject or access `PreferencesContext` (or read from storage).
-    - [ ] Implement check: `shouldTrack = userOverride ?? courseDefault ?? true`.
-    - [ ] Skip saving if `shouldTrack` is false.
+- [x] **Session Logic Update**
+    - [x] Update `session-manager.ts` / `saveLearningSession`.
+    - [x] Inject or access `PreferencesContext` (or read from storage).
+    - [x] Implement check: `shouldTrack = userOverride ?? courseDefault ?? true`.
+    - [x] Skip saving if `shouldTrack` is false.
 
 ## Phase 3: Frontend (UI)
 
-- [ ] **Settings Screen**
-    - [ ] Connect "Default Session Length" and "Playback Speed" to `PreferencesContext`.
-    - [ ] Ensure changes trigger the save/sync flow.
+- [x] **Settings Screen**
+    - [x] Connect "Default Session Length" and "Playback Speed" to `PreferencesContext`.
+    - [x] Ensure changes trigger the save/sync flow.
+    - [x] Added "Privacy" section to Learning Preferences for global tracking toggle.
 
-- [ ] **Course Detail Screen**
-    - [ ] Fetch course details (including `defaultTrackingEnabled`).
-    - [ ] Add "Record Learning History" toggle in header or details section.
-    - [ ] Toggle state reflects effective state.
-    - [ ] Changing toggle updates `courseOverrides` in `PreferencesContext`.
-    - [ ] Show "History Paused" indicator if tracking is disabled.
+- [x] **Course Detail Screen**
+    - [x] Fetch course details (including `defaultTrackingEnabled`).
+    - [x] Add "Record Learning History" toggle in header or details section.
+    - [x] Toggle state reflects effective state.
+    - [x] Changing toggle updates `courseOverrides` in `PreferencesContext`.
+    - [x] Show "History Paused" indicator if tracking is disabled.
 
-- [ ] **Offline Handling**
-    - [ ] Verify settings changes persist when offline.
-    - [ ] Verify session logging respects offline settings.
+- [x] **Offline Handling**
+    - [x] Verify settings changes persist when offline.
+    - [x] Verify session logging respects offline settings.
 
 ## Phase 4: Testing & Cleanup
 
-- [ ] **Backend Tests**
-    - [ ] Verify `defaultTrackingEnabled` defaults to true.
-    - [ ] Verify `user-preferences` access control (cannot read others).
+- [x] **Backend Tests**
+    - [x] Verify `defaultTrackingEnabled` defaults to true.
+    - [x] Verify `user-preferences` access control (cannot read others).
 
-- [ ] **Frontend Tests**
-    - [ ] Test migration from legacy settings.
-    - [ ] Test hierarchy logic (Global vs Course vs User).
-    - [ ] Test offline behavior.
+- [x] **Frontend Tests**
+    - [x] Test migration from legacy settings.
+    - [x] Test hierarchy logic (Global vs Course vs User).
+    - [x] Test offline behavior.
+    - [x] Verified i18n support for new settings.
+
+## Implementation Notes
+- **Privacy Settings Location**: The global "Enable Learning Tracking" toggle was moved to the "Learning Preferences" screen (`frontend/app/settings/learning.tsx`) instead of a separate Privacy page.
+- **i18n**: Added translation keys for privacy and tracking settings in English and Chinese.
+- **Context Location**: `PreferencesContext` was moved to `frontend/lib/preferences-context.tsx` to avoid Expo Router issues.
+- **Backend Sync**: Fixed an issue where syncing preferences would fail due to unique constraint violations by correctly fetching the existing user document first.
+- **Session Tracking**: Updated `useLearningSession` hook to correctly pass `courseId` and `defaultTrackingEnabled` to `saveLearningSession` to ensure tracking preferences are respected.

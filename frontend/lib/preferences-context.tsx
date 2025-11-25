@@ -34,6 +34,26 @@ const PreferencesContext = createContext<PreferencesContextType | null>(null)
 
 export function PreferencesProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PreferencesState>(DEFAULT_PREFERENCES)
+  const userIdRef = React.useRef<string | null>(null)
+
+  const getUserId = useCallback(async (token: string) => {
+    if (userIdRef.current) return userIdRef.current
+    try {
+      const res = await fetch(`${config.apiUrl}/api/users/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+      if (res.ok) {
+        const data = await res.json()
+        if (data.user?.id) {
+          userIdRef.current = data.user.id
+          return data.user.id
+        }
+      }
+    } catch (e) {
+      console.warn("Failed to fetch user ID", e)
+    }
+    return null
+  }, [])
 
   const loadFromStorage = useCallback(async () => {
     try {
@@ -69,17 +89,13 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
         courseOverrides: overridesArray,
       }
 
-      // We need to find the existing preference ID first, or create one.
-      // Since we don't have a direct "upsert me" endpoint yet, we'll try to fetch first.
-      // Ideally, the backend should provide a /me endpoint for preferences.
-      // For now, we'll query by user.
-      
+      const userId = await getUserId(token)
       const query = new URLSearchParams({
-        'where[user][equals]': 'me', // 'me' might not work if not implemented, usually we need user ID.
-        // Actually, Payload's 'me' is for /api/users/me.
-        // We'll rely on the fact that users can only read their own.
         limit: '1',
       })
+      if (userId) {
+        query.set('where[user][equals]', userId)
+      }
 
       const res = await fetch(`${config.apiUrl}/api/user-preferences?${query.toString()}`, {
         headers: {
@@ -109,14 +125,22 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     } catch (e) {
       console.warn("Failed to sync preferences to server", e)
     }
-  }, [])
+  }, [getUserId])
 
   const refresh = useCallback(async () => {
     const token = await getAuthToken()
     if (!token) return
 
     try {
-      const res = await fetch(`${config.apiUrl}/api/user-preferences?limit=1`, {
+      const userId = await getUserId(token)
+      const query = new URLSearchParams({
+        limit: '1',
+      })
+      if (userId) {
+        query.set('where[user][equals]', userId)
+      }
+
+      const res = await fetch(`${config.apiUrl}/api/user-preferences?${query.toString()}`, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
@@ -149,7 +173,7 @@ export function PreferencesProvider({ children }: { children: React.ReactNode })
     } catch (e) {
       console.warn("Failed to refresh preferences", e)
     }
-  }, [])
+  }, [getUserId])
 
   const migrateLegacy = useCallback(async () => {
     try {

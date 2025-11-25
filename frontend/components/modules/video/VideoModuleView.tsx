@@ -51,7 +51,11 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
   const [nativeControlsEnabled, setNativeControlsEnabled] = useState(false)
   const progressWidthRef = useRef(0)
 
-  useLearningSession(lesson.id, lesson.title, { enabled: false })
+  useLearningSession(lesson.id, lesson.title, {
+    enabled: false,
+    courseId: typeof lesson.course === 'string' ? lesson.course : lesson.course.id,
+    defaultTrackingEnabled: typeof lesson.course === 'object' ? (lesson.course.defaultTrackingEnabled ?? undefined) : undefined,
+  })
 
   const slide = useMemo(() => {
     const slides = extractModuleSlides(module)

@@ -12,6 +12,8 @@ type LearningSessionOptions = {
   speed?: PlaybackSpeed
   loop?: boolean
   enabled?: boolean
+  courseId?: string
+  defaultTrackingEnabled?: boolean
 }
 
 export function useLearningSession(
@@ -110,6 +112,8 @@ export function useLearningSession(
       finished,
       runId: runIdRef.current ?? undefined,
       segments: 1,
+      courseId: opts?.courseId,
+      defaultTrackingEnabled: opts?.defaultTrackingEnabled,
     })
   }, [])
 

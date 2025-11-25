@@ -113,6 +113,8 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
     speed: playerSpeed,
     loop: loopEnabled,
     enabled: supportsLearningSession,
+    courseId: typeof lesson.course === 'string' ? lesson.course : lesson.course.id,
+    defaultTrackingEnabled: typeof lesson.course === 'object' ? (lesson.course.defaultTrackingEnabled ?? undefined) : undefined,
   })
 
   const showSessionResult = supportsLearningSession && mode === "results"
