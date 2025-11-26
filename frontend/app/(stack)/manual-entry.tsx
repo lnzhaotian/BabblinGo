@@ -117,6 +117,7 @@ export default function ManualEntryScreen() {
   const [searchError, setSearchError] = useState<string | null>(null)
   const searchAbortController = useRef<AbortController | null>(null)
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scrollViewRef = useRef<ScrollView>(null)
 
   const background = colorScheme === "dark" ? "#18181b" : "#f9fafb"
   const contentBackground = colorScheme === "dark" ? "#23232a" : "#fff"
@@ -537,9 +538,10 @@ export default function ManualEntryScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: background }} edges={["top", "bottom"]}>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
-        <Pressable
-          onPress={() => router.back()}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView ref={scrollViewRef} contentContainerStyle={{ padding: 20, gap: 16 }}>
+          <Pressable
+            onPress={() => router.back()}
           style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 999, backgroundColor: contentBackground, borderWidth: 1, borderColor }}
           accessibilityRole="button"
           accessibilityHint={t("manualEntry.backHint")}
@@ -727,6 +729,9 @@ export default function ManualEntryScreen() {
               <TextInput
                 value={notes}
                 onChangeText={setNotes}
+                onFocus={() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true })
+                }}
                 placeholder={t("manualEntry.notesPlaceholder")}
                 placeholderTextColor={subTextColor}
                 style={{
@@ -766,8 +771,9 @@ export default function ManualEntryScreen() {
           <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
             {saving ? t("manualEntry.saving") : t("manualEntry.saveButton")}
           </Text>
-        </Pressable>
-      </ScrollView>
+          </Pressable>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={searchVisible}
