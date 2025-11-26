@@ -137,6 +137,7 @@ export type CourseDoc = {
   status?: string | null
   levels?: CourseLevel[] | null
   defaultTrackingEnabled?: boolean | null
+  updatedAt?: string
 }
 
 export type UserPreferencesDoc = {

@@ -31,9 +31,9 @@ const syncModulesOnLessons = async (
     const hasModule = moduleIds.includes(moduleId)
 
     if (action === 'add') {
-      if (hasModule) return
-
-      moduleIds.push(moduleId)
+      if (!hasModule) {
+        moduleIds.push(moduleId)
+      }
 
       await req.payload.update({
         collection: 'lessons',

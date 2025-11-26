@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 
 import { CourseDoc, CourseLevel, fetchCourses, fetchTools, resolveLocalizedField, resolveMediaUrl, ToolDoc } from "@/lib/payload";
 import { useThemeMode } from "../theme-context";
+import { useCourseUpdates } from "@/hooks/useCourseUpdates";
 
 const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>
   [...items].sort((a, b) => {
@@ -43,6 +44,7 @@ export default function Index() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { colorScheme } = useThemeMode();
+  const { hasUpdates, markCourseAsSeen } = useCourseUpdates();
 
   const loadCourses = useCallback(
     async (skipLoading = false) => {
@@ -82,6 +84,7 @@ export default function Index() {
   }, [loadCourses]);
 
   const handlePressCourse = (course: CourseDoc, title: string) => {
+    markCourseAsSeen(course.id, course.updatedAt);
     const target = {
       pathname: "/course/[courseId]",
       params: { courseId: course.id, title },
@@ -123,6 +126,8 @@ export default function Index() {
     const levelLabels = sortedLevels
       .map((level) => resolveLocalizedField(level.label ?? level.key, locale) ?? level.key)
       .filter((label) => label.trim().length > 0);
+    
+    const showUpdateDot = hasUpdates(item);
 
     return (
       <Pressable
@@ -216,6 +221,30 @@ export default function Index() {
             <MaterialIcons name="chevron-right" size={28} color={colorScheme === 'dark' ? '#a1a1aa' : '#9ca3af'} />
           </View>
         </View>
+        {showUpdateDot && (
+          <View
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              backgroundColor: '#ef4444',
+              paddingHorizontal: 8,
+              paddingVertical: 4,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colorScheme === 'dark' ? '#23232a' : '#fff',
+              shadowColor: "#ef4444",
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.2,
+              shadowRadius: 4,
+              elevation: 3,
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 }}>
+              NEW
+            </Text>
+          </View>
+        )}
       </Pressable>
     );
   };

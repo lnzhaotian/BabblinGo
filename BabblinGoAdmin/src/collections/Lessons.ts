@@ -1,6 +1,10 @@
 import type { CollectionConfig, CollectionSlug } from 'payload'
 
 import { createSlugField } from '../fields/slug'
+import {
+  extractRelationshipId,
+  RelationshipValue,
+} from './utils/relationshipHelpers'
 
 export const Lessons: CollectionConfig = {
   slug: 'lessons',
@@ -12,6 +16,36 @@ export const Lessons: CollectionConfig = {
   },
   access: {
     read: () => true,
+  },
+  hooks: {
+    afterChange: [
+      async ({ doc, req }) => {
+        const courseId = extractRelationshipId(doc.course as RelationshipValue)
+
+        if (courseId) {
+          try {
+            const course = await req.payload.findByID({
+              collection: 'courses',
+              id: courseId,
+              depth: 0,
+            })
+
+            await req.payload.update({
+              collection: 'courses',
+              id: courseId,
+              data: {
+                status: course.status,
+              },
+              depth: 0,
+            })
+          } catch (error) {
+            console.error(`Failed to touch course ${courseId} on lesson change`, error)
+          }
+        }
+
+        return doc
+      },
+    ],
   },
   fields: [
     {
