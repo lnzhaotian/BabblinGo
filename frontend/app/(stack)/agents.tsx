@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import { FlatList, Pressable, Text, View, ActivityIndicator, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -15,23 +15,26 @@ export default function AgentsScreen() {
   const { t, i18n } = useTranslation()
   const [agents, setAgents] = useState<AgentDoc[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const { colorScheme } = useThemeMode()
 
-  useEffect(() => {
-    loadAgents()
-  }, [i18n.language])
-
-  const loadAgents = async () => {
+  const loadAgents = useCallback(async () => {
     try {
       setLoading(true)
+      setError(null)
       const data = await fetchAgents(i18n.language)
       setAgents(data)
     } catch (error) {
-      console.error('Failed to load agents:', error)
+      console.log('Failed to load agents:', error)
+      setError(t('agents.offlineError'))
     } finally {
       setLoading(false)
     }
-  }
+  }, [i18n.language, t])
+
+  useEffect(() => {
+    loadAgents()
+  }, [loadAgents])
 
   const handleAgentPress = async (agentId: string) => {
     const token = await getAuthToken()
@@ -52,9 +55,17 @@ export default function AgentsScreen() {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
-        marginBottom: 12,
-        borderRadius: 12,
+        marginHorizontal: 16,
+        marginBottom: 16,
+        borderRadius: 16,
         backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
+        shadowColor: colorScheme === 'dark' ? '#000' : '#000',
+        shadowOpacity: colorScheme === 'dark' ? 0.4 : 0.08,
+        shadowRadius: 12,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 2,
+        borderWidth: colorScheme === 'dark' ? 1 : 0,
+        borderColor: colorScheme === 'dark' ? '#2f2f36' : 'transparent',
       }}
     >
       <View style={{
@@ -104,13 +115,39 @@ export default function AgentsScreen() {
       <SafeAreaView
         style={{
           flex: 1,
-          backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff'
+          backgroundColor: colorScheme === 'dark' ? '#18181b' : '#f9fafb'
         }}
         edges={['left', 'right', 'bottom']}
       >
-        <View style={{ flex: 1, padding: 16 }}>
+        <View style={{ flex: 1, paddingVertical: 16 }}>
           {loading ? (
             <ActivityIndicator size="large" color={colorScheme === 'dark' ? "#fff" : "#18181b"} />
+          ) : error ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 }}>
+              <MaterialIcons name="cloud-off" size={48} color={colorScheme === 'dark' ? '#9ca3af' : '#6b7280'} style={{ marginBottom: 16 }} />
+              <Text style={{
+                textAlign: 'center',
+                color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
+                fontSize: 16,
+                lineHeight: 24
+              }}>
+                {error}
+              </Text>
+              <Pressable
+                onPress={loadAgents}
+                style={{
+                  marginTop: 24,
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  backgroundColor: colorScheme === 'dark' ? '#374151' : '#e5e7eb',
+                  borderRadius: 8
+                }}
+              >
+                <Text style={{ color: colorScheme === 'dark' ? '#fff' : '#374151', fontWeight: '600' }}>
+                  {t('common.refresh')}
+                </Text>
+              </Pressable>
+            </View>
           ) : (
             <FlatList
               data={agents}

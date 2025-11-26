@@ -7,6 +7,7 @@ import { PreferencesProvider } from "@/lib/preferences-context";
 import * as SplashScreen from "expo-splash-screen";
 import { scheduleLearningRecordSync } from "../lib/learning-sync";
 import { setAudioModeAsync } from "expo-audio";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -52,100 +53,103 @@ function AppNavigator() {
   }, []);
 
   return (
-    <Stack>
-      {/* (tabs) is a group that contains the bottom tabs. */}
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      {/* Auth screens - presented as modals */}
-      <Stack.Screen
-        name="auth/register"
-        options={{
-          presentation: "modal",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="auth/login"
-        options={{
-          presentation: "modal",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="auth/forgot"
-        options={{
-          presentation: "modal",
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="settings/profile"
-        options={{
-          headerShown: false,
-        }}
-      />
-      {/* Stack-only routes */}
-      <Stack.Screen
-        name="(stack)/web"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(stack)/lesson/[lessonId]/index"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(stack)/lesson/[lessonId]/module/[moduleId]"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(stack)/course/[courseId]"
-        options={{
-          headerShown: false,
-        }}
-      />
-      {/* Settings detail pages */}
-      <Stack.Screen
-        name="settings/language"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen 
-        name="settings/learning" 
-        options={{ 
-          headerShown: false,
-        }} 
-      />
-      <Stack.Screen
-        name="settings/cache"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="settings/theme"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="settings/about"
-        options={{
-          headerShown: false,
-        }}
-      />
-      <Stack.Screen
-        name="(stack)/manual-entry"
-        options={{
-          headerShown: false,
-        }}
-      />
-    </Stack>
+    <>
+      <OfflineBanner />
+      <Stack>
+        {/* (tabs) is a group that contains the bottom tabs. */}
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        {/* Auth screens - presented as modals */}
+        <Stack.Screen
+          name="auth/register"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="auth/login"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="auth/forgot"
+          options={{
+            presentation: "modal",
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="settings/profile"
+          options={{
+            headerShown: false,
+          }}
+        />
+        {/* Stack-only routes */}
+        <Stack.Screen
+          name="(stack)/web"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="(stack)/lesson/[lessonId]/index"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="(stack)/lesson/[lessonId]/module/[moduleId]"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="(stack)/course/[courseId]"
+          options={{
+            headerShown: false,
+          }}
+        />
+        {/* Settings detail pages */}
+        <Stack.Screen
+          name="settings/language"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen 
+          name="settings/learning" 
+          options={{ 
+            headerShown: false,
+          }} 
+        />
+        <Stack.Screen
+          name="settings/cache"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="settings/theme"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="settings/about"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="(stack)/manual-entry"
+          options={{
+            headerShown: false,
+          }}
+        />
+      </Stack>
+    </>
   );
 }
 

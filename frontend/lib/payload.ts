@@ -1,6 +1,11 @@
 import { config } from './config'
 // @ts-ignore
 import EventSource from 'react-native-sse'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import NetInfo from '@react-native-community/netinfo'
+import { DeviceEventEmitter } from 'react-native'
+
+export const EVENT_APP_OFFLINE_MODE = 'APP_OFFLINE_MODE'
 
 type PayloadListResponse<T> = {
   docs: T[]
@@ -199,18 +204,83 @@ const fetchPayload = async <T>(path: string, init?: RequestInit, locale?: string
     url.searchParams.set('locale', locale)
   }
   
-  const response = await fetch(url.toString(), {
-    headers: {
-      Accept: 'application/json',
-    },
-    ...init,
-  })
+  const fullUrl = url.toString()
+  const cacheKey = `api_cache:${fullUrl}`
+  const isGetRequest = !init?.method || init.method.toUpperCase() === 'GET'
 
-  if (!response.ok) {
-    throw new Error(`Request failed with status ${response.status}`)
+  // Helper to get from cache
+  const getFromCache = async (): Promise<T | null> => {
+    try {
+      const cachedData = await AsyncStorage.getItem(cacheKey)
+      if (cachedData) {
+        console.log('Serving cached response for:', fullUrl)
+        return JSON.parse(cachedData) as T
+      }
+    } catch (cacheError) {
+      console.warn('Failed to retrieve cached API response:', cacheError)
+    }
+    return null
   }
 
-  return response.json() as Promise<T>
+  // 1. Check network status first
+  const netState = await NetInfo.fetch()
+  if (!netState.isConnected && isGetRequest) {
+    const cached = await getFromCache()
+    if (cached) return cached
+    // If no cache and no internet, we have to throw
+    throw new Error('No internet connection and no cached data available')
+  }
+
+  try {
+    // 2. Setup timeout for the fetch
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+
+    const response = await fetch(fullUrl, {
+      headers: {
+        Accept: 'application/json',
+      },
+      ...init,
+      signal: controller.signal,
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      throw new Error(`Request failed with status ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    // Cache successful GET requests
+    if (isGetRequest) {
+      AsyncStorage.setItem(cacheKey, JSON.stringify(data)).catch(err => 
+        console.warn('Failed to cache API response:', err)
+      )
+    }
+
+    // We successfully got data from network, so we are effectively online
+    DeviceEventEmitter.emit(EVENT_APP_OFFLINE_MODE, false)
+
+    return data as T
+  } catch (error: any) {
+    // 3. If network request fails or times out, try to retrieve from cache
+    if (isGetRequest) {
+      const cached = await getFromCache()
+      if (cached) {
+        // We are serving from cache due to network failure/timeout
+        DeviceEventEmitter.emit(EVENT_APP_OFFLINE_MODE, true)
+        return cached
+      }
+    }
+    
+    // If it was a timeout, make the error message clearer
+    if (error.name === 'AbortError') {
+      throw new Error('Network request timed out')
+    }
+    
+    throw error
+  }
 }
 
 const sortByOrder = <T extends MaybeWithOrder>(items: T[]): T[] =>

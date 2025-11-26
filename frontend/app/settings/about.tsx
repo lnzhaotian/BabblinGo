@@ -42,20 +42,17 @@ export default function AboutSettings() {
         >
           <View
             style={{
-              width: 80,
-              height: 80,
-              borderRadius: 20,
-              backgroundColor: colorScheme === 'dark' ? '#6366f1' : "#6366f1",
               justifyContent: "center",
               alignItems: "center",
               marginBottom: 12,
             }}
           >
             <Image
-              source={require("@/assets/images/logo.png")}
+              source={require("@/assets/images/icon.png")}
               style={{
-                width: 60,
-                height: 60,
+                width: 80,
+                height: 80,
+                borderRadius: 15,
               }}
               resizeMode="contain"
             />

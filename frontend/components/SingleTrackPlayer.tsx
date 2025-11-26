@@ -90,13 +90,14 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         setIsPlaying(false)
         try { await player.pause() } catch {}
 
-        if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Loading: ${track.title || track.id}`)
+        console.log(`[SingleTrack#${sessionIdRef.current}] Loading: ${track.title || track.id} (URL: ${track.audioUrl})`)
         await player.replace({ uri: track.audioUrl } as AudioSource)
         if (cancelled || !mountedRef.current) return
 
         // Wait for isLoaded and valid duration before setting rate and playing
         const waitForLoad = async () => {
           let tries = 0
+          console.log(`[SingleTrack#${sessionIdRef.current}] Waiting for load...`)
           while (
             (!player.isLoaded || !player.duration || !isFinite(player.duration)) &&
             tries < 40 &&
@@ -106,6 +107,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             await new Promise(res => setTimeout(res, 50))
             tries++
           }
+          console.log(`[SingleTrack#${sessionIdRef.current}] Wait finished. Loaded: ${player.isLoaded}, Duration: ${player.duration}, Tries: ${tries}`)
         }
 
         if (!player.isLoaded || !player.duration || !isFinite(player.duration)) {
@@ -122,7 +124,9 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         if (autoPlay && !suspend) {
           try {
             // Always play first, then set playback rate (iOS/Expo AV applies rate only after play)
+            console.log(`[SingleTrack#${sessionIdRef.current}] Attempting play()`)
             await player.play()
+            console.log(`[SingleTrack#${sessionIdRef.current}] play() called successfully`)
             await player.setPlaybackRate(speed)
             // Don't set shouldBePlayingRef or setIsPlaying here; let status-driven effect handle it
             // once the engine confirms playback has actually started with valid duration.
@@ -139,6 +143,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
                 if (!suspend && shouldBePlayingRef.current && !nearEnd) {
                   // If status reports paused shortly after start, try to resume
                   if (!player.playing) {
+                    console.log(`[SingleTrack#${sessionIdRef.current}] Watchdog: Player paused shortly after start, resuming...`)
                     await player.play()
                     await player.setPlaybackRate(speed)
                   }
@@ -158,7 +163,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
     return () => { cancelled = true }
     // We rely on parent to remount when track changes (via key)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [track.audioUrl])
 
   // Apply rate changes on the fly
   // When parent updates speed, set the playback rate and, if we intend to be playing,

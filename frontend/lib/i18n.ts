@@ -337,6 +337,7 @@ const resources = {
       "common.tapToEdit": "Edit",
       "common.delete": "Delete",
       "common.exit": "Exit",
+      "common.offlineMode": "Offline Mode",
       // Weekday labels
       "common.weekdayShort.mon": "Mo",
       "common.weekdayShort.tue": "Tu",
@@ -359,6 +360,7 @@ const resources = {
       "agents.title": "BabblinGears",
       "agents.description": "Interact with AI agents to refine your language skills",
       "agents.noAgents": "No agents available at the moment.",
+      "agents.offlineError": "AI Agents require an internet connection. Please check your network settings.",
       "chat.placeholder": "Type a message...",
       "chat.loginRequired": "Please login to chat with agents.",
       "chat.history.title": "History",
@@ -693,6 +695,7 @@ const resources = {
       "common.tapToEdit": "编辑",
       "common.delete": "删除",
       "common.exit": "退出",
+      "common.offlineMode": "离线模式",
       // Weekday labels
       "common.weekdayShort.mon": "周一",
       "common.weekdayShort.tue": "周二",
@@ -713,6 +716,7 @@ const resources = {
       "agents.title": "AI智能助手",
       "agents.description": "与AI智能体互动，提升您的语言能力",
       "agents.noAgents": "暂时没有可用的智能体。",
+      "agents.offlineError": "AI智能助手需要互联网连接。请检查您的网络设置。",
       "chat.placeholder": "输入消息...",
       "chat.loginRequired": "请登录后与智能体聊天。",
       "chat.history.title": "历史记录",
