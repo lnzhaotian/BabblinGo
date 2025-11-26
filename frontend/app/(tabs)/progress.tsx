@@ -740,22 +740,24 @@ export default function ProgressScreen() {
                 </View>
               )}
             >
-              <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colorScheme === 'dark' ? '#23232a' : "#f1f5f9", backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
-                <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 16, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#111827" }} numberOfLines={1}>
-                      {lessonTitle}
-                    </Text>
-                    {detailLine ? (
-                      <Text style={{ marginTop: 2, color: colorScheme === 'dark' ? '#a1a1aa' : "#6b7280" }} numberOfLines={1}>
-                        {detailLine}
+              <Pressable onPress={() => router.push(`/(stack)/history/${item.id}`)}>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colorScheme === 'dark' ? '#23232a' : "#f1f5f9", backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff" }}>
+                  <View style={{ flexDirection: "row", alignItems: "flex-start" }}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 16, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : "#111827" }} numberOfLines={1}>
+                        {lessonTitle}
                       </Text>
-                    ) : null}
+                      {detailLine ? (
+                        <Text style={{ marginTop: 2, color: colorScheme === 'dark' ? '#a1a1aa' : "#6b7280" }} numberOfLines={1}>
+                          {detailLine}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: colorScheme === 'dark' ? '#e5e7eb' : "#4b5563", marginLeft: 12 }}>{secToMMSS(actualSec)}</Text>
                   </View>
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: colorScheme === 'dark' ? '#e5e7eb' : "#4b5563", marginLeft: 12 }}>{secToMMSS(actualSec)}</Text>
+                  <Text style={{ marginTop: 6, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{dateStr}</Text>
                 </View>
-                <Text style={{ marginTop: 6, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>{dateStr}</Text>
-              </View>
+              </Pressable>
             </Swipeable>
           )
         }}

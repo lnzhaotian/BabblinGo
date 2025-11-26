@@ -41,7 +41,7 @@ export default function AgentsScreen() {
         padding: 16,
         marginBottom: 12,
         borderRadius: 12,
-        backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#fff',
+        backgroundColor: colorScheme === 'dark' ? '#23232a' : '#fff',
       }}
     >
       <View style={{
@@ -51,12 +51,12 @@ export default function AgentsScreen() {
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 16,
-        backgroundColor: colorScheme === 'dark' ? '#374151' : '#eff6ff',
+        backgroundColor: colorScheme === 'dark' ? '#18181b' : '#eef2ff',
       }}>
-        <MaterialIcons 
-          name={(item.icon as any) || 'psychology'} 
-          size={24} 
-          color={colorScheme === 'dark' ? '#60A5FA' : '#2563EB'} 
+        <MaterialIcons
+          name={(item.icon as any) || 'psychology'}
+          size={24}
+          color={colorScheme === 'dark' ? '#6366f1' : '#4f46e5'}
         />
       </View>
       <View style={{ flex: 1 }}>
@@ -71,16 +71,16 @@ export default function AgentsScreen() {
         {item.description && (
           <Text style={{
             fontSize: 14,
-            color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
+            color: colorScheme === 'dark' ? '#d1d5db' : '#4b5563',
           }} numberOfLines={2}>
             {item.description}
           </Text>
         )}
       </View>
-      <MaterialIcons 
-        name="chevron-right" 
-        size={24} 
-        color={colorScheme === 'dark' ? '#9CA3AF' : '#9CA3AF'} 
+      <MaterialIcons
+        name="chevron-right"
+        size={28}
+        color={colorScheme === 'dark' ? '#a1a1aa' : '#9ca3af'}
       />
     </Pressable>
   )
@@ -88,16 +88,16 @@ export default function AgentsScreen() {
   return (
     <>
       <ThemedHeader titleKey="agents.title" />
-      <SafeAreaView 
-        style={{ 
-          flex: 1, 
-          backgroundColor: colorScheme === 'dark' ? '#111827' : '#f9fafb' 
-        }} 
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff'
+        }}
         edges={['left', 'right', 'bottom']}
       >
         <View style={{ flex: 1, padding: 16 }}>
           {loading ? (
-            <ActivityIndicator size="large" color="#2563EB" />
+            <ActivityIndicator size="large" color={colorScheme === 'dark' ? "#fff" : "#18181b"} />
           ) : (
             <FlatList
               data={agents}

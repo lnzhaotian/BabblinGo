@@ -232,6 +232,8 @@ const resources = {
   "manualEntry.linkLessonUnauthorized": "Sign in again to search lessons.",
   "manualEntry.linkLessonError": "Something went wrong. Please try searching again.",
   "manualEntry.linkedLessonAutoTitle": "We'll use the linked lesson title for this entry.",
+  "manualEntry.deleteTitle": "Delete Record",
+  "manualEntry.deleteConfirmation": "Are you sure you want to delete this learning record?",
 
       // Settings
       "settings.title": "Settings",
@@ -332,7 +334,8 @@ const resources = {
       "common.save": "Save Preferences",
       "common.close": "Close",
       "common.done": "Done",
-      "common.tapToEdit": "Tap to edit",
+      "common.tapToEdit": "Edit",
+      "common.delete": "Delete",
       "common.exit": "Exit",
       // Weekday labels
       "common.weekdayShort.mon": "Mo",
@@ -590,6 +593,8 @@ const resources = {
   "manualEntry.linkLessonUnauthorized": "请重新登录后再试。",
   "manualEntry.linkLessonError": "搜索出错，请重试。",
   "manualEntry.linkedLessonAutoTitle": "本次记录将使用所选课程的标题。",
+  "manualEntry.deleteTitle": "删除记录",
+  "manualEntry.deleteConfirmation": "确定要删除这条学习记录吗？",
 
       // Settings
       "settings.title": "设置",
@@ -684,7 +689,8 @@ const resources = {
       "common.save": "保存偏好设置",
       "common.close": "关闭",
       "common.done": "完成",
-      "common.tapToEdit": "点击编辑",
+      "common.tapToEdit": "编辑",
+      "common.delete": "删除",
       "common.exit": "退出",
       // Weekday labels
       "common.weekdayShort.mon": "周一",

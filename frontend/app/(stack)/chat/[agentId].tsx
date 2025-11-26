@@ -336,7 +336,7 @@ export default function ChatScreen() {
       <SafeAreaView 
         style={{ 
           flex: 1, 
-          backgroundColor: colorScheme === 'dark' ? '#111827' : '#fff' 
+          backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' 
         }} 
         edges={['left', 'right', 'bottom']}
       >
@@ -358,7 +358,7 @@ export default function ChatScreen() {
             paddingBottom: 24,
             paddingHorizontal: 8,
             borderColor: colorScheme === 'dark' ? '#1f2937' : '#f3f4f6',
-            backgroundColor: colorScheme === 'dark' ? '#111827' : '#fff',
+            backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff',
           }}>
             <View style={{
               flexDirection: 'row',

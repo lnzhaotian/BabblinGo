@@ -202,6 +202,50 @@ export async function saveLearningSession(
 }
 
 /**
+ * Update an existing learning session record
+ */
+export async function updateLearningSession(
+  id: string,
+  updates: Partial<Omit<SessionRecord, "id" | "serverId" | "syncedAt" | "remoteUpdatedAt">>
+): Promise<void> {
+  try {
+    const key = LEARNING_SESSIONS_STORAGE_KEY
+    const raw = await AsyncStorage.getItem(key)
+    const sessions: SessionRecord[] = raw ? JSON.parse(raw) : []
+    
+    const index = sessions.findIndex(s => s.id === id)
+    if (index === -1) {
+      throw new Error(`Session record not found: ${id}`)
+    }
+
+    const existing = sessions[index]
+    const updated: SessionRecord = {
+      ...existing,
+      ...updates,
+      dirty: true,
+      lastModifiedAt: Date.now(),
+    }
+
+    // Recalculate duration if start/end times changed
+    if (updates.startedAt || updates.endedAt) {
+      const start = updates.startedAt ?? existing.startedAt
+      const end = updates.endedAt ?? existing.endedAt
+      updated.durationSeconds = Math.max(0, Math.floor((end - start) / 1000))
+    }
+
+    sessions[index] = normalizeSessionRecord(updated)
+    await AsyncStorage.setItem(key, JSON.stringify(sessions))
+    
+    scheduleLearningRecordSync().catch(() => {
+      // already logged inside scheduler
+    })
+  } catch (error) {
+    console.error("Failed to update learning session:", error)
+    throw error
+  }
+}
+
+/**
  * Get all learning sessions from AsyncStorage
  */
 export async function getLearningSessions(): Promise<SessionRecord[]> {
