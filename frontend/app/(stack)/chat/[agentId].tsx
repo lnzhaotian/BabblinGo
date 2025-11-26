@@ -278,70 +278,85 @@ export default function ChatScreen() {
             <MaterialIcons name={"psychology" as any} size={16} color={colorScheme === 'dark' ? '#60A5FA' : '#2563EB'} />
           </View>
         )} */}
-        <View style={{ maxWidth: isUser ? '80%' : '100%' }}>
-          <View
-            style={{
-              padding: isUser ? 12 : 0,
-              borderRadius: isUser ? 16 : 0,
-              backgroundColor: isUser
-                ? (colorScheme === 'dark' ? '#2563EB' : '#3b82f6')
-                : (colorScheme === 'dark' ? 'transparent' : 'transparent'),
-            }}
-          >
-            {isThinking ? (
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} style={{ marginRight: 8 }} />
-                <Text style={{ color: colorScheme === 'dark' ? '#9CA3AF' : '#6B7280', fontStyle: 'italic' }}>
-                  {t('chat.thinking')}
-                </Text>
-              </View>
-            ) : (
-              isUser ? (
-                <Text
-                  style={{
-                    fontSize: 16,
-                    color: '#fff',
-                  }}
-                >
-                  {content}
-                </Text>
-              ) : (
-                <Markdown
-                  style={{
-                    body: {
-                      color: colorScheme === 'dark' ? '#f3f4f6' : '#111827',
-                      fontSize: 16,
-                    },
-                    paragraph: {
-                      marginBottom: 8,
-                      lineHeight: 26,
-                    },
-                    link: {
-                      color: colorScheme === 'dark' ? '#60A5FA' : '#2563EB',
-                    },
-                  }}
-                >
-                  {content}
-                </Markdown>
-              )
-            )}
+        {item.id === "welcome" ? (
+          <View style={{
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '100%',
+            height: '100%',
+            paddingHorizontal: 16,
+            paddingVertical: 80,
+            flexDirection: 'row',
+          }}>
+            <Text style={{ color: colorScheme === 'dark' ? '#f3f4f6' : '#111827', fontWeight: 'bold', fontSize: 24 }}>{content}</Text>
           </View>
-
-          {!isUser && !isThinking && content && (
-            <View style={{ flexDirection: 'row', marginTop: 4 }}>
-              <Pressable
-                onPress={handleCopy}
-                style={({ pressed }) => ({
-                  padding: 8,
-                  marginLeft: -8,
-                  opacity: pressed ? 0.6 : 1,
-                })}
+        )
+          : (
+            <View style={{ maxWidth: isUser ? '80%' : '100%' }}>
+              <View
+                style={{
+                  padding: isUser ? 12 : 0,
+                  borderRadius: isUser ? 16 : 0,
+                  backgroundColor: isUser
+                    ? (colorScheme === 'dark' ? '#2563EB' : '#3b82f6')
+                    : (colorScheme === 'dark' ? 'transparent' : 'transparent'),
+                }}
               >
-                <MaterialIcons name="content-copy" size={16} color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} />
-              </Pressable>
+                {isThinking ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} style={{ marginRight: 8 }} />
+                    <Text style={{ color: colorScheme === 'dark' ? '#9CA3AF' : '#6B7280', fontStyle: 'italic' }}>
+                      {t('chat.thinking')}
+                    </Text>
+                  </View>
+                ) : (
+                  isUser ? (
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        color: '#fff',
+                      }}
+                    >
+                      {content}
+                    </Text>
+                  ) : (
+                    <Markdown
+                      style={{
+                        body: {
+                          color: colorScheme === 'dark' ? '#f3f4f6' : '#111827',
+                          fontSize: 16,
+                        },
+                        paragraph: {
+                          marginBottom: 8,
+                          lineHeight: 26,
+                        },
+                        link: {
+                          color: colorScheme === 'dark' ? '#60A5FA' : '#2563EB',
+                        },
+                      }}
+                    >
+                      {content}
+                    </Markdown>
+                  )
+                )}
+              </View>
+
+              {!isUser && !isThinking && content && item.id !== "welcome" && (
+                <View style={{ flexDirection: 'row', marginTop: 4 }}>
+                  <Pressable
+                    onPress={handleCopy}
+                    style={({ pressed }) => ({
+                      padding: 8,
+                      marginLeft: -8,
+                      opacity: pressed ? 0.6 : 1,
+                    })}
+                  >
+                    <MaterialIcons name="content-copy" size={16} color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} />
+                  </Pressable>
+                </View>
+              )}
             </View>
           )}
-        </View>
       </View>
     )
   }
