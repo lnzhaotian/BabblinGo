@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react'
-import { FlatList, Pressable, Text, View, ActivityIndicator } from 'react-native'
+import { FlatList, Pressable, Text, View, ActivityIndicator, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { AgentDoc, fetchAgents } from '@/lib/payload'
+import { getAuthToken } from '@/lib/auth-session'
 import { useThemeMode } from '../theme-context'
 import { ThemedHeader } from '@/components/ThemedHeader'
 
@@ -32,9 +33,21 @@ export default function AgentsScreen() {
     }
   }
 
+  const handleAgentPress = async (agentId: string) => {
+    const token = await getAuthToken()
+    if (!token) {
+      Alert.alert(t('common.error'), t('chat.loginRequired'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.login'), onPress: () => router.push('/auth/login') }
+      ])
+      return
+    }
+    router.push(`/(stack)/chat/${agentId}`)
+  }
+
   const renderItem = ({ item }: { item: AgentDoc }) => (
     <Pressable
-      onPress={() => router.push(`/(stack)/chat/${item.id}`)}
+      onPress={() => handleAgentPress(item.id)}
       style={{
         flexDirection: 'row',
         alignItems: 'center',

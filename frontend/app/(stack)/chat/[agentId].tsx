@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator, Alert, Modal } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useTranslation } from 'react-i18next'
 
 import { AgentDoc, fetchAgents, streamDifyMessage, fetchConversations, fetchMessages, deleteConversation, generateConversationTitle } from '@/lib/payload'
-import { getAuthToken } from '@/lib/auth-session'
+// import { getAuthToken } from '@/lib/auth-session'
 import { useThemeMode } from '../../theme-context'
 import { ThemedHeader } from '@/components/ThemedHeader'
 import Markdown from 'react-native-markdown-display'
@@ -28,7 +28,7 @@ type Conversation = {
 
 export default function ChatScreen() {
   const { agentId } = useLocalSearchParams<{ agentId: string }>()
-  const router = useRouter()
+  // const router = useRouter()
   const { t, i18n } = useTranslation()
   const { colorScheme } = useThemeMode()
   
@@ -45,18 +45,19 @@ export default function ChatScreen() {
   const isFirstExchange = useRef(true)
   const flatListRef = useRef<FlatList>(null)
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const token = await getAuthToken()
-      if (!token) {
-        Alert.alert(t('common.error'), t('chat.loginRequired'), [
-          { text: t('common.cancel'), style: 'cancel', onPress: () => router.back() },
-          { text: t('settings.login'), onPress: () => router.push('/auth/login') }
-        ])
-      }
-    }
-    checkAuth()
-  }, [router, t])
+  // Auth check moved to agents list screen to prevent entry
+  // useEffect(() => {
+  //   const checkAuth = async () => {
+  //     const token = await getAuthToken()
+  //     if (!token) {
+  //       Alert.alert(t('common.error'), t('chat.loginRequired'), [
+  //         { text: t('common.cancel'), style: 'cancel', onPress: () => router.back() },
+  //         { text: t('settings.login'), onPress: () => router.push('/auth/login') }
+  //       ])
+  //     }
+  //   }
+  //   checkAuth()
+  // }, [router, t])
 
   useEffect(() => {
     const loadAgent = async () => {
@@ -413,7 +414,7 @@ export default function ChatScreen() {
         >
           <View style={{ 
             flex: 1, 
-            backgroundColor: colorScheme === 'dark' ? '#111827' : '#fff',
+            backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff',
             paddingTop: Platform.OS === 'android' ? 20 : 16,
             paddingHorizontal: 20,
           }}>
