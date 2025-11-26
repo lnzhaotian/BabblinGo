@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react'
-import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator, Alert, Modal } from 'react-native'
+import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, Pressable, ActivityIndicator, Alert, Modal, Linking } from 'react-native'
 import { useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
@@ -10,6 +10,7 @@ import { AgentDoc, fetchAgents, streamDifyMessage, fetchConversations, fetchMess
 import { useThemeMode } from '../../theme-context'
 import { ThemedHeader } from '@/components/ThemedHeader'
 import Markdown from 'react-native-markdown-display'
+import * as Clipboard from 'expo-clipboard'
 
 type Message = {
   id: string
@@ -31,7 +32,7 @@ export default function ChatScreen() {
   // const router = useRouter()
   const { t, i18n } = useTranslation()
   const { colorScheme } = useThemeMode()
-  
+
   const [agent, setAgent] = useState<AgentDoc | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputText, setInputText] = useState('')
@@ -40,7 +41,7 @@ export default function ChatScreen() {
   const [historyVisible, setHistoryVisible] = useState(false)
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [loadingHistory, setLoadingHistory] = useState(false)
-  
+
   // Track if this is the first exchange to trigger summarization
   const isFirstExchange = useRef(true)
   const flatListRef = useRef<FlatList>(null)
@@ -138,7 +139,7 @@ export default function ChatScreen() {
         }
         return msgs
       })
-      
+
       setMessages(mappedMessages)
       setConversationId(convId)
       isFirstExchange.current = false // Loaded conversation is not new
@@ -209,11 +210,11 @@ export default function ChatScreen() {
           setSending(false)
           // If this was the first exchange, generate a title
           if (isFirstExchange.current && currentConversationId) {
-             isFirstExchange.current = false
-             // Trigger background title generation
-             generateConversationTitle(agentId!, currentConversationId).catch(err => {
-               console.log('Failed to auto-generate title:', err)
-             })
+            isFirstExchange.current = false
+            // Trigger background title generation
+            generateConversationTitle(agentId!, currentConversationId).catch(err => {
+              console.log('Failed to auto-generate title:', err)
+            })
           }
         },
         (error) => {
@@ -230,11 +231,11 @@ export default function ChatScreen() {
 
   const renderMessage = ({ item }: { item: Message }) => {
     const isUser = item.role === 'user'
-    
+
     // Parse <think> tags
     let content = item.content
     let isThinking = false
-    
+
     if (!isUser) {
       if (!content) {
         isThinking = true
@@ -250,6 +251,12 @@ export default function ChatScreen() {
           content = '' // Hide content while thinking
         }
       }
+    }
+
+    const handleCopy = async () => {
+      if (isThinking || !content) return
+      await Clipboard.setStringAsync(content)
+      Alert.alert(t('common.done'), t('chat.copiedToClipboard'))
     }
 
     return (
@@ -271,47 +278,68 @@ export default function ChatScreen() {
             <MaterialIcons name={"psychology" as any} size={16} color={colorScheme === 'dark' ? '#60A5FA' : '#2563EB'} />
           </View>
         )} */}
-        <View style={{
-          maxWidth: isUser ? '80%' : '100%',
-          padding: isUser ? 12 : 0,
-          borderRadius: isUser ? 16 : 0,
-          backgroundColor: isUser 
-            ? (colorScheme === 'dark' ? '#2563EB' : '#3b82f6') 
-            : (colorScheme === 'dark' ? 'transparent' : 'transparent'),
-        }}>
-          {isThinking ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} style={{ marginRight: 8 }} />
-              <Text style={{ color: colorScheme === 'dark' ? '#9CA3AF' : '#6B7280', fontStyle: 'italic' }}>
-                {t('chat.thinking')}
-              </Text>
-            </View>
-          ) : (
-            isUser ? (
-              <Text style={{
-                fontSize: 16,
-                color: '#fff',
-              }}>
-                {content}
-              </Text>
+        <View style={{ maxWidth: isUser ? '80%' : '100%' }}>
+          <View
+            style={{
+              padding: isUser ? 12 : 0,
+              borderRadius: isUser ? 16 : 0,
+              backgroundColor: isUser
+                ? (colorScheme === 'dark' ? '#2563EB' : '#3b82f6')
+                : (colorScheme === 'dark' ? 'transparent' : 'transparent'),
+            }}
+          >
+            {isThinking ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <ActivityIndicator size="small" color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} style={{ marginRight: 8 }} />
+                <Text style={{ color: colorScheme === 'dark' ? '#9CA3AF' : '#6B7280', fontStyle: 'italic' }}>
+                  {t('chat.thinking')}
+                </Text>
+              </View>
             ) : (
-              <Markdown
-                style={{
-                  body: {
-                    color: colorScheme === 'dark' ? '#f3f4f6' : '#111827',
+              isUser ? (
+                <Text
+                  style={{
                     fontSize: 16,
-                  },
-                  paragraph: {
-                    marginBottom: 8,
-                  },
-                  link: {
-                    color: colorScheme === 'dark' ? '#60A5FA' : '#2563EB',
-                  },
-                }}
+                    color: '#fff',
+                  }}
+                >
+                  {content}
+                </Text>
+              ) : (
+                <Markdown
+                  style={{
+                    body: {
+                      color: colorScheme === 'dark' ? '#f3f4f6' : '#111827',
+                      fontSize: 16,
+                    },
+                    paragraph: {
+                      marginBottom: 8,
+                      lineHeight: 26,
+                    },
+                    link: {
+                      color: colorScheme === 'dark' ? '#60A5FA' : '#2563EB',
+                    },
+                  }}
+                >
+                  {content}
+                </Markdown>
+              )
+            )}
+          </View>
+
+          {!isUser && !isThinking && content && (
+            <View style={{ flexDirection: 'row', marginTop: 4 }}>
+              <Pressable
+                onPress={handleCopy}
+                style={({ pressed }) => ({
+                  padding: 8,
+                  marginLeft: -8,
+                  opacity: pressed ? 0.6 : 1,
+                })}
               >
-                {content}
-              </Markdown>
-            )
+                <MaterialIcons name="content-copy" size={16} color={colorScheme === 'dark' ? '#9CA3AF' : '#6B7280'} />
+              </Pressable>
+            </View>
           )}
         </View>
       </View>
@@ -320,8 +348,8 @@ export default function ChatScreen() {
 
   return (
     <>
-      <ThemedHeader 
-        overrideTitle={agent?.title} 
+      <ThemedHeader
+        overrideTitle={agent?.title}
         titleKey={!agent?.title ? 'agents.title' : undefined}
         headerRight={() => (
           <Pressable onPress={() => {
@@ -334,11 +362,11 @@ export default function ChatScreen() {
           </Pressable>
         )}
       />
-      <SafeAreaView 
-        style={{ 
-          flex: 1, 
-          backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff' 
-        }} 
+      <SafeAreaView
+        style={{
+          flex: 1,
+          backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff'
+        }}
         edges={['left', 'right', 'bottom']}
       >
         <FlatList
@@ -348,9 +376,11 @@ export default function ChatScreen() {
           keyExtractor={item => item.id}
           contentContainerStyle={{ padding: 16 }}
           onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+          keyboardShouldPersistTaps="handled"
+          removeClippedSubviews={false}
         />
 
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
         >
@@ -367,13 +397,14 @@ export default function ChatScreen() {
               borderRadius: 9999,
               paddingHorizontal: 16,
               paddingVertical: 8,
-              backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f3f4f6',
+              backgroundColor: colorScheme === 'dark' ? '#222' : '#f3f4f6',
             }}>
               <TextInput
                 style={{
                   flex: 1,
-                  fontSize: 16,
+                  fontSize: 18,
                   maxHeight: 96,
+                  paddingVertical: 0,
                   color: colorScheme === 'dark' ? '#fff' : '#111827',
                 }}
                 placeholder={t('chat.placeholder')}
@@ -383,7 +414,7 @@ export default function ChatScreen() {
                 multiline
                 maxLength={1000}
               />
-              <Pressable 
+              <Pressable
                 onPress={sendMessage}
                 disabled={!inputText.trim() || sending}
                 style={{
@@ -391,7 +422,7 @@ export default function ChatScreen() {
                   padding: 8,
                   marginRight: -8,
                   borderRadius: 9999,
-                  backgroundColor: !inputText.trim() || sending 
+                  backgroundColor: !inputText.trim() || sending
                     ? (colorScheme === 'dark' ? '#374151' : '#d1d5db')
                     : '#3b82f6',
                 }}
@@ -412,8 +443,8 @@ export default function ChatScreen() {
           presentationStyle="pageSheet"
           onRequestClose={() => setHistoryVisible(false)}
         >
-          <View style={{ 
-            flex: 1, 
+          <View style={{
+            flex: 1,
             backgroundColor: colorScheme === 'dark' ? '#18181b' : '#fff',
             paddingTop: Platform.OS === 'android' ? 20 : 16,
             paddingHorizontal: 20,
@@ -450,7 +481,7 @@ export default function ChatScreen() {
                 flexDirection: 'row',
                 alignItems: 'center',
                 padding: 16,
-                backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f9fafb',
+                backgroundColor: colorScheme === 'dark' ? '#23232a' : '#f9fafb',
                 borderRadius: 12,
                 marginVertical: 12,
               }}
@@ -485,9 +516,9 @@ export default function ChatScreen() {
                   padding: 16,
                   borderRadius: 12,
                   marginBottom: 8,
-                  backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f9fafb',
+                  backgroundColor: colorScheme === 'dark' ? '#23232a' : '#f9fafb',
                 }}>
-                  <Pressable 
+                  <Pressable
                     style={{ flex: 1 }}
                     onPress={() => loadConversation(item.id)}
                   >

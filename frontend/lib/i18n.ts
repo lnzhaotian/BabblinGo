@@ -369,6 +369,7 @@ const resources = {
       "chat.delete": "Delete",
       "chat.noHistory": "No history found.",
       "chat.thinking": "Thinking...",
+      "chat.copiedToClipboard": "Copied to clipboard",
     },
   },
   zh: {
@@ -722,6 +723,7 @@ const resources = {
       "chat.delete": "删除",
       "chat.noHistory": "暂无历史记录。",
       "chat.thinking": "思考中...",
+      "chat.copiedToClipboard": "已复制到剪贴板",
     },
   },
 };
