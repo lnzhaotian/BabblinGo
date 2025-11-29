@@ -397,6 +397,14 @@ export default function ChatScreen() {
                         link: {
                           color: colorScheme === 'dark' ? '#60A5FA' : '#2563EB',
                         },
+                        list_item: {
+                          flexDirection: 'row',
+                          alignItems: 'flex-start',
+                          lineHeight: 22,
+                        },
+                        list_item_content: {
+                          flex: 1,
+                        },
                       }}
                     >
                       {content}

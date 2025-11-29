@@ -85,7 +85,7 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#18181b" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", gap: 12 }}>
             <ActivityIndicator size="large" />
             <Text style={{ color: colorScheme === "dark" ? "#e2e8f0" : "#475569" }}>
@@ -101,7 +101,7 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#18181b" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, gap: 12 }}>
             <Text style={{ color: isDark ? "#fca5a5" : "#dc2626", textAlign: "center" }}>
               {error ?? FALLBACK_ERROR}
@@ -122,7 +122,7 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#18181b" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}>
             <Text style={{ color: isDark ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
               {t("lesson.errorMissingModuleId", { defaultValue: "Module identifier is missing." })}
@@ -137,7 +137,7 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <>
         {header}
-        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#18181b" : "#fff" }} edges={["bottom"]}>
           <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24 }}>
             <Text style={{ color: isDark ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
               {t("lesson.errorMissingId", { defaultValue: "Lesson identifier is missing." })}
@@ -183,7 +183,7 @@ const ModuleDetailScreen: React.FC = () => {
       return (
         <>
           {header}
-          <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#0f172a" : "#fff" }} edges={["bottom"]}>
+          <SafeAreaView style={{ flex: 1, backgroundColor: isDark ? "#18181b" : "#fff" }} edges={["bottom"]}>
             <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, gap: 12 }}>
               <Text style={{ color: isDark ? "#e2e8f0" : "#1f2937", textAlign: "center" }}>
                 {t("lesson.modules.unsupported", { defaultValue: "This module type is not supported yet." })}
