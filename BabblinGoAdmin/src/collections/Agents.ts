@@ -1,9 +1,12 @@
-import type { CollectionConfig } from 'payload'
+import type { CollectionConfig, Validate } from 'payload'
 
 import { materialIconGlyphMap } from '../data/materialIconOptions'
 
-const iconValidator = (value: unknown): true | string => {
+const iconValidator: Validate = (value, { siblingData }) => {
+  const isMaterial = siblingData?.iconType === 'material' || !siblingData?.iconType
+
   if (value == null) {
+    if (isMaterial) return 'Material Icon is required'
     return true
   }
 
@@ -13,6 +16,7 @@ const iconValidator = (value: unknown): true | string => {
 
   const trimmed = value.trim()
   if (trimmed.length === 0) {
+    if (isMaterial) return 'Material Icon is required'
     return true
   }
 
@@ -46,11 +50,38 @@ const Agents: CollectionConfig = {
       localized: true,
     },
     {
+      name: 'iconType',
+      type: 'radio',
+      options: [
+        { label: 'Material Icon', value: 'material' },
+        { label: 'Image', value: 'image' },
+      ],
+      defaultValue: 'material',
+      admin: {
+        layout: 'horizontal',
+      },
+    },
+    {
       name: 'icon',
       type: 'text',
       validate: iconValidator,
       admin: {
         description: 'Material Icon name (e.g., "psychology", "chat", "school")',
+        condition: (data) => data.iconType === 'material',
+      },
+    },
+    {
+      name: 'iconImage',
+      type: 'upload',
+      relationTo: 'media',
+      validate: (value: unknown, { siblingData }: { siblingData: Record<string, unknown> }) => {
+        if (siblingData?.iconType === 'image' && !value) {
+          return 'Image is required'
+        }
+        return true
+      },
+      admin: {
+        condition: (data) => data.iconType === 'image',
       },
     },
     {

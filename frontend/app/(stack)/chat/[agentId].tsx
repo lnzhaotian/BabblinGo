@@ -4,8 +4,9 @@ import { useLocalSearchParams } from 'expo-router'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { MaterialIcons } from '@expo/vector-icons'
 import { useTranslation } from 'react-i18next'
+import { Image } from 'expo-image'
 
-import { AgentDoc, fetchAgents, streamDifyMessage, fetchConversations, fetchMessages, deleteConversation, generateConversationTitle } from '@/lib/payload'
+import { AgentDoc, fetchAgents, streamDifyMessage, fetchConversations, fetchMessages, deleteConversation, generateConversationTitle, resolveMediaUrl } from '@/lib/payload'
 // import { getAuthToken } from '@/lib/auth-session'
 import { useThemeMode } from '../../theme-context'
 import { ThemedHeader } from '@/components/ThemedHeader'
@@ -17,6 +18,7 @@ type Message = {
   role: 'user' | 'assistant'
   content: string
   createdAt: number
+  isStreaming?: boolean
 }
 
 type Conversation = {
@@ -174,18 +176,24 @@ export default function ChatScreen() {
       createdAt: Date.now()
     }
 
-    setMessages(prev => [...prev, userMsg])
-    setInputText('')
-    setSending(true)
-
     // Create placeholder for assistant message
     const botMsgId = (Date.now() + 1).toString()
-    setMessages(prev => [...prev, {
+    const botMsg: Message = {
       id: botMsgId,
       role: 'assistant',
       content: '',
-      createdAt: Date.now()
-    }])
+      createdAt: Date.now(),
+      isStreaming: true
+    }
+
+    setMessages(prev => {
+      // Remove welcome message when user starts chatting
+      const withoutWelcome = prev.filter(m => m.id !== 'welcome')
+      return [...withoutWelcome, userMsg, botMsg]
+    })
+    
+    setInputText('')
+    setSending(true)
 
     let currentConversationId = conversationId
 
@@ -208,6 +216,15 @@ export default function ChatScreen() {
         },
         () => {
           setSending(false)
+          
+          // Mark message as complete
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === botMsgId) {
+              return { ...msg, isStreaming: false }
+            }
+            return msg
+          }))
+
           // If this was the first exchange, generate a title
           if (isFirstExchange.current && currentConversationId) {
             isFirstExchange.current = false
@@ -220,7 +237,13 @@ export default function ChatScreen() {
         (error) => {
           console.error('Chat error:', error)
           setSending(false)
-          // Optionally remove the empty message or show error
+          // Mark message as complete (or failed)
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === botMsgId) {
+              return { ...msg, isStreaming: false }
+            }
+            return msg
+          }))
         }
       )
     } catch (error) {
@@ -284,11 +307,52 @@ export default function ChatScreen() {
             justifyContent: 'center',
             width: '100%',
             height: '100%',
-            paddingHorizontal: 16,
-            paddingVertical: 80,
-            flexDirection: 'row',
+            paddingHorizontal: 24,
+            paddingVertical: 40,
           }}>
-            <Text style={{ color: colorScheme === 'dark' ? '#f3f4f6' : '#111827', fontWeight: 'bold', fontSize: 24 }}>{content}</Text>
+            <View style={{
+              width: 80,
+              height: 80,
+              borderRadius: 40,
+              backgroundColor: colorScheme === 'dark' ? '#23232a' : '#eef2ff',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginBottom: 24,
+              overflow: 'hidden',
+            }}>
+              {agent?.iconType === 'image' && agent?.iconImage ? (
+                <Image
+                  source={{ uri: resolveMediaUrl(agent.iconImage) ?? '' }}
+                  style={{ width: '100%', height: '100%' }}
+                  contentFit="cover"
+                />
+              ) : (
+                <MaterialIcons
+                  name={(agent?.icon as any) || 'psychology'}
+                  size={40}
+                  color={colorScheme === 'dark' ? '#6366f1' : '#4f46e5'}
+                />
+              )}
+            </View>
+            {/* <Text style={{
+              color: colorScheme === 'dark' ? '#f3f4f6' : '#111827',
+              fontWeight: '600',
+              fontSize: 20,
+              lineHeight: 28,
+              textAlign: 'center',
+              marginBottom: 8,
+            }}>
+              {agent?.title}
+            </Text> */}
+            <Text style={{
+              color: colorScheme === 'dark' ? '#9ca3af' : '#6b7280',
+              fontWeight: 'normal',
+              fontSize: 16,
+              lineHeight: 24,
+              textAlign: 'center',
+            }}>
+              {content}
+            </Text>
           </View>
         )
           : (
@@ -341,7 +405,7 @@ export default function ChatScreen() {
                 )}
               </View>
 
-              {!isUser && !isThinking && content && item.id !== "welcome" && (
+              {!isUser && !isThinking && !item.isStreaming && content && item.id !== "welcome" && (
                 <View style={{ flexDirection: 'row', marginTop: 4 }}>
                   <Pressable
                     onPress={handleCopy}

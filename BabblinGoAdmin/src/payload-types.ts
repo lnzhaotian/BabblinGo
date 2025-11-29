@@ -67,30 +67,30 @@ export interface Config {
   };
   blocks: {};
   collections: {
-    users: User;
     courses: Course;
     lessons: Lesson;
     modules: Module;
-    media: Media;
-    'learning-records': LearningRecord;
-    tools: Tool;
-    'user-preferences': UserPreference;
     agents: Agent;
+    tools: Tool;
+    'learning-records': LearningRecord;
+    'user-preferences': UserPreference;
+    users: User;
+    media: Media;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
   };
   collectionsJoins: {};
   collectionsSelect: {
-    users: UsersSelect<false> | UsersSelect<true>;
     courses: CoursesSelect<false> | CoursesSelect<true>;
     lessons: LessonsSelect<false> | LessonsSelect<true>;
     modules: ModulesSelect<false> | ModulesSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
-    'learning-records': LearningRecordsSelect<false> | LearningRecordsSelect<true>;
-    tools: ToolsSelect<false> | ToolsSelect<true>;
-    'user-preferences': UserPreferencesSelect<false> | UserPreferencesSelect<true>;
     agents: AgentsSelect<false> | AgentsSelect<true>;
+    tools: ToolsSelect<false> | ToolsSelect<true>;
+    'learning-records': LearningRecordsSelect<false> | LearningRecordsSelect<true>;
+    'user-preferences': UserPreferencesSelect<false> | UserPreferencesSelect<true>;
+    users: UsersSelect<false> | UsersSelect<true>;
+    media: MediaSelect<false> | MediaSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -99,12 +99,12 @@ export interface Config {
     defaultIDType: string;
   };
   globals: {
-    'system-settings': SystemSetting;
     'chat-history': ChatHistory;
+    'system-settings': SystemSetting;
   };
   globalsSelect: {
-    'system-settings': SystemSettingsSelect<false> | SystemSettingsSelect<true>;
     'chat-history': ChatHistorySelect<false> | ChatHistorySelect<true>;
+    'system-settings': SystemSettingsSelect<false> | SystemSettingsSelect<true>;
   };
   locale: 'en' | 'zh';
   user: User & {
@@ -135,86 +135,6 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: string;
-  displayName: string;
-  avatar?: (string | null) | Media;
-  /**
-   * Material Icon name for avatar (e.g., person, face, school). Used when no avatar image is uploaded.
-   */
-  avatarIcon?: string | null;
-  /**
-   * A short biography (max 500 characters)
-   */
-  bio?: string | null;
-  /**
-   * City, country, or region
-   */
-  location?: string | null;
-  /**
-   * Personal website or social media profile URL
-   */
-  website?: string | null;
-  /**
-   * Used for age-appropriate content and analytics
-   */
-  dateOfBirth?: string | null;
-  /**
-   * User's native language
-   */
-  nativeLanguage?: string | null;
-  /**
-   * Languages the user is currently learning
-   */
-  learningLanguages?:
-    | {
-        language: string;
-        level?: ('beginner' | 'elementary' | 'intermediate' | 'advanced' | 'native') | null;
-        id?: string | null;
-      }[]
-    | null;
-  role: 'user' | 'editor' | 'manager';
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: string;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "courses".
  */
 export interface Course {
@@ -239,6 +159,25 @@ export interface Course {
     | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: string;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
 }
 /**
  * Lessons belong to a course and contain multiple modules. Optional level key groups lessons within a course.
@@ -500,27 +439,35 @@ export interface Module {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "learning-records".
+ * via the `definition` "agents".
  */
-export interface LearningRecord {
+export interface Agent {
   id: string;
-  user: string | User;
-  source: 'auto' | 'manual';
-  clientId: string;
-  lessonId: string;
-  lessonTitle?: string | null;
-  runId?: string | null;
-  startedAt: string;
-  endedAt: string;
-  plannedSeconds: number;
-  durationSeconds?: number | null;
-  speed?: number | null;
-  finished?: boolean | null;
-  segments?: number | null;
+  title: string;
+  description?: string | null;
+  iconType?: ('material' | 'image') | null;
   /**
-   * Optional learner-supplied context for manual entries.
+   * Material Icon name (e.g., "psychology", "chat", "school")
    */
-  notes?: string | null;
+  icon?: string | null;
+  iconImage?: (string | null) | Media;
+  /**
+   * The API Key from Dify for this agent
+   */
+  difyApiKey: string;
+  /**
+   * The base URL for the Dify API (e.g., https://ai.babblinguide.cn/v1)
+   */
+  difyApiUrl?: string | null;
+  /**
+   * Initial message sent by the agent when chat starts
+   */
+  welcomeMessage?: string | null;
+  /**
+   * Order in the list (lower numbers first)
+   */
+  order?: number | null;
+  status: 'draft' | 'published';
   updatedAt: string;
   createdAt: string;
 }
@@ -551,6 +498,93 @@ export interface Tool {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "learning-records".
+ */
+export interface LearningRecord {
+  id: string;
+  user: string | User;
+  source: 'auto' | 'manual';
+  clientId: string;
+  lessonId: string;
+  lessonTitle?: string | null;
+  runId?: string | null;
+  startedAt: string;
+  endedAt: string;
+  plannedSeconds: number;
+  durationSeconds?: number | null;
+  speed?: number | null;
+  finished?: boolean | null;
+  segments?: number | null;
+  /**
+   * Optional learner-supplied context for manual entries.
+   */
+  notes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: string;
+  displayName: string;
+  avatar?: (string | null) | Media;
+  /**
+   * Material Icon name for avatar (e.g., person, face, school). Used when no avatar image is uploaded.
+   */
+  avatarIcon?: string | null;
+  /**
+   * A short biography (max 500 characters)
+   */
+  bio?: string | null;
+  /**
+   * City, country, or region
+   */
+  location?: string | null;
+  /**
+   * Personal website or social media profile URL
+   */
+  website?: string | null;
+  /**
+   * Used for age-appropriate content and analytics
+   */
+  dateOfBirth?: string | null;
+  /**
+   * User's native language
+   */
+  nativeLanguage?: string | null;
+  /**
+   * Languages the user is currently learning
+   */
+  learningLanguages?:
+    | {
+        language: string;
+        level?: ('beginner' | 'elementary' | 'intermediate' | 'advanced' | 'native') | null;
+        id?: string | null;
+      }[]
+    | null;
+  role: 'user' | 'editor' | 'manager';
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "user-preferences".
  */
 export interface UserPreference {
@@ -572,47 +606,11 @@ export interface UserPreference {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "agents".
- */
-export interface Agent {
-  id: string;
-  title: string;
-  description?: string | null;
-  /**
-   * Material Icon name (e.g., "psychology", "chat", "school")
-   */
-  icon?: string | null;
-  /**
-   * The API Key from Dify for this agent
-   */
-  difyApiKey: string;
-  /**
-   * The base URL for the Dify API (e.g., https://ai.babblinguide.cn/v1)
-   */
-  difyApiUrl?: string | null;
-  /**
-   * Initial message sent by the agent when chat starts
-   */
-  welcomeMessage?: string | null;
-  /**
-   * Order in the list (lower numbers first)
-   */
-  order?: number | null;
-  status: 'draft' | 'published';
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
   id: string;
   document?:
-    | ({
-        relationTo: 'users';
-        value: string | User;
-      } | null)
     | ({
         relationTo: 'courses';
         value: string | Course;
@@ -626,24 +624,28 @@ export interface PayloadLockedDocument {
         value: string | Module;
       } | null)
     | ({
-        relationTo: 'media';
-        value: string | Media;
-      } | null)
-    | ({
-        relationTo: 'learning-records';
-        value: string | LearningRecord;
+        relationTo: 'agents';
+        value: string | Agent;
       } | null)
     | ({
         relationTo: 'tools';
         value: string | Tool;
       } | null)
     | ({
+        relationTo: 'learning-records';
+        value: string | LearningRecord;
+      } | null)
+    | ({
         relationTo: 'user-preferences';
         value: string | UserPreference;
       } | null)
     | ({
-        relationTo: 'agents';
-        value: string | Agent;
+        relationTo: 'users';
+        value: string | User;
+      } | null)
+    | ({
+        relationTo: 'media';
+        value: string | Media;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -686,44 +688,6 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users_select".
- */
-export interface UsersSelect<T extends boolean = true> {
-  displayName?: T;
-  avatar?: T;
-  avatarIcon?: T;
-  bio?: T;
-  location?: T;
-  website?: T;
-  dateOfBirth?: T;
-  nativeLanguage?: T;
-  learningLanguages?:
-    | T
-    | {
-        language?: T;
-        level?: T;
-        id?: T;
-      };
-  role?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  email?: T;
-  resetPasswordToken?: T;
-  resetPasswordExpiration?: T;
-  salt?: T;
-  hash?: T;
-  loginAttempts?: T;
-  lockUntil?: T;
-  sessions?:
-    | T
-    | {
-        id?: T;
-        createdAt?: T;
-        expiresAt?: T;
-      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -843,21 +807,36 @@ export interface ModulesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
+ * via the `definition` "agents_select".
  */
-export interface MediaSelect<T extends boolean = true> {
-  alt?: T;
+export interface AgentsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  iconType?: T;
+  icon?: T;
+  iconImage?: T;
+  difyApiKey?: T;
+  difyApiUrl?: T;
+  welcomeMessage?: T;
+  order?: T;
+  status?: T;
   updatedAt?: T;
   createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tools_select".
+ */
+export interface ToolsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
   url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
+  category?: T;
+  icon?: T;
+  status?: T;
+  order?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -878,21 +857,6 @@ export interface LearningRecordsSelect<T extends boolean = true> {
   finished?: T;
   segments?: T;
   notes?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tools_select".
- */
-export interface ToolsSelect<T extends boolean = true> {
-  title?: T;
-  description?: T;
-  url?: T;
-  category?: T;
-  icon?: T;
-  status?: T;
-  order?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -920,19 +884,59 @@ export interface UserPreferencesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "agents_select".
+ * via the `definition` "users_select".
  */
-export interface AgentsSelect<T extends boolean = true> {
-  title?: T;
-  description?: T;
-  icon?: T;
-  difyApiKey?: T;
-  difyApiUrl?: T;
-  welcomeMessage?: T;
-  order?: T;
-  status?: T;
+export interface UsersSelect<T extends boolean = true> {
+  displayName?: T;
+  avatar?: T;
+  avatarIcon?: T;
+  bio?: T;
+  location?: T;
+  website?: T;
+  dateOfBirth?: T;
+  nativeLanguage?: T;
+  learningLanguages?:
+    | T
+    | {
+        language?: T;
+        level?: T;
+        id?: T;
+      };
+  role?: T;
   updatedAt?: T;
   createdAt?: T;
+  email?: T;
+  resetPasswordToken?: T;
+  resetPasswordExpiration?: T;
+  salt?: T;
+  hash?: T;
+  loginAttempts?: T;
+  lockUntil?: T;
+  sessions?:
+    | T
+    | {
+        id?: T;
+        createdAt?: T;
+        expiresAt?: T;
+      };
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media_select".
+ */
+export interface MediaSelect<T extends boolean = true> {
+  alt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  url?: T;
+  thumbnailURL?: T;
+  filename?: T;
+  mimeType?: T;
+  filesize?: T;
+  width?: T;
+  height?: T;
+  focalX?: T;
+  focalY?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -968,6 +972,16 @@ export interface PayloadMigrationsSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "chat-history".
+ */
+export interface ChatHistory {
+  id: string;
+  placeholder?: string | null;
+  updatedAt?: string | null;
+  createdAt?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "system-settings".
  */
 export interface SystemSetting {
@@ -985,13 +999,13 @@ export interface SystemSetting {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "chat-history".
+ * via the `definition` "chat-history_select".
  */
-export interface ChatHistory {
-  id: string;
-  placeholder?: string | null;
-  updatedAt?: string | null;
-  createdAt?: string | null;
+export interface ChatHistorySelect<T extends boolean = true> {
+  placeholder?: T;
+  updatedAt?: T;
+  createdAt?: T;
+  globalType?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -1000,16 +1014,6 @@ export interface ChatHistory {
 export interface SystemSettingsSelect<T extends boolean = true> {
   summarizerAgentApiKey?: T;
   summarizerAgentApiUrl?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  globalType?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "chat-history_select".
- */
-export interface ChatHistorySelect<T extends boolean = true> {
-  placeholder?: T;
   updatedAt?: T;
   createdAt?: T;
   globalType?: T;

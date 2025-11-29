@@ -2,10 +2,11 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { FlatList, Pressable, Text, View, ActivityIndicator, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { MaterialIcons } from '@expo/vector-icons'
+import { Image } from 'expo-image'
 import { useTranslation } from 'react-i18next'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
-import { AgentDoc, fetchAgents } from '@/lib/payload'
+import { AgentDoc, fetchAgents, resolveMediaUrl } from '@/lib/payload'
 import { getAuthToken } from '@/lib/auth-session'
 import { useThemeMode } from '../theme-context'
 import { ThemedHeader } from '@/components/ThemedHeader'
@@ -76,12 +77,21 @@ export default function AgentsScreen() {
         justifyContent: 'center',
         marginRight: 16,
         backgroundColor: colorScheme === 'dark' ? '#18181b' : '#eef2ff',
+        overflow: 'hidden',
       }}>
-        <MaterialIcons
-          name={(item.icon as any) || 'psychology'}
-          size={24}
-          color={colorScheme === 'dark' ? '#6366f1' : '#4f46e5'}
-        />
+        {item.iconType === 'image' && item.iconImage ? (
+          <Image
+            source={{ uri: resolveMediaUrl(item.iconImage) ?? '' }}
+            style={{ width: '100%', height: '100%' }}
+            contentFit="cover"
+          />
+        ) : (
+          <MaterialIcons
+            name={(item.icon as any) || 'psychology'}
+            size={24}
+            color={colorScheme === 'dark' ? '#6366f1' : '#4f46e5'}
+          />
+        )}
       </View>
       <View style={{ flex: 1 }}>
         <Text style={{

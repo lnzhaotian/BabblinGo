@@ -41,8 +41,8 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Courses, Lessons, Modules, Media, LearningRecords, Tools, UserPreferences, Agents],
-  globals: [SystemSettings, ChatHistory],
+  collections: [Courses, Lessons, Modules, Agents, Tools, LearningRecords, UserPreferences, Users, Media],
+  globals: [ChatHistory, SystemSettings],
   endpoints: [
     {
       path: '/dify/chat-messages',

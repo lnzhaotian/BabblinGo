@@ -4,6 +4,7 @@ const ChatHistory: GlobalConfig = {
   slug: 'chat-history',
   label: 'Chat History',
   admin: {
+    group: 'User Management',
     components: {
       views: {
         edit: {

@@ -624,7 +624,9 @@ export type AgentDoc = {
   id: string
   title: string
   description?: string
+  iconType?: 'material' | 'image'
   icon?: string
+  iconImage?: MediaDoc | string | null
   welcomeMessage?: string
   order?: number
   status: 'draft' | 'published'
