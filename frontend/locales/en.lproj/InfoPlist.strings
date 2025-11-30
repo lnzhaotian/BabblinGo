@@ -1,0 +1,10 @@
+/* 
+  InfoPlist.strings
+  BabblinGo
+
+  Created by Expo Config.
+*/
+
+"NSMicrophoneUsageDescription" = "Allow $(PRODUCT_NAME) to access your microphone for pronunciation practice.";
+"NSSpeechRecognitionUsageDescription" = "Allow $(PRODUCT_NAME) to recognize your speech for pronunciation practice.";
+"NSPhotoLibraryUsageDescription" = "Allow $(PRODUCT_NAME) to access your photos to let you select a profile picture.";

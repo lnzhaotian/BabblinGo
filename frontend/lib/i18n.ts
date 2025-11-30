@@ -378,7 +378,7 @@ const resources = {
       "chat.copiedToClipboard": "Copied to clipboard",
 
       // Pronunciation
-      "pronunciation.title": "Your Turn!",
+      "pronunciation.title": "Now you speak!",
       "pronunciation.listening": "Listening...",
       "pronunciation.done": "Done",
       "pronunciation.goodJob": "Good Job!",
@@ -750,10 +750,10 @@ const resources = {
       "chat.copiedToClipboard": "已复制到剪贴板",
 
       // Pronunciation
-      "pronunciation.title": "轮到你了！",
+      "pronunciation.title": "现在你来说！",
       "pronunciation.listening": "正在听...",
       "pronunciation.done": "完成",
-      "pronunciation.goodJob": "做得好！",
+      "pronunciation.goodJob": "真棒！",
       "pronunciation.tryAgain": "再试一次...",
       "pronunciation.heard": "听到：",
       "pronunciation.noSpeech": "没听清。点击重试。",
