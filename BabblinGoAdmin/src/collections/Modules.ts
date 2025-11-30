@@ -169,6 +169,10 @@ export const Modules: CollectionConfig = {
           label: 'Audio (Playlist)',
           value: 'audio',
         },
+        {
+          label: 'Web Page',
+          value: 'webPage',
+        },
       ],
       admin: {
         description: 'Determines how the lesson module is rendered for learners.',
@@ -180,6 +184,25 @@ export const Modules: CollectionConfig = {
       admin: {
         description: 'Optional short summary that appears in lesson overviews.',
       },
+    },
+    {
+      name: 'webPage',
+      label: 'Web Page Content',
+      type: 'group',
+      admin: {
+        condition: (_, siblingData) => siblingData?.type === 'webPage',
+        description: 'Embed a web page or external content.',
+      },
+      fields: [
+        {
+          name: 'url',
+          type: 'text',
+          required: true,
+          admin: {
+            description: 'The URL to display.',
+          },
+        },
+      ],
     },
     {
       name: 'audioSlideshow',

@@ -85,7 +85,7 @@ export type AudioContent = {
   introduction?: LexicalRichText | null
 }
 
-export type LessonModuleType = 'audioSlideshow' | 'video' | 'richPost' | 'audio'
+export type LessonModuleType = 'audioSlideshow' | 'video' | 'richPost' | 'audio' | 'webPage'
 
 export type ModuleDoc = {
   id: string
@@ -99,6 +99,9 @@ export type ModuleDoc = {
   video?: VideoContent | null
   richPost?: RichPostContent | null
   audio?: AudioContent | MediaDoc | string | null
+  webPage?: {
+    url: string
+  } | null
   resources?: {
     label: string
     url: string
@@ -473,6 +476,28 @@ const normalizeModuleSlides = (module: ModuleDoc): LessonModuleSlide[] => {
         video: null,
         richPost: null,
         audioPlaylist: playlist,
+      },
+    ]
+  }
+
+  if (moduleType === 'webPage') {
+    return [
+      {
+        id: module.id,
+        moduleId: module.id,
+        slideId: module.id,
+        type: 'webPage',
+        order: module.order,
+        slideOrder: 0,
+        title: module.title,
+        summary: module.summary ?? null,
+        body: null,
+        image: null,
+        audio: null,
+        transcript: null,
+        video: null,
+        richPost: null,
+        audioPlaylist: null,
       },
     ]
   }

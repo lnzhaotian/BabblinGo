@@ -227,11 +227,20 @@ export interface Module {
   /**
    * Determines how the lesson module is rendered for learners.
    */
-  type: 'audioSlideshow' | 'video' | 'richPost' | 'audio';
+  type: 'audioSlideshow' | 'video' | 'richPost' | 'audio' | 'webPage';
   /**
    * Optional short summary that appears in lesson overviews.
    */
   summary?: string | null;
+  /**
+   * Embed a web page or external content.
+   */
+  webPage?: {
+    /**
+     * The URL to display.
+     */
+    url: string;
+  };
   /**
    * Slides with imagery and per-slide audio clips. Works with the existing slideshow + audio player.
    */
@@ -738,6 +747,11 @@ export interface ModulesSelect<T extends boolean = true> {
   lesson?: T;
   type?: T;
   summary?: T;
+  webPage?:
+    | T
+    | {
+        url?: T;
+      };
   audioSlideshow?:
     | T
     | {

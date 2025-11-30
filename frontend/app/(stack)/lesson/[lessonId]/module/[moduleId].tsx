@@ -10,6 +10,7 @@ import { AudioPlaylistModuleView } from "@/components/modules/audio/AudioPlaylis
 import { AudioSlideshowModuleView } from "@/components/modules/audioSlideshow/AudioSlideshowModuleView"
 import { RichPostModuleView } from "@/components/modules/richPost/RichPostModuleView"
 import { VideoModuleView } from "@/components/modules/video/VideoModuleView"
+import { WebPageModuleView } from "@/components/modules/webPage/WebPageModuleView"
 import { fetchLessonById, getLessonModules, LessonDoc } from "@/lib/payload"
 
 const FALLBACK_ERROR = "Unknown module"
@@ -175,6 +176,13 @@ const ModuleDetailScreen: React.FC = () => {
     case "audio":
       return (
         <AudioPlaylistModuleView
+          lesson={lesson}
+          module={activeModule}
+        />
+      )
+    case "webPage":
+      return (
+        <WebPageModuleView
           lesson={lesson}
           module={activeModule}
         />
