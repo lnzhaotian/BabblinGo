@@ -13,13 +13,15 @@ import type { PlaybackSpeed } from "@/components/SingleTrackPlayer"
 export function useLessonPreferences() {
   const [playerSpeed, setPlayerSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
   const [loopEnabled, setLoopEnabled] = useState<boolean>(true)
+  const [defaultMode, setDefaultMode] = useState<"listen-only" | "listen-and-repeat">("listen-only")
   const prefsLoadedRef = useRef(false)
 
   const loadPrefs = useCallback(async () => {
     try {
-      const [[, savedSpeed], [, savedLoop]] = await AsyncStorage.multiGet([
+      const [[, savedSpeed], [, savedLoop], [, savedMode]] = await AsyncStorage.multiGet([
         "learning.playbackSpeed",
         "lesson.loopEnabled",
+        "learning.defaultMode",
       ])
       
       if (savedSpeed) {
@@ -28,6 +30,11 @@ export function useLessonPreferences() {
       }
       if (savedLoop != null) {
         setLoopEnabled(savedLoop === "true")
+      }
+      if (savedMode === "listen-and-repeat") {
+        setDefaultMode("listen-and-repeat")
+      } else {
+        setDefaultMode("listen-only")
       }
       prefsLoadedRef.current = true
     } catch {
@@ -59,6 +66,7 @@ export function useLessonPreferences() {
     setPlayerSpeed,
     loopEnabled,
     setLoopEnabled,
+    defaultMode,
     prefsLoaded: prefsLoadedRef.current,
   }
 }

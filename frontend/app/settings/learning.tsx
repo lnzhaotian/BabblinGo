@@ -29,6 +29,7 @@ export default function LearningSettingsScreen() {
   const { globalTrackingEnabled, setGlobalTrackingEnabled } = usePreferences();
 
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
+  const [defaultMode, setDefaultMode] = useState<"listen-only" | "listen-and-repeat">("listen-only")
 
   // Load preferences on mount (declared after loadPreferences)
 
@@ -53,6 +54,7 @@ export default function LearningSettingsScreen() {
         ? (prefs.playbackSpeed as PlaybackSpeed)
         : normalizeSpeed(prefs.playbackSpeed as number)
       setPlaybackSpeed(normalized)
+      setDefaultMode(prefs.defaultLearningMode)
     } catch (error) {
       console.error("Failed to load preferences:", error)
     }
@@ -70,10 +72,25 @@ export default function LearningSettingsScreen() {
     try {
       const prefs: LearningPreferences = {
         playbackSpeed: speed,
+        defaultLearningMode: defaultMode,
       }
       await saveLearningPreferences(prefs)
     } catch (error) {
       console.error("Failed to save speed preference:", error)
+    }
+  }
+
+  const selectMode = async (mode: "listen-only" | "listen-and-repeat") => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    setDefaultMode(mode)
+    try {
+      const prefs: LearningPreferences = {
+        playbackSpeed: playbackSpeed,
+        defaultLearningMode: mode,
+      }
+      await saveLearningPreferences(prefs)
+    } catch (error) {
+      console.error("Failed to save mode preference:", error)
     }
   }
 
@@ -107,6 +124,60 @@ export default function LearningSettingsScreen() {
             <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : '#6b7280', lineHeight: 20 }}>
               {t('settings.trackingDescription')}
             </Text>
+          </View>
+        </View>
+
+        {/* Default Learning Mode Section */}
+        <View style={{ gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>
+            {t("settings.learning.defaultMode")}
+          </Text>
+          <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>
+            {t("settings.learning.defaultModeDesc")}
+          </Text>
+          <View style={{ flexDirection: "row", gap: 12 }}>
+            <Pressable
+              onPress={() => selectMode("listen-only")}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 8,
+                backgroundColor: defaultMode === "listen-only" ? (colorScheme === 'dark' ? '#10b981' : '#10b981') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6'),
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: defaultMode === "listen-only" ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'),
+                }}
+              >
+                {t("settings.learning.modeListenOnly")}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => selectMode("listen-and-repeat")}
+              style={{
+                flex: 1,
+                paddingVertical: 12,
+                paddingHorizontal: 16,
+                borderRadius: 8,
+                backgroundColor: defaultMode === "listen-and-repeat" ? (colorScheme === 'dark' ? '#10b981' : '#10b981') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6'),
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 16,
+                  fontWeight: "600",
+                  color: defaultMode === "listen-and-repeat" ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'),
+                }}
+              >
+                {t("settings.learning.modeListenRepeat")}
+              </Text>
+            </Pressable>
           </View>
         </View>
 

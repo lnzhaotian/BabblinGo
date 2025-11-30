@@ -10,6 +10,7 @@ import { normalizeSessionRecord } from "./session-normalizer"
  */
 export interface LearningPreferences {
   playbackSpeed: PlaybackSpeed
+  defaultLearningMode: "listen-only" | "listen-and-repeat"
 }
 
 /**
@@ -17,6 +18,7 @@ export interface LearningPreferences {
  */
 const DEFAULT_PREFERENCES: LearningPreferences = {
   playbackSpeed: 1.0 as PlaybackSpeed,
+  defaultLearningMode: "listen-only",
 }
 
 /**
@@ -30,12 +32,20 @@ export const MIN_SESSION_DURATION = 0
  */
 export async function loadLearningPreferences(): Promise<LearningPreferences> {
   try {
-    const raw = await AsyncStorage.getItem("learning.playbackSpeed")
+    const [speedRaw, modeRaw] = await AsyncStorage.multiGet([
+      "learning.playbackSpeed",
+      "learning.defaultMode",
+    ])
+    
     const playbackSpeed =
-      raw != null ? (parseFloat(raw) as PlaybackSpeed) : DEFAULT_PREFERENCES.playbackSpeed
+      speedRaw[1] != null ? (parseFloat(speedRaw[1]) as PlaybackSpeed) : DEFAULT_PREFERENCES.playbackSpeed
+    
+    const defaultLearningMode = 
+      modeRaw[1] === "listen-and-repeat" ? "listen-and-repeat" : "listen-only"
 
     return {
       playbackSpeed: !isNaN(playbackSpeed) ? playbackSpeed : DEFAULT_PREFERENCES.playbackSpeed,
+      defaultLearningMode,
     }
   } catch (error) {
     console.error("Failed to load learning preferences:", error)
@@ -50,8 +60,18 @@ export async function saveLearningPreferences(
   preferences: Partial<LearningPreferences>
 ): Promise<void> {
   try {
+    const pairs: [string, string][] = []
+    
     if (preferences.playbackSpeed != null) {
-      await AsyncStorage.setItem("learning.playbackSpeed", String(preferences.playbackSpeed))
+      pairs.push(["learning.playbackSpeed", String(preferences.playbackSpeed)])
+    }
+    
+    if (preferences.defaultLearningMode != null) {
+      pairs.push(["learning.defaultMode", preferences.defaultLearningMode])
+    }
+    
+    if (pairs.length > 0) {
+      await AsyncStorage.multiSet(pairs)
     }
   } catch (error) {
     console.error("Failed to save learning preferences:", error)

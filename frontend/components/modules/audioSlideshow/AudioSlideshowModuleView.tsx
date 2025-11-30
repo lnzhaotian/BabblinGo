@@ -63,17 +63,27 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
   const { colorScheme } = useThemeMode()
   const slides = useMemo(() => extractModuleSlides(module), [module])
 
-  const [practiceMode, setPracticeMode] = useState(false)
-  const [pronunciationModalVisible, setPronunciationModalVisible] = useState(false)
-  const [retryCount, setRetryCount] = useState(0)
-  const [replayTrigger, setReplayTrigger] = useState(0)
-
   const {
     playerSpeed,
     setPlayerSpeed,
     loopEnabled,
     setLoopEnabled,
+    defaultMode,
+    prefsLoaded,
   } = useLessonPreferences()
+
+  const [practiceMode, setPracticeMode] = useState(false)
+  const [pronunciationModalVisible, setPronunciationModalVisible] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [replayTrigger, setReplayTrigger] = useState(0)
+  const practiceModeInitializedRef = React.useRef(false)
+
+  React.useEffect(() => {
+    if (prefsLoaded && !practiceModeInitializedRef.current) {
+      setPracticeMode(defaultMode === "listen-and-repeat")
+      practiceModeInitializedRef.current = true
+    }
+  }, [prefsLoaded, defaultMode])
 
   const {
     cachedMedia,

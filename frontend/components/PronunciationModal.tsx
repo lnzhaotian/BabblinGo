@@ -5,7 +5,8 @@ import { useTranslation } from "react-i18next"
 import { useThemeMode } from "@/app/theme-context"
 import { calculatePronunciationScore } from "@/lib/scoring"
 import { Ionicons } from "@expo/vector-icons"
-import { setAudioModeAsync } from "expo-audio"
+import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio"
+import * as Haptics from "expo-haptics"
 
 type PronunciationModalProps = {
   visible: boolean
@@ -28,11 +29,17 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
   const { colorScheme } = useThemeMode()
   const isDark = colorScheme === "dark"
 
+  const dingPlayer = useAudioPlayer(require("@/assets/audios/ding.mp3"), { updateInterval: 50 })
+  const dingStatus = useAudioPlayerStatus(dingPlayer)
+  const correctPlayer = useAudioPlayer(require("@/assets/audios/Correct.mp3"))
+
   const [status, setStatus] = useState<"listening" | "processing" | "success" | "fail">("listening")
   const [error, setError] = useState<string | null>(null)
+  const [showModal, setShowModal] = useState(false)
   const spokenTextRef = useRef("")
   const silenceTimer = useRef<any>(null)
   const isProcessingRef = useRef(false)
+  const waitingForDingRef = useRef(false)
 
   const processResult = useCallback((spoken: string) => {
     if (isProcessingRef.current) return
@@ -53,35 +60,40 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
 
     if (calculatedScore >= PASS_THRESHOLD) {
       setStatus("success")
+      correctPlayer.seekTo(0)
+      correctPlayer.play()
       setTimeout(() => {
         onSuccess()
       }, 1500)
     } else {
       setStatus("fail")
+      // Two quick vibrations for failure
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
       setTimeout(() => {
         onFail()
       }, 2000)
     }
-  }, [transcript, onSuccess, onFail])
+  }, [transcript, onSuccess, onFail, correctPlayer])
 
-  const resetSilenceTimer = useCallback(() => {
+  const resetSilenceTimer = useCallback((duration = 1500) => {
     if (silenceTimer.current) {
       clearTimeout(silenceTimer.current)
     }
     
-    // If no speech for 1.5 seconds, consider it done
+    // If no speech for duration, consider it done
     silenceTimer.current = setTimeout(() => {
       console.log("[PronunciationModal] Silence detected, stopping...")
       Voice.stop().catch(console.error)
       if (spokenTextRef.current) {
         processResult(spokenTextRef.current)
       }
-    }, 1500)
+    }, duration)
   }, [processResult])
 
   const onSpeechStart = useCallback((e: any) => {
     console.log("[PronunciationModal] Speech started event:", e)
-    resetSilenceTimer()
+    // Give user more time (5s) to start speaking after the ding
+    resetSilenceTimer(5000)
   }, [resetSilenceTimer])
 
   const onSpeechEnd = useCallback((e: any) => {
@@ -97,7 +109,8 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
     if (e.value && e.value.length > 0) {
       const spoken = e.value[0]
       spokenTextRef.current = spoken
-      resetSilenceTimer()
+      // Once they start speaking, use shorter timeout for pauses
+      resetSilenceTimer(1500)
     }
   }, [resetSilenceTimer])
 
@@ -105,33 +118,44 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
     console.log("[PronunciationModal] Speech partial results event:", e)
     if (e.value && e.value.length > 0) {
       spokenTextRef.current = e.value[0]
-      resetSilenceTimer()
+      // Once they start speaking, use shorter timeout for pauses
+      resetSilenceTimer(1500)
     }
   }, [resetSilenceTimer])
 
   const onSpeechError = useCallback((e: SpeechErrorEvent) => {
     console.log("[PronunciationModal] Speech error event:", e)
     // If it's a "no match" or "speech timeout", we might want to let user try again manually
-    if (e.error?.code === '7' || e.error?.code === '6') { // 7=NoMatch, 6=NoSpeech
+    // Code 1110 is also "No speech detected" on some iOS versions
+    const isNoSpeech = e.error?.code === '7' || e.error?.code === '6' || e.error?.code === '1110' || e.error?.message?.includes('No speech')
+
+    if (isNoSpeech) { 
         setError(t("pronunciation.noSpeech", { defaultValue: "Didn't catch that. Tap to try again." }))
-        setStatus("fail")
     } else {
         setError(e.error?.message || t("pronunciation.unknownError", { defaultValue: "Unknown error" }))
     }
+    // Always transition to fail state so we hide the listening UI
+    setStatus("fail")
   }, [t])
 
   const startListening = useCallback(async () => {
     try {
       console.log("[PronunciationModal] Starting listening sequence...")
       setStatus("listening")
+      setShowModal(false) // Hide modal initially while playing sound
       spokenTextRef.current = ""
       setError(null)
       isProcessingRef.current = false
+      waitingForDingRef.current = true
       
       if (silenceTimer.current) {
         clearTimeout(silenceTimer.current)
         silenceTimer.current = null
       }
+
+      // Reset voice engine state to ensure clean slate
+      await Voice.stop().catch(() => {})
+      await Voice.destroy().catch(() => {})
       
       // Ensure audio session is ready for recording
       console.log("[PronunciationModal] Setting audio mode...")
@@ -140,21 +164,44 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
         playsInSilentMode: true,
       })
       
-      // Small delay to ensure audio session switch is complete
-      await new Promise(resolve => setTimeout(resolve, 100))
+      // Play prompt sound
+      dingPlayer.seekTo(0)
+      dingPlayer.play()
+      
+      // Provide haptic feedback to signal readiness
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
 
-      console.log("[PronunciationModal] Calling Voice.start...")
-      await Voice.start(language)
-      console.log("[PronunciationModal] Voice.start called")
+      // Voice.start will be triggered by the useEffect watching dingStatus
     } catch (e) {
       console.error("[PronunciationModal] Start error:", e)
       setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
+      setShowModal(true) // Show modal if error occurs so user sees it
     }
-  }, [language, t])
+  }, [t, dingPlayer])
+
+  // Watch for ding sound to finish before starting voice
+  useEffect(() => {
+    if (waitingForDingRef.current && dingStatus?.didJustFinish) {
+      console.log("[PronunciationModal] Ding finished, showing modal and starting voice...")
+      waitingForDingRef.current = false
+      setShowModal(true) // Show modal now that sound is done
+      
+      if (!visible) {
+        console.log("[PronunciationModal] Modal closed, aborting voice start")
+        return
+      }
+
+      Voice.start(language).catch(e => {
+        console.error("[PronunciationModal] Voice start error:", e)
+        setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
+      })
+    }
+  }, [dingStatus, visible, language, t])
 
   const stopListening = useCallback(async () => {
     try {
       console.log("[PronunciationModal] Stopping listening...")
+      waitingForDingRef.current = false
       if (silenceTimer.current) {
         clearTimeout(silenceTimer.current)
         silenceTimer.current = null
@@ -208,7 +255,7 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
   if (!visible) return null
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={showModal} transparent animationType="fade">
       <View style={styles.overlay}>
         <View style={[styles.container, { backgroundColor: isDark ? "#1e293b" : "#fff" }]}>
           
@@ -221,7 +268,7 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
           </Text>
 
           <Text style={[styles.transcript, { color: isDark ? "#cbd5e1" : "#475569" }]}>
-            &quot;{transcript}&quot;
+            {transcript}
           </Text>
 
           <View style={styles.statusContainer}>
@@ -315,10 +362,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   transcript: {
-    fontSize: 18,
+    fontSize: 24,
     textAlign: "center",
     marginBottom: 32,
-    fontStyle: "italic",
+    fontWeight: "700",
   },
   statusContainer: {
     minHeight: 150,
