@@ -5,6 +5,6 @@
   Created by Expo Config.
 */
 
-"NSMicrophoneUsageDescription" = "允许 $(PRODUCT_NAME) 访问您的麦克风以进行发音练习。";
-"NSSpeechRecognitionUsageDescription" = "允许 $(PRODUCT_NAME) 识别您的语音以进行发音练习。";
+"NSMicrophoneUsageDescription" = "允许 $(PRODUCT_NAME) 访问您的麦克风以进行口语练习。";
+"NSSpeechRecognitionUsageDescription" = "允许 $(PRODUCT_NAME) 识别您的语音以进行口语练习。";
 "NSPhotoLibraryUsageDescription" = "允许 $(PRODUCT_NAME) 访问您的相册以选择个人头像。";
