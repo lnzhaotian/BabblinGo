@@ -197,9 +197,11 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   useEffect(() => {
     (async () => {
       try {
-        if (suspend && player.playing) {
-          await player.pause()
-          setIsPlaying(false)
+        if (suspend) {
+          if (player.playing) {
+            await player.pause()
+            setIsPlaying(false)
+          }
           shouldBePlayingRef.current = false
         }
       } catch {}
@@ -338,7 +340,10 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         clearTimeout(ensurePlayingTimeoutRef.current)
         ensurePlayingTimeoutRef.current = null
       }
-      try { if (player.playing) player.pause() } catch {}
+      // Avoid accessing player if it might be destroyed
+      try { 
+        // Just let it be destroyed by the hook
+      } catch {}
     }
   }, [player])
 

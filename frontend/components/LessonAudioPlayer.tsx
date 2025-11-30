@@ -13,6 +13,9 @@ export type LessonAudioPlayerProps = {
   onNavigate: (action: "prev" | "next") => void
   onFinish: () => boolean
   showProgressBar?: boolean
+  replayTrigger?: number
+  disableInternalLoop?: boolean
+  suspend?: boolean
 }
 
 export function LessonAudioPlayer({
@@ -25,10 +28,13 @@ export function LessonAudioPlayer({
   onNavigate,
   onFinish,
   showProgressBar = false,
+  replayTrigger = 0,
+  disableInternalLoop = false,
+  suspend = false,
 }: LessonAudioPlayerProps) {
   const colorScheme = useColorScheme()
   const [themeMode, setThemeMode] = useState<string | null>(null)
-  const [replaySignal, setReplaySignal] = useState(0)
+  const [internalReplaySignal, setInternalReplaySignal] = useState(0)
   const lastTrackIdRef = useRef<string | null>(null)
   useEffect(() => {
     AsyncStorage.getItem("themeMode").then((mode) => setThemeMode(mode))
@@ -39,7 +45,7 @@ export function LessonAudioPlayer({
     const currentId = track?.id ?? null
     if (lastTrackIdRef.current !== currentId) {
       lastTrackIdRef.current = currentId
-      setReplaySignal(0)
+      setInternalReplaySignal(0)
     }
   }, [track?.id])
 
@@ -74,12 +80,13 @@ export function LessonAudioPlayer({
         onNavigate={onNavigate}
         onFinish={() => {
           const advanced = onFinish()
-          if (!advanced && loopEnabled) {
-            setReplaySignal((prev) => prev + 1)
+          if (!advanced && loopEnabled && !disableInternalLoop) {
+            setInternalReplaySignal((prev) => prev + 1)
           }
         }}
-        playSignal={replaySignal}
+        playSignal={internalReplaySignal + replayTrigger}
         showProgressBar={showProgressBar}
+        suspend={suspend}
       />
     </View>
   )

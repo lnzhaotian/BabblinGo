@@ -372,6 +372,18 @@ const resources = {
       "chat.noHistory": "No history found.",
       "chat.thinking": "Thinking...",
       "chat.copiedToClipboard": "Copied to clipboard",
+
+      // Pronunciation
+      "pronunciation.title": "Your Turn!",
+      "pronunciation.listening": "Listening...",
+      "pronunciation.done": "Done",
+      "pronunciation.goodJob": "Good Job!",
+      "pronunciation.tryAgain": "Let's try again...",
+      "pronunciation.heard": "Heard:",
+      "pronunciation.noSpeech": "Didn't catch that. Tap to try again.",
+      "pronunciation.retry": "Tap to Retry",
+      "pronunciation.unknownError": "Unknown error",
+      "pronunciation.micError": "Failed to start microphone",
     },
   },
   zh: {
@@ -728,6 +740,18 @@ const resources = {
       "chat.noHistory": "暂无历史记录。",
       "chat.thinking": "思考中...",
       "chat.copiedToClipboard": "已复制到剪贴板",
+
+      // Pronunciation
+      "pronunciation.title": "轮到你了！",
+      "pronunciation.listening": "正在听...",
+      "pronunciation.done": "完成",
+      "pronunciation.goodJob": "做得好！",
+      "pronunciation.tryAgain": "再试一次...",
+      "pronunciation.heard": "听到：",
+      "pronunciation.noSpeech": "没听清。点击重试。",
+      "pronunciation.retry": "点击重试",
+      "pronunciation.unknownError": "未知错误",
+      "pronunciation.micError": "麦克风启动失败",
     },
   },
 };

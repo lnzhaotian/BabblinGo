@@ -10,6 +10,9 @@ export type LessonHeaderControlsProps = {
   onToggleLoop: () => void
   onOpenCacheMenu: () => void
   showLoopToggle?: boolean
+  practiceModeEnabled?: boolean
+  onTogglePracticeMode?: () => void
+  showPracticeToggle?: boolean
 }
 
 export function LessonHeaderControls({
@@ -19,6 +22,9 @@ export function LessonHeaderControls({
   onToggleLoop,
   onOpenCacheMenu,
   showLoopToggle = true,
+  practiceModeEnabled = false,
+  onTogglePracticeMode,
+  showPracticeToggle = false,
 }: LessonHeaderControlsProps) {
   const pulseValue = useRef(new Animated.Value(1)).current
   const activeAnimation = useRef<Animated.CompositeAnimation | null>(null)
@@ -81,6 +87,16 @@ export function LessonHeaderControls({
 
   return (
     <View style={{ flexDirection: "row", alignItems: "center", justifyContent: showLoopToggle ? "flex-start" : "center", minWidth: showLoopToggle ? undefined : 44 }}>
+      {showPracticeToggle && onTogglePracticeMode ? (
+        <Pressable
+          onPress={onTogglePracticeMode}
+          accessibilityLabel="Toggle practice mode"
+          hitSlop={8}
+          style={{ padding: 4, marginLeft: 8 }}
+        >
+          <MaterialIcons name="mic" size={22} color={practiceModeEnabled ? "#ef4444" : "#9ca3af"} />
+        </Pressable>
+      ) : null}
       {showLoopToggle ? (
         <Pressable
           onPress={onToggleLoop}

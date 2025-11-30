@@ -870,3 +870,17 @@ export const generateConversationTitle = async (agentId: string, conversationId:
 
   return response.json()
 }
+
+export const extractPlainText = (richText: LexicalRichText | null | undefined): string => {
+  if (!richText?.root?.children) return ""
+  
+  const extract = (nodes: any[]): string => {
+    return nodes.map(node => {
+      if (node.text) return node.text
+      if (node.children) return extract(node.children)
+      return ""
+    }).join(" ")
+  }
+  
+  return extract(richText.root.children).trim()
+}

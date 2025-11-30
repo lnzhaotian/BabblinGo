@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from "react"
+import React, { useCallback, useMemo, useState } from "react"
 import { ActivityIndicator, FlatList, Text, View } from "react-native"
 import { SafeAreaView } from "react-native-safe-area-context"
 import { useTranslation } from "react-i18next"
@@ -10,6 +10,7 @@ import { PaginationDots } from "@/components/PaginationDots"
 import { LessonAudioPlayer } from "@/components/LessonAudioPlayer"
 import { LessonSessionResult } from "@/components/LessonSessionResult"
 import { LessonSlide } from "@/components/LessonSlide"
+import { PronunciationModal } from "@/components/PronunciationModal"
 import { useLessonPreferences } from "@/hooks/useLessonPreferences"
 import { useLessonCache } from "@/hooks/useLessonCache"
 import { useLessonNavigation } from "@/hooks/useLessonNavigation"
@@ -18,6 +19,7 @@ import { useLearningSession } from "@/hooks/useLearningSession"
 import { useThemeMode } from "@/app/theme-context"
 import {
   extractModuleSlides,
+  extractPlainText,
   LessonDoc,
   LessonModuleSlide,
   ModuleDoc,
@@ -60,6 +62,11 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
   const { t } = useTranslation()
   const { colorScheme } = useThemeMode()
   const slides = useMemo(() => extractModuleSlides(module), [module])
+
+  const [practiceMode, setPracticeMode] = useState(false)
+  const [pronunciationModalVisible, setPronunciationModalVisible] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const [replayTrigger, setReplayTrigger] = useState(0)
 
   const {
     playerSpeed,
@@ -125,6 +132,49 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
     restartSession()
   }, [resetToFirstSlide, restartSession])
 
+  const handleAudioFinish = useCallback(() => {
+    console.log("handleAudioFinish called. practiceMode:", practiceMode)
+    if (practiceMode) {
+      const currentSlide = slides[currentSlideIndex]
+      // Use body (slide text) instead of transcript (module text)
+      const textToPractice = extractPlainText(currentSlide?.body)
+      console.log("Text found:", !!textToPractice, textToPractice?.substring(0, 20))
+      
+      if (textToPractice) {
+        console.log("Opening pronunciation modal")
+        setPronunciationModalVisible(true)
+        return false
+      } else {
+        console.log("No text content, skipping practice")
+      }
+    }
+    
+    return handleTrackFinish()
+  }, [practiceMode, slides, currentSlideIndex, handleTrackFinish])
+
+  const handlePronunciationSuccess = useCallback(() => {
+    setPronunciationModalVisible(false)
+    setRetryCount(0)
+    handleTrackFinish()
+  }, [handleTrackFinish])
+
+  const handlePronunciationFail = useCallback(() => {
+    setPronunciationModalVisible(false)
+    const MAX_RETRIES = 3
+    if (retryCount < MAX_RETRIES) {
+      setRetryCount(prev => prev + 1)
+      setReplayTrigger(prev => prev + 1)
+    } else {
+      setRetryCount(0)
+      handleTrackFinish()
+    }
+  }, [retryCount, handleTrackFinish])
+
+  const handlePronunciationClose = useCallback(() => {
+      setPronunciationModalVisible(false)
+      handleTrackFinish()
+  }, [handleTrackFinish])
+
   return (
     <>
       <ThemedHeader
@@ -140,6 +190,9 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
                 onToggleLoop={() => setLoopEnabled(!loopEnabled)}
                 onOpenCacheMenu={() => setCacheMenuVisible(true)}
                 showLoopToggle={supportsLearningSession}
+                practiceModeEnabled={practiceMode}
+                onTogglePracticeMode={() => setPracticeMode(!practiceMode)}
+                showPracticeToggle={supportsLearningSession}
               />
             )
         )}
@@ -206,7 +259,10 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
                   hasNext={currentSlideIndex < slides.length - 1 || effectiveLoopEnabled}
                   onSpeedChange={setPlayerSpeed}
                   onNavigate={handleNavigate}
-                  onFinish={handleTrackFinish}
+                  onFinish={handleAudioFinish}
+                  replayTrigger={replayTrigger}
+                  disableInternalLoop={practiceMode}
+                  suspend={pronunciationModalVisible}
                 />
               ) : null}
             </>
@@ -218,6 +274,14 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
             cacheStatus={lessonCacheStatus}
             onRedownload={handleRedownload}
             onClear={handleClearCache}
+          />
+
+          <PronunciationModal
+            visible={pronunciationModalVisible}
+            transcript={extractPlainText(slides[currentSlideIndex]?.body)}
+            onSuccess={handlePronunciationSuccess}
+            onFail={handlePronunciationFail}
+            onClose={handlePronunciationClose}
           />
         </SafeAreaView>
       )}
