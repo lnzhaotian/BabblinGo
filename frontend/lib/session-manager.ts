@@ -11,6 +11,7 @@ import { normalizeSessionRecord } from "./session-normalizer"
 export interface LearningPreferences {
   playbackSpeed: PlaybackSpeed
   defaultLearningMode: "listen-only" | "listen-and-repeat"
+  maxAttempts: number
 }
 
 /**
@@ -19,6 +20,7 @@ export interface LearningPreferences {
 const DEFAULT_PREFERENCES: LearningPreferences = {
   playbackSpeed: 1.0 as PlaybackSpeed,
   defaultLearningMode: "listen-only",
+  maxAttempts: 3,
 }
 
 /**
@@ -32,9 +34,10 @@ export const MIN_SESSION_DURATION = 0
  */
 export async function loadLearningPreferences(): Promise<LearningPreferences> {
   try {
-    const [speedRaw, modeRaw] = await AsyncStorage.multiGet([
+    const [speedRaw, modeRaw, attemptsRaw] = await AsyncStorage.multiGet([
       "learning.playbackSpeed",
       "learning.defaultMode",
+      "learning.maxAttempts",
     ])
     
     const playbackSpeed =
@@ -43,9 +46,13 @@ export async function loadLearningPreferences(): Promise<LearningPreferences> {
     const defaultLearningMode = 
       modeRaw[1] === "listen-and-repeat" ? "listen-and-repeat" : "listen-only"
 
+    const maxAttempts =
+      attemptsRaw[1] != null ? parseInt(attemptsRaw[1], 10) : DEFAULT_PREFERENCES.maxAttempts
+
     return {
       playbackSpeed: !isNaN(playbackSpeed) ? playbackSpeed : DEFAULT_PREFERENCES.playbackSpeed,
       defaultLearningMode,
+      maxAttempts: !isNaN(maxAttempts) ? maxAttempts : DEFAULT_PREFERENCES.maxAttempts,
     }
   } catch (error) {
     console.error("Failed to load learning preferences:", error)
@@ -68,6 +75,10 @@ export async function saveLearningPreferences(
     
     if (preferences.defaultLearningMode != null) {
       pairs.push(["learning.defaultMode", preferences.defaultLearningMode])
+    }
+
+    if (preferences.maxAttempts != null) {
+      pairs.push(["learning.maxAttempts", String(preferences.maxAttempts)])
     }
     
     if (pairs.length > 0) {

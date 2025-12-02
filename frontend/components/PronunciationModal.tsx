@@ -32,6 +32,7 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
   const dingPlayer = useAudioPlayer(require("@/assets/audios/ding.mp3"), { updateInterval: 50 })
   const dingStatus = useAudioPlayerStatus(dingPlayer)
   const correctPlayer = useAudioPlayer(require("@/assets/audios/Correct.mp3"))
+  const correctStatus = useAudioPlayerStatus(correctPlayer)
 
   const [status, setStatus] = useState<"listening" | "processing" | "success" | "fail">("listening")
   const [error, setError] = useState<string | null>(null)
@@ -40,6 +41,7 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
   const silenceTimer = useRef<any>(null)
   const isProcessingRef = useRef(false)
   const waitingForDingRef = useRef(false)
+  const waitingForCorrectRef = useRef(false)
 
   const processResult = useCallback((spoken: string) => {
     if (isProcessingRef.current) return
@@ -56,15 +58,23 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
     console.log("[PronunciationModal] Final Score:", calculatedScore)
 
     // Threshold can be adjusted. 
-    const PASS_THRESHOLD = 60 
+    // Increased to 80 to catch semantic errors (e.g. "banana" vs "apple") while allowing minor STT quirks.
+    const PASS_THRESHOLD = 80 
 
     if (calculatedScore >= PASS_THRESHOLD) {
       setStatus("success")
+      waitingForCorrectRef.current = true
       correctPlayer.seekTo(0)
       correctPlayer.play()
+
+      // Safety fallback: if audio doesn't finish in 3s, proceed anyway
       setTimeout(() => {
-        onSuccess()
-      }, 1500)
+        if (waitingForCorrectRef.current) {
+          console.log("[PronunciationModal] Correct sound timeout, forcing success")
+          waitingForCorrectRef.current = false
+          onSuccess()
+        }
+      }, 3000)
     } else {
       setStatus("fail")
       // Two quick vibrations for failure
@@ -73,7 +83,25 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
         onFail()
       }, 2000)
     }
-  }, [transcript, onSuccess, onFail, correctPlayer])
+  }, [transcript, onFail, onSuccess, correctPlayer])
+
+  // Watch for correct sound to finish
+  useEffect(() => {
+    if (waitingForCorrectRef.current && correctStatus?.didJustFinish) {
+      console.log("[PronunciationModal] Correct sound finished")
+      waitingForCorrectRef.current = false
+      onSuccess()
+    }
+  }, [correctStatus, onSuccess])
+
+  // Reset modal state when visibility changes
+  useEffect(() => {
+    if (!visible) {
+      setShowModal(false)
+      waitingForDingRef.current = false
+      waitingForCorrectRef.current = false
+    }
+  }, [visible])
 
   const resetSilenceTimer = useCallback((duration = 1500) => {
     if (silenceTimer.current) {
@@ -168,6 +196,19 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
       dingPlayer.seekTo(0)
       dingPlayer.play()
       
+      // Safety fallback for ding
+      setTimeout(() => {
+        if (waitingForDingRef.current) {
+            console.log("[PronunciationModal] Ding timeout, forcing start")
+            waitingForDingRef.current = false
+            setShowModal(true)
+            Voice.start(language).catch(e => {
+                console.error("[PronunciationModal] Voice start error (timeout fallback):", e)
+                setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
+            })
+        }
+      }, 1000) // 1 second timeout for ding
+      
       // Provide haptic feedback to signal readiness
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
 
@@ -177,7 +218,7 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
       setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
       setShowModal(true) // Show modal if error occurs so user sees it
     }
-  }, [t, dingPlayer])
+  }, [t, dingPlayer, language])
 
   // Watch for ding sound to finish before starting voice
   useEffect(() => {
@@ -309,7 +350,7 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
               <View style={styles.resultState}>
                 <Ionicons name="alert-circle" size={60} color="#ef4444" />
                 <Text style={[styles.statusText, { color: isDark ? "#e2e8f0" : "#1f2937", marginTop: 16 }]}>
-                  {t("pronunciation.tryAgain", { defaultValue: "Let's try again..." })}
+                  {t("pronunciation.tryAgain", { defaultValue: "Nice try" })}
                 </Text>
               </View>
             )}

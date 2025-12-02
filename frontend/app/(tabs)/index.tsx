@@ -377,7 +377,7 @@ export default function Index() {
             >
               <MaterialIcons name={icon as any} size={32} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
             </View>
-            <View style={{ flex: 1, justifyContent: 'center' }}>
+            <View style={{ flex: 1}}>
               <Text style={{ fontSize: 18, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : '#111827' }}>
                 {title}
               </Text>

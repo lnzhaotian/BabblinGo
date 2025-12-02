@@ -30,6 +30,7 @@ export default function LearningSettingsScreen() {
 
   const [playbackSpeed, setPlaybackSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
   const [defaultMode, setDefaultMode] = useState<"listen-only" | "listen-and-repeat">("listen-only")
+  const [maxAttempts, setMaxAttempts] = useState<number>(3)
 
   // Load preferences on mount (declared after loadPreferences)
 
@@ -55,6 +56,7 @@ export default function LearningSettingsScreen() {
         : normalizeSpeed(prefs.playbackSpeed as number)
       setPlaybackSpeed(normalized)
       setDefaultMode(prefs.defaultLearningMode)
+      setMaxAttempts(prefs.maxAttempts ?? 3)
     } catch (error) {
       console.error("Failed to load preferences:", error)
     }
@@ -73,6 +75,7 @@ export default function LearningSettingsScreen() {
       const prefs: LearningPreferences = {
         playbackSpeed: speed,
         defaultLearningMode: defaultMode,
+        maxAttempts: maxAttempts,
       }
       await saveLearningPreferences(prefs)
     } catch (error) {
@@ -87,10 +90,26 @@ export default function LearningSettingsScreen() {
       const prefs: LearningPreferences = {
         playbackSpeed: playbackSpeed,
         defaultLearningMode: mode,
+        maxAttempts: maxAttempts,
       }
       await saveLearningPreferences(prefs)
     } catch (error) {
       console.error("Failed to save mode preference:", error)
+    }
+  }
+
+  const selectMaxAttempts = async (attempts: number) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    setMaxAttempts(attempts)
+    try {
+      const prefs: LearningPreferences = {
+        playbackSpeed: playbackSpeed,
+        defaultLearningMode: defaultMode,
+        maxAttempts: attempts,
+      }
+      await saveLearningPreferences(prefs)
+    } catch (error) {
+      console.error("Failed to save max attempts preference:", error)
     }
   }
 
@@ -178,6 +197,42 @@ export default function LearningSettingsScreen() {
                 {t("settings.learning.modeListenRepeat")}
               </Text>
             </Pressable>
+          </View>
+        </View>
+
+        {/* Max Attempts Section */}
+        <View style={{ gap: 12 }}>
+          <Text style={{ fontSize: 16, fontWeight: "600", color: colorScheme === 'dark' ? '#fff' : "#111827" }}>
+            {t("settings.learning.maxAttempts") || "Practice Attempts"}
+          </Text>
+          <Text style={{ fontSize: 14, color: colorScheme === 'dark' ? '#d1d5db' : "#6b7280" }}>
+            {t("settings.learning.maxAttemptsDesc") || "Maximum attempts allowed for each sentence"}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {[1, 2, 3, 4, 5].map((count) => (
+              <Pressable
+                key={count}
+                onPress={() => selectMaxAttempts(count)}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 20,
+                  borderRadius: 8,
+                  backgroundColor: maxAttempts === count ? (colorScheme === 'dark' ? '#10b981' : '#10b981') : (colorScheme === 'dark' ? '#23232a' : '#f3f4f6'),
+                  minWidth: 50,
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 16,
+                    fontWeight: "600",
+                    color: maxAttempts === count ? '#fff' : (colorScheme === 'dark' ? '#d1d5db' : '#374151'),
+                  }}
+                >
+                  {count}
+                </Text>
+              </Pressable>
+            ))}
           </View>
         </View>
 

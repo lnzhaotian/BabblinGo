@@ -14,14 +14,16 @@ export function useLessonPreferences() {
   const [playerSpeed, setPlayerSpeed] = useState<PlaybackSpeed>(1.0 as PlaybackSpeed)
   const [loopEnabled, setLoopEnabled] = useState<boolean>(true)
   const [defaultMode, setDefaultMode] = useState<"listen-only" | "listen-and-repeat">("listen-only")
+  const [maxAttempts, setMaxAttempts] = useState<number>(3)
   const prefsLoadedRef = useRef(false)
 
   const loadPrefs = useCallback(async () => {
     try {
-      const [[, savedSpeed], [, savedLoop], [, savedMode]] = await AsyncStorage.multiGet([
+      const [[, savedSpeed], [, savedLoop], [, savedMode], [, savedAttempts]] = await AsyncStorage.multiGet([
         "learning.playbackSpeed",
         "lesson.loopEnabled",
         "learning.defaultMode",
+        "learning.maxAttempts",
       ])
       
       if (savedSpeed) {
@@ -35,6 +37,10 @@ export function useLessonPreferences() {
         setDefaultMode("listen-and-repeat")
       } else {
         setDefaultMode("listen-only")
+      }
+      if (savedAttempts) {
+        const n = parseInt(savedAttempts, 10)
+        if (!Number.isNaN(n)) setMaxAttempts(n)
       }
       prefsLoadedRef.current = true
     } catch {
@@ -67,6 +73,7 @@ export function useLessonPreferences() {
     loopEnabled,
     setLoopEnabled,
     defaultMode,
+    maxAttempts,
     prefsLoaded: prefsLoadedRef.current,
   }
 }

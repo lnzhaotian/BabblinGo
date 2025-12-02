@@ -69,6 +69,7 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
     loopEnabled,
     setLoopEnabled,
     defaultMode,
+    maxAttempts,
     prefsLoaded,
   } = useLessonPreferences()
 
@@ -170,15 +171,22 @@ export const AudioSlideshowModuleView: React.FC<AudioSlideshowModuleViewProps> =
 
   const handlePronunciationFail = useCallback(() => {
     setPronunciationModalVisible(false)
-    const MAX_RETRIES = 3
-    if (retryCount < MAX_RETRIES) {
+    // retryCount starts at 0.
+    // If maxAttempts is 3, we want 3 total attempts (1 initial + 2 retries).
+    // Initial attempt happens before this function is called.
+    // So we allow retries if retryCount < maxAttempts - 1.
+    // Example: maxAttempts=3.
+    // Fail 1 (retryCount=0): 0 < 2 -> Retry. retryCount becomes 1.
+    // Fail 2 (retryCount=1): 1 < 2 -> Retry. retryCount becomes 2.
+    // Fail 3 (retryCount=2): 2 < 2 -> False. Finish.
+    if (retryCount < maxAttempts - 1) {
       setRetryCount(prev => prev + 1)
       setReplayTrigger(prev => prev + 1)
     } else {
       setRetryCount(0)
       handleTrackFinish()
     }
-  }, [retryCount, handleTrackFinish])
+  }, [retryCount, handleTrackFinish, maxAttempts])
 
   const handlePronunciationClose = useCallback(() => {
       setPronunciationModalVisible(false)
