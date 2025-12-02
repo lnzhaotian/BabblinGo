@@ -9,6 +9,8 @@ import { CourseDoc, CourseLevel, fetchCourses, fetchTools, resolveLocalizedField
 import { useThemeMode } from "../theme-context";
 import { useCourseUpdates } from "@/hooks/useCourseUpdates";
 
+const PERSONAL_TUTOR_IMAGE = require("@/assets/images/personal_tutor.png");
+
 const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>
   [...items].sort((a, b) => {
     const aOrder = a.order ?? Number.MAX_SAFE_INTEGER;
@@ -343,7 +345,7 @@ export default function Index() {
     } else if (item.type === 'tool') {
       return renderTool({ item: item.data });
     } else if (item.type === 'feature') {
-      const { title, description, icon, route } = item.data;
+      const { id, title, description, icon, route } = item.data;
       return (
         <Pressable
           onPress={() => router.push(route as any)}
@@ -375,7 +377,15 @@ export default function Index() {
                 marginRight: 16,
               }}
             >
-              <MaterialIcons name={icon as any} size={32} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
+              {id === 'babblingears' ? (
+                <Image
+                  source={PERSONAL_TUTOR_IMAGE}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+              ) : (
+                <MaterialIcons name={icon as any} size={32} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
+              )}
             </View>
             <View style={{ flex: 1}}>
               <Text style={{ fontSize: 18, fontWeight: "700", color: colorScheme === 'dark' ? '#fff' : '#111827' }}>
