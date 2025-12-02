@@ -19,6 +19,8 @@ import { Users } from './collections/Users'
 import LearningRecords from './collections/LearningRecords'
 import Tools from './collections/Tools'
 import UserPreferences from './collections/UserPreferences'
+import ActivationCodes from './collections/ActivationCodes'
+import ActivationBatches from './collections/ActivationBatches'
 import Agents from './collections/Agents'
 import SystemSettings from './globals/SystemSettings'
 import ChatHistory from './globals/ChatHistory'
@@ -30,6 +32,8 @@ import {
   deleteConversationHandler,
   generateTitleHandler
 } from './endpoints/dify'
+import { redeemActivationCodeHandler } from './endpoints/activation'
+import { exportActivationCodesHandler } from './endpoints/export-codes'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -41,9 +45,19 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Courses, Lessons, Modules, Agents, Tools, LearningRecords, UserPreferences, Users, Media],
+  collections: [Courses, Lessons, Modules, Agents, Tools, LearningRecords, UserPreferences, Users, Media, ActivationCodes, ActivationBatches],
   globals: [ChatHistory, SystemSettings],
   endpoints: [
+    {
+      path: '/activation/redeem',
+      method: 'post',
+      handler: redeemActivationCodeHandler,
+    },
+    {
+      path: '/activation/export',
+      method: 'get',
+      handler: exportActivationCodesHandler,
+    },
     {
       path: '/dify/chat-messages',
       method: 'post',

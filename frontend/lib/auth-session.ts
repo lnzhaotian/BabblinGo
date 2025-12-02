@@ -6,12 +6,14 @@ type ProfileCache = {
   email: string | null
   displayName: string | null
   avatarIcon: string | null
+  tokenBalance: number | null
 }
 
 const AUTH_TOKEN_KEY = 'jwt'
 const PROFILE_EMAIL_KEY = 'user_email'
 const PROFILE_DISPLAY_NAME_KEY = 'user_displayName'
 const PROFILE_AVATAR_KEY = 'user_avatarIcon'
+const PROFILE_TOKEN_BALANCE_KEY = 'user_tokenBalance'
 
 const listeners = new Set<AuthStateListener>()
 
@@ -50,13 +52,18 @@ export const getCachedProfile = async (): Promise<ProfileCache> => {
     PROFILE_EMAIL_KEY,
     PROFILE_DISPLAY_NAME_KEY,
     PROFILE_AVATAR_KEY,
+    PROFILE_TOKEN_BALANCE_KEY,
   ])
   const map = new Map(entries)
+
+  const tokenBalanceStr = map.get(PROFILE_TOKEN_BALANCE_KEY)
+  const tokenBalance = tokenBalanceStr ? parseInt(tokenBalanceStr, 10) : null
 
   return {
     email: normalize(map.get(PROFILE_EMAIL_KEY) ?? null),
     displayName: normalize(map.get(PROFILE_DISPLAY_NAME_KEY) ?? null),
     avatarIcon: normalize(map.get(PROFILE_AVATAR_KEY) ?? null),
+    tokenBalance: isNaN(tokenBalance as number) ? null : tokenBalance,
   }
 }
 
@@ -91,6 +98,15 @@ export const updateProfileCache = async (profile: Partial<ProfileCache>): Promis
     }
   }
 
+  if ('tokenBalance' in profile) {
+    const next = profile.tokenBalance
+    if (next !== null && next !== undefined) {
+      sets.push([PROFILE_TOKEN_BALANCE_KEY, next.toString()])
+    } else {
+      removes.push(PROFILE_TOKEN_BALANCE_KEY)
+    }
+  }
+
   if (sets.length > 0) {
     await AsyncStorage.multiSet(sets)
   }
@@ -116,6 +132,7 @@ export const clearAuthSession = async (): Promise<void> => {
     PROFILE_EMAIL_KEY,
     PROFILE_DISPLAY_NAME_KEY,
     PROFILE_AVATAR_KEY,
+    PROFILE_TOKEN_BALANCE_KEY,
   ])
   notify(false)
 }

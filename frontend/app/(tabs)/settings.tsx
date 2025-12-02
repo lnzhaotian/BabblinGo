@@ -25,6 +25,7 @@ export default function Settings() {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [userAvatarIcon, setUserAvatarIcon] = useState<string>('person');
+  const [tokenBalance, setTokenBalance] = useState<number | null>(null);
   const { colorScheme } = useThemeMode();
   const isMountedRef = useRef(true);
 
@@ -48,10 +49,12 @@ export default function Settings() {
         setUserEmail(profile.email);
         setUserName(profile.displayName);
         setUserAvatarIcon(profile.avatarIcon || 'person');
+        setTokenBalance(profile.tokenBalance);
       } else {
         setUserEmail(null);
         setUserName(null);
         setUserAvatarIcon('person');
+        setTokenBalance(null);
       }
     } catch {
       if (!isMountedRef.current) return;
@@ -59,6 +62,7 @@ export default function Settings() {
       setUserEmail(null);
       setUserName(null);
       setUserAvatarIcon('person');
+      setTokenBalance(null);
     }
   }, []);
 
@@ -237,6 +241,47 @@ export default function Settings() {
     </Pressable>
   );
 
+  const renderTokenCard = () => (
+    <View style={{
+      flexDirection: "row",
+      alignItems: "center",
+      paddingVertical: 16,
+      paddingHorizontal: 16,
+      backgroundColor: colorScheme === 'dark' ? '#18181b' : "#fff",
+      borderBottomWidth: 1,
+      borderBottomColor: colorScheme === 'dark' ? '#23232a' : "#f3f4f6",
+    }}>
+      <View style={{
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colorScheme === 'dark' ? '#312e81' : '#e0e7ff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: 16,
+        marginLeft: 8
+      }}>
+        <MaterialIcons name="stars" size={24} color="#6366f1" />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={{ 
+          fontSize: 16, 
+          fontWeight: "600", 
+          color: colorScheme === 'dark' ? '#fff' : '#111827',
+        }}>
+          {t('settings.tokenBalance', { defaultValue: 'Token Balance' })}
+        </Text>
+      </View>
+      <Text style={{ 
+        fontSize: 18, 
+        fontWeight: "700", 
+        color: colorScheme === 'dark' ? '#818cf8' : '#4f46e5' 
+      }}>
+        {tokenBalance !== null ? tokenBalance.toLocaleString() : '-'}
+      </Text>
+    </View>
+  );
+
   const renderAuthButtons = () => (
     <View style={{ paddingHorizontal: 16, paddingTop: 8, gap: 12 }}>
       <Pressable
@@ -320,7 +365,10 @@ export default function Settings() {
           {/* Account Section */}
           {renderSectionHeader(t('settings.accountSection'))}
           {isAuthenticated ? (
-            renderUserCard()
+            <>
+              {renderUserCard()}
+              {renderTokenCard()}
+            </>
           ) : (
             renderAuthButtons()
           )}

@@ -76,6 +76,8 @@ export interface Config {
     'user-preferences': UserPreference;
     users: User;
     media: Media;
+    'activation-codes': ActivationCode;
+    'activation-batches': ActivationBatch;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -91,6 +93,8 @@ export interface Config {
     'user-preferences': UserPreferencesSelect<false> | UserPreferencesSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    'activation-codes': ActivationCodesSelect<false> | ActivationCodesSelect<true>;
+    'activation-batches': ActivationBatchesSelect<false> | ActivationBatchesSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -574,6 +578,10 @@ export interface User {
       }[]
     | null;
   role: 'user' | 'editor' | 'manager';
+  /**
+   * Current token balance for AI usage
+   */
+  tokenBalance?: number | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -610,6 +618,51 @@ export interface UserPreference {
         id?: string | null;
       }[]
     | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "activation-codes".
+ */
+export interface ActivationCode {
+  id: string;
+  code: string;
+  tokens: number;
+  status: 'active' | 'used' | 'expired';
+  usedBy?: (string | null) | User;
+  usedAt?: string | null;
+  expiresAt?: string | null;
+  batch?: (string | null) | ActivationBatch;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "activation-batches".
+ */
+export interface ActivationBatch {
+  id: string;
+  /**
+   * e.g., "Winter Promo 2025" or "Conference Giveaway"
+   */
+  name: string;
+  /**
+   * How many codes to generate
+   */
+  numberOfCodes: number;
+  /**
+   * Tokens granted per code
+   */
+  tokensPerCode: number;
+  /**
+   * Optional prefix (e.g., "VIP")
+   */
+  prefix?: string | null;
+  /**
+   * Optional expiration date for all codes in this batch
+   */
+  expirationDate?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -655,6 +708,14 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'activation-codes';
+        value: string | ActivationCode;
+      } | null)
+    | ({
+        relationTo: 'activation-batches';
+        value: string | ActivationBatch;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -917,6 +978,7 @@ export interface UsersSelect<T extends boolean = true> {
         id?: T;
       };
   role?: T;
+  tokenBalance?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;
@@ -951,6 +1013,34 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "activation-codes_select".
+ */
+export interface ActivationCodesSelect<T extends boolean = true> {
+  code?: T;
+  tokens?: T;
+  status?: T;
+  usedBy?: T;
+  usedAt?: T;
+  expiresAt?: T;
+  batch?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "activation-batches_select".
+ */
+export interface ActivationBatchesSelect<T extends boolean = true> {
+  name?: T;
+  numberOfCodes?: T;
+  tokensPerCode?: T;
+  prefix?: T;
+  expirationDate?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema

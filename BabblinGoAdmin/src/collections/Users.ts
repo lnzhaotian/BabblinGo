@@ -110,6 +110,15 @@ export const Users: CollectionConfig = {
         position: 'sidebar',
       },
     },
+    {
+      name: 'tokenBalance',
+      type: 'number',
+      defaultValue: 1000, // Give some initial tokens
+      admin: {
+        position: 'sidebar',
+        description: 'Current token balance for AI usage',
+      },
+    },
     // Add more fields as needed
   ],
   access: {

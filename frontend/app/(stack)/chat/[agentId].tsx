@@ -235,15 +235,34 @@ export default function ChatScreen() {
           }
         },
         (error) => {
-          console.error('Chat error:', error)
+          console.log('Chat error:', error)
           setSending(false)
+          
+          let errorMessage = error.message || t('common.unknownError')
+          if (errorMessage === 'insufficient_quota') {
+             errorMessage = t('chat.insufficientTokens', { defaultValue: 'Insufficient tokens. Please recharge.' })
+          }
+
+          // Show error to user
+          Alert.alert(t('common.error'), errorMessage)
+
           // Mark message as complete (or failed)
-          setMessages(prev => prev.map(msg => {
-            if (msg.id === botMsgId) {
-              return { ...msg, isStreaming: false }
+          setMessages(prev => {
+            // Check if the bot message has any content
+            const botMsg = prev.find(m => m.id === botMsgId)
+            if (botMsg && !botMsg.content) {
+                // If no content, remove it
+                return prev.filter(m => m.id !== botMsgId)
             }
-            return msg
-          }))
+            
+            // Otherwise just mark as not streaming
+            return prev.map(msg => {
+               if (msg.id === botMsgId) {
+                 return { ...msg, isStreaming: false }
+               }
+               return msg
+            })
+         })
         }
       )
     } catch (error) {

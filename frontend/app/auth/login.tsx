@@ -68,9 +68,11 @@ export default function LoginScreen() {
             if (user && typeof user === 'object') {
               const nextDisplayName = typeof user.displayName === 'string' ? user.displayName : undefined;
               const nextAvatarIcon = typeof user.avatarIcon === 'string' ? user.avatarIcon : undefined;
+              const nextTokenBalance = typeof user.tokenBalance === 'number' ? user.tokenBalance : undefined;
               await updateProfileCache({
                 displayName: nextDisplayName,
                 avatarIcon: nextAvatarIcon,
+                tokenBalance: nextTokenBalance,
               });
             }
           }

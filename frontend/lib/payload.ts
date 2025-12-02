@@ -714,6 +714,20 @@ export const streamDifyMessage = async (
       if (data.event === 'message' || data.event === 'agent_message') {
         onMessage(data.answer, data.conversation_id)
       } else if (data.event === 'message_end') {
+        // Update token balance if usage data is present
+        if (data.metadata?.usage?.total_tokens) {
+          import('./auth-session').then(async ({ getCachedProfile, updateProfileCache }) => {
+            try {
+              const profile = await getCachedProfile()
+              if (profile.tokenBalance !== null) {
+                const newBalance = Math.max(0, profile.tokenBalance - data.metadata.usage.total_tokens)
+                await updateProfileCache({ tokenBalance: newBalance })
+              }
+            } catch (e) {
+              console.warn('Failed to update local token balance', e)
+            }
+          })
+        }
         onCompleted()
         es.close()
       } else if (data.event === 'error') {
@@ -727,8 +741,19 @@ export const streamDifyMessage = async (
 
   es.addEventListener('error', (event: any) => {
     if (event.type === 'error') {
-       const error = event.message || 'Connection error'
-       onError(new Error(error))
+       let errorMsg = event.message || 'Connection error'
+       try {
+         // Try to parse JSON error from backend (e.g. 402 Insufficient Quota)
+         const errorObj = JSON.parse(errorMsg)
+         if (errorObj.code === 'insufficient_quota') {
+           errorMsg = 'insufficient_quota'
+         } else if (errorObj.message) {
+           errorMsg = errorObj.message
+         }
+       } catch {
+         // Not JSON, use original message
+       }
+       onError(new Error(errorMsg))
     }
     es.close()
   })

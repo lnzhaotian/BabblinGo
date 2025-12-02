@@ -97,6 +97,7 @@ export default function UserProfileScreen() {
   // Profile state
   const [email, setEmail] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [tokenBalance, setTokenBalance] = useState<number>(0);
   const [avatarIcon, setAvatarIcon] = useState<string>('person');
   const [bio, setBio] = useState<string>('');
   const [location, setLocation] = useState<string>('');
@@ -114,6 +115,13 @@ export default function UserProfileScreen() {
   
   const [editNativeLanguage, setEditNativeLanguage] = useState<string>("");
   const [editLearningLanguages, setEditLearningLanguages] = useState<LearningLang[]>([]);
+
+  // Redeem state
+  const [redeemModalVisible, setRedeemModalVisible] = useState(false);
+  const [redeemCode, setRedeemCode] = useState('');
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeemSuccess, setRedeemSuccess] = useState<string | null>(null);
 
   // Misc state
   const [userId, setUserId] = useState<string | null>(null);
@@ -274,6 +282,7 @@ export default function UserProfileScreen() {
 
         setEmail(nextEmail);
         setDisplayName(nextDisplayName);
+        setTokenBalance(typeof u.tokenBalance === 'number' ? u.tokenBalance : 0);
         setAvatarIcon(nextAvatarIcon);
         setBio(typeof u.bio === 'string' ? u.bio : '');
         setLocation(typeof u.location === 'string' ? u.location : '');
@@ -301,6 +310,7 @@ export default function UserProfileScreen() {
           email: nextEmail,
           displayName: nextDisplayName,
           avatarIcon: nextAvatarIcon || 'person',
+          tokenBalance: typeof u.tokenBalance === 'number' ? u.tokenBalance : 0,
         });
       } catch (err: any) {
         if (err instanceof Error && err.message === 'Not authenticated') {
@@ -338,6 +348,57 @@ export default function UserProfileScreen() {
     setEditLearningLanguages(learningLanguages || []);
     setFieldErrors({});
     setIsEditing(false);
+  };
+
+  const handleRedeem = async () => {
+    if (!redeemCode.trim()) return;
+    setRedeemLoading(true);
+    setRedeemError(null);
+    setRedeemSuccess(null);
+
+    try {
+      const token = await getAuthToken();
+      if (!token) throw new Error('Not authenticated');
+
+      const res = await fetch(`${config.apiUrl}/api/activation/redeem`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code: redeemCode.trim() }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to redeem code');
+      }
+
+      setRedeemSuccess(t('profile.redeemSuccess', { tokens: data.addedTokens, defaultValue: `Successfully added ${data.addedTokens} tokens!` }));
+      setTokenBalance(data.newBalance);
+      await updateProfileCache({ tokenBalance: data.newBalance });
+      setRedeemCode('');
+      
+      // Close modal after short delay
+      setTimeout(() => {
+        setRedeemModalVisible(false);
+        setRedeemSuccess(null);
+      }, 2000);
+
+    } catch (err: any) {
+      const msg = err.message || 'Failed to redeem code';
+      let translatedMsg = msg;
+      
+      if (msg === 'Invalid activation code') {
+        translatedMsg = t('profile.redeemError.invalid');
+      } else if (msg === 'This code has already been used or expired') {
+        translatedMsg = t('profile.redeemError.used');
+      } else if (msg === 'Failed to redeem code') {
+        translatedMsg = t('profile.redeemError.generic');
+      }
+      
+      setRedeemError(translatedMsg);
+    } finally {
+      setRedeemLoading(false);
+    }
   };
 
   const saveProfile = async () => {
@@ -503,6 +564,31 @@ export default function UserProfileScreen() {
                 <MaterialIcons name="edit" size={14} color={colors.icon} />
                 <Text style={{ marginLeft: 6, color: colors.sub, fontSize: 12, fontWeight: '500' }}>{t('profile.changeAvatar')}</Text>
               </Pressable>
+            </View>
+
+            {/* Token Balance Card */}
+            <View style={{ backgroundColor: colors.card, borderRadius: 16, padding: 20, marginBottom: 16, ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8 }, android: { elevation: 4 }}) }}>
+               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <View>
+                    <Text style={{ fontSize: 12, fontWeight: '700', color: colors.text, opacity: 0.7, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      {t('profile.tokenBalance', { defaultValue: 'Token Balance' })}
+                    </Text>
+                    <Text style={{ fontSize: 24, fontWeight: '800', color: colors.primary }}>
+                      {tokenBalance.toLocaleString()}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                    <MaterialIcons name="stars" size={32} color={colors.primary} />
+                    <Pressable 
+                      onPress={() => setRedeemModalVisible(true)}
+                      style={{ backgroundColor: colors.primary + '20', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 }}
+                    >
+                      <Text style={{ color: colors.primary, fontWeight: '700', fontSize: 12 }}>
+                        {t('profile.redeemCode', { defaultValue: 'Redeem Code' })}
+                      </Text>
+                    </Pressable>
+                  </View>
+               </View>
             </View>
 
             {/* About Card */}
@@ -748,6 +834,86 @@ export default function UserProfileScreen() {
             </Pressable>
           </Modal>
         )}
+
+        {/* Redeem Code Modal */}
+        <Modal
+          visible={redeemModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setRedeemModalVisible(false)}
+        >
+          <Pressable 
+            style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}
+            onPress={() => setRedeemModalVisible(false)}
+          >
+            <Pressable 
+              onPress={(e) => e.stopPropagation()}
+              style={{ backgroundColor: colors.card, width: '100%', maxWidth: 400, borderRadius: 20, padding: 24, ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12 }, android: { elevation: 8 }}) }}
+            >
+              <Text style={{ fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 8, textAlign: 'center' }}>
+                {t('profile.redeemTitle', { defaultValue: 'Redeem Activation Code' })}
+              </Text>
+              <Text style={{ fontSize: 14, color: colors.sub, marginBottom: 20, textAlign: 'center' }}>
+                {t('profile.redeemSubtitle', { defaultValue: 'Enter your code to add tokens to your balance.' })}
+              </Text>
+
+              <TextInput
+                value={redeemCode}
+                onChangeText={setRedeemCode}
+                placeholder={t('profile.enterCode', { defaultValue: 'Enter code here' })}
+                placeholderTextColor={colors.muted}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={{ 
+                  backgroundColor: colors.inputBg, 
+                  borderWidth: 1, 
+                  borderColor: colors.inputBorder, 
+                  borderRadius: 12, 
+                  padding: 16, 
+                  fontSize: 18, 
+                  color: colors.text,
+                  textAlign: 'center',
+                  marginBottom: 16,
+                  fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+                  fontWeight: '600'
+                }}
+              />
+
+              {redeemError && (
+                <View style={{ backgroundColor: '#fee', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                  <Text style={{ color: '#c00', textAlign: 'center', fontSize: 14 }}>{redeemError}</Text>
+                </View>
+              )}
+
+              {redeemSuccess && (
+                <View style={{ backgroundColor: '#dcfce7', padding: 12, borderRadius: 8, marginBottom: 16 }}>
+                  <Text style={{ color: '#166534', textAlign: 'center', fontSize: 14, fontWeight: '600' }}>{redeemSuccess}</Text>
+                </View>
+              )}
+
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <Pressable 
+                  onPress={() => setRedeemModalVisible(false)}
+                  disabled={redeemLoading}
+                  style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: colors.inputBg, alignItems: 'center' }}
+                >
+                  <Text style={{ color: colors.text, fontWeight: '600', fontSize: 16 }}>{t('common.cancel')}</Text>
+                </Pressable>
+                <Pressable 
+                  onPress={handleRedeem}
+                  disabled={redeemLoading || !redeemCode.trim()}
+                  style={{ flex: 1, padding: 14, borderRadius: 12, backgroundColor: (redeemLoading || !redeemCode.trim()) ? colors.inputBorder : colors.primary, alignItems: 'center' }}
+                >
+                  {redeemLoading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>{t('profile.redeem', { defaultValue: 'Redeem' })}</Text>
+                  )}
+                </Pressable>
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </>
   );

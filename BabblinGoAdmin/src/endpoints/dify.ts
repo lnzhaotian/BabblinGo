@@ -14,9 +14,40 @@ const getAgentConfig = async (payload: Payload, agentId: string) => {
   return { apiKey: agent.difyApiKey, baseUrl }
 }
 
+// Helper to update balance
+const deductTokens = async (payload: Payload, userId: string, tokens: number) => {
+  try {
+    const user = await payload.findByID({ collection: 'users', id: userId })
+    if (!user) return
+    const currentBalance = (user.tokenBalance as number) || 0
+    const newBalance = Math.max(0, currentBalance - tokens)
+    
+    await payload.update({
+      collection: 'users',
+      id: userId,
+      data: { tokenBalance: newBalance }
+    })
+    console.log(`Deducted ${tokens} tokens from user ${userId}. New balance: ${newBalance}`)
+  } catch (e) {
+    console.error('Failed to deduct tokens', e)
+  }
+}
+
 export const difyChatHandler: PayloadHandler = async (req): Promise<Response> => {
   if (!req.user) {
     return new Response('Unauthorized', { status: 401 })
+  }
+
+  // Check token balance
+  const user = req.user as unknown as { id: string; tokenBalance?: number }
+  if ((user.tokenBalance ?? 0) <= 0) {
+      return new Response(JSON.stringify({ 
+          code: 'insufficient_quota', 
+          message: 'Insufficient tokens. Please recharge.' 
+      }), { 
+          status: 402,
+          headers: { 'Content-Type': 'application/json' }
+      })
   }
 
   let body
@@ -35,6 +66,7 @@ export const difyChatHandler: PayloadHandler = async (req): Promise<Response> =>
 
   try {
     const { apiKey, baseUrl } = await getAgentConfig(req.payload, agentId)
+    const responseMode = body.response_mode || 'blocking'
 
     const response = await fetch(`${baseUrl}/chat-messages`, {
       method: 'POST',
@@ -45,20 +77,82 @@ export const difyChatHandler: PayloadHandler = async (req): Promise<Response> =>
       body: JSON.stringify({
         inputs: inputs || {},
         query,
-        response_mode: body.response_mode || 'blocking',
+        response_mode: responseMode,
         conversation_id: conversationId,
         user: req.user.id,
         files: [],
       }),
     })
 
-    // Forward the response from Dify (including headers for streaming)
-    return new Response(response.body, {
-      status: response.status,
-      headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
-      },
-    })
+    if (!response.ok) {
+        // Forward error
+        return new Response(response.body, {
+            status: response.status,
+            headers: { 'Content-Type': response.headers.get('Content-Type') || 'application/json' }
+        })
+    }
+
+    if (responseMode === 'streaming') {
+        const reader = response.body?.getReader()
+        if (!reader) return new Response('No response body', { status: 500 })
+
+        const stream = new ReadableStream({
+            async start(controller) {
+                const decoder = new TextDecoder()
+                let buffer = ''
+                
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read()
+                        if (done) break
+                        
+                        const chunk = decoder.decode(value, { stream: true })
+                        buffer += chunk
+                        
+                        // Process lines
+                        const lines = buffer.split('\n')
+                        buffer = lines.pop() || '' // Keep incomplete line
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const jsonStr = line.slice(6)
+                                    const data = JSON.parse(jsonStr)
+                                    if (data.event === 'message_end' && data.metadata?.usage?.total_tokens) {
+                                        const tokens = data.metadata.usage.total_tokens
+                                        // Deduct tokens asynchronously
+                                        deductTokens(req.payload, user.id, tokens)
+                                    }
+                                } catch (e) {
+                                    // Ignore parse errors for intermediate chunks
+                                }
+                            }
+                        }
+                        
+                        controller.enqueue(value)
+                    }
+                } catch (e) {
+                    controller.error(e)
+                } finally {
+                    controller.close()
+                }
+            }
+        })
+        
+        return new Response(stream, {
+            status: response.status,
+            headers: {
+                'Content-Type': response.headers.get('Content-Type') || 'text/event-stream',
+            },
+        })
+    } else {
+        // Blocking
+        const data = await response.json()
+        if (data.metadata?.usage?.total_tokens) {
+             await deductTokens(req.payload, user.id, data.metadata.usage.total_tokens)
+        }
+        return Response.json(data)
+    }
 
   } catch (error) {
     console.error('Dify API Error:', error)
@@ -380,6 +474,9 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
     
     const transcript = messages.map((m: { query: string; answer: string }) => `User: ${m.query}\nAI: ${m.answer}`).join('\n\n')
 
+    // Use a system user ID for the summary generation to avoid polluting the user's history
+    const summaryUser = `system_${targetUserId}`
+
     // Helper to perform the summary request
     const performSummaryRequest = async (apiKey: string, baseUrl: string) => {
         return fetch(`${baseUrl}/chat-messages`, {
@@ -392,7 +489,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
                 inputs: {},
                 query: `Generate a very short title (3-5 words) for this conversation. Do not use quotes. Output only the title.\n\n${transcript}`,
                 response_mode: 'blocking',
-                user: targetUserId,
+                user: summaryUser,
             }),
         })
     }
@@ -412,7 +509,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
                     query: `Generate a very short title (3-5 words) for this conversation. Do not use quotes. Output only the title.\n\n${transcript}`
                 },
                 response_mode: 'blocking',
-                user: targetUserId,
+                user: summaryUser,
             }),
         })
     }
@@ -530,7 +627,7 @@ export const generateTitleHandler: PayloadHandler = async (req): Promise<Respons
                     'Authorization': `Bearer ${activeSummaryApiKey}`,
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ user: targetUserId })
+                body: JSON.stringify({ user: summaryUser })
             })
             
             if (!deleteResponse.ok) {
