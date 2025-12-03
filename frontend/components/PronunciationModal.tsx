@@ -248,6 +248,14 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
         silenceTimer.current = null
       }
       await Voice.stop()
+      
+      // Reset audio mode to playback only when we are done listening
+      // This ensures the main video/audio player gets the correct audio session (Speaker vs Receiver)
+      console.log("[PronunciationModal] Resetting audio mode to playback...")
+      await setAudioModeAsync({
+        allowsRecording: false,
+        playsInSilentMode: true,
+      })
     } catch (e) {
       console.error(e)
     }

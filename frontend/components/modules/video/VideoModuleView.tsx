@@ -14,6 +14,8 @@ import { ThemedHeader } from "@/components/ThemedHeader"
 import { LessonHeaderControls } from "@/components/LessonHeaderControls"
 import { CacheMenuModal } from "@/components/CacheMenuModal"
 import { LexicalContent } from "@/components/LexicalContent"
+import { PronunciationModal } from "@/components/PronunciationModal"
+import { useLessonPreferences } from "@/hooks/useLessonPreferences"
 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
@@ -50,6 +52,15 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [nativeControlsEnabled, setNativeControlsEnabled] = useState(false)
   const progressWidthRef = useRef(0)
+  const isSeekingRef = useRef(false)
+
+  const { maxAttempts } = useLessonPreferences()
+  const [practiceMode, setPracticeMode] = useState(false)
+  const [pronunciationModalVisible, setPronunciationModalVisible] = useState(false)
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0)
+  const [retryCount, setRetryCount] = useState(0)
+  const [showTranscript, setShowTranscript] = useState(false)
+  const [showFloatingSubtitle, setShowFloatingSubtitle] = useState(false)
 
   useLearningSession(lesson.id, lesson.title, {
     enabled: false,
@@ -63,6 +74,24 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
   }, [module])
 
   const videoContent = slide?.video ?? module.video ?? null
+
+  const transcriptSegments = useMemo(() => {
+      return videoContent?.transcriptSegments ?? []
+  }, [videoContent])
+
+  const currentSegment = useMemo(() => {
+    if (!practiceMode || !transcriptSegments || transcriptSegments.length === 0) {
+      return null
+    }
+    return transcriptSegments[currentSegmentIndex]
+  }, [practiceMode, transcriptSegments, currentSegmentIndex])
+
+  const activeSegment = useMemo(() => {
+    if (practiceMode || !transcriptSegments || transcriptSegments.length === 0) return null
+    const time = playbackMetrics.currentTime
+    return transcriptSegments.find(s => time >= s.start && time < s.end)
+  }, [practiceMode, transcriptSegments, playbackMetrics.currentTime])
+
   const {
     cachedMedia,
     cachingInProgress,
@@ -247,6 +276,36 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
     }
   }, [player])
 
+  // Listen & Repeat Logic
+  useEffect(() => {
+    if (practiceMode && currentSegment && isPlaying && !isSeekingRef.current) {
+      if (playbackMetrics.currentTime >= currentSegment.end) {
+        try { player.pause() } catch {}
+        setIsPlaying(false)
+        setPronunciationModalVisible(true)
+      }
+    }
+  }, [playbackMetrics.currentTime, practiceMode, currentSegment, isPlaying, player])
+
+  // When entering practice mode or changing segment, seek to start
+  useEffect(() => {
+    if (practiceMode && currentSegment) {
+       isSeekingRef.current = true
+       setTimeout(() => { isSeekingRef.current = false }, 1000)
+       
+       // Small delay to allow audio session to reset if coming from modal
+       const timer = setTimeout(() => {
+         try {
+           player.currentTime = currentSegment.start
+           player.play()
+         } catch {}
+       }, 300)
+
+       setPlaybackMetrics((prev) => ({ ...prev, currentTime: currentSegment.start }))
+       return () => clearTimeout(timer)
+    }
+  }, [currentSegment, practiceMode, player])
+
   const transcript = useMemo(
     () => videoContent?.transcript ?? slide?.transcript ?? null,
     [videoContent?.transcript, slide?.transcript]
@@ -284,10 +343,7 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
       const currentTime = player.currentTime ?? 0
       const duration = player.duration ?? 0
       if (duration > 0 && currentTime >= duration - 0.5) {
-        try {
-          player.currentTime = 0
-          setPlaybackMetrics((prev) => ({ ...prev, currentTime: 0 }))
-        } catch {}
+        handleSeekTo(0)
       }
     } catch {}
 
@@ -295,18 +351,58 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
       player.play()
       setIsPlaying(true)
     } catch {}
-  }, [controlsDisabled, player])
+  }, [controlsDisabled, player, handleSeekTo])
 
   const handleSeek = useCallback((seconds: number) => {
     if (controlsDisabled) return
+    isSeekingRef.current = true
+    setTimeout(() => { isSeekingRef.current = false }, 1000)
     try { player.seekBy(seconds) } catch {}
     setPlaybackMetrics((prev) => {
       const duration = prev.duration > 0 ? prev.duration : player.duration ?? prev.duration
       const maxDuration = duration > 0 ? duration : Math.max(prev.currentTime + seconds, 0)
       const nextTime = clamp(prev.currentTime + seconds, 0, maxDuration)
+      
+      if (practiceMode && transcriptSegments) {
+        const idx = transcriptSegments.findIndex(s => nextTime >= s.start && nextTime < s.end)
+        if (idx !== -1) setCurrentSegmentIndex(idx)
+      }
+
       return { ...prev, currentTime: nextTime }
     })
+  }, [controlsDisabled, player, practiceMode, transcriptSegments])
+
+  const handleSeekTo = useCallback((time: number) => {
+    if (controlsDisabled) return
+    isSeekingRef.current = true
+    setTimeout(() => { isSeekingRef.current = false }, 1000)
+    try { player.currentTime = time } catch {}
+    setPlaybackMetrics((prev) => ({ ...prev, currentTime: time }))
   }, [controlsDisabled, player])
+
+  const handleTogglePracticeMode = useCallback(() => {
+    if (!practiceMode) {
+      // Entering practice mode: sync segment to current time
+      if (transcriptSegments && transcriptSegments.length > 0) {
+        const time = playbackMetrics.currentTime
+        const segmentIndex = transcriptSegments.findIndex(
+          (s) => time >= s.start && time < s.end
+        )
+        if (segmentIndex >= 0) {
+          setCurrentSegmentIndex(segmentIndex)
+        } else {
+           // If past the last segment, select the last one
+           const lastSegment = transcriptSegments[transcriptSegments.length - 1]
+           if (time >= lastSegment.end) {
+             setCurrentSegmentIndex(transcriptSegments.length - 1)
+           } else {
+             setCurrentSegmentIndex(0)
+           }
+        }
+      }
+    }
+    setPracticeMode((prev) => !prev)
+  }, [practiceMode, transcriptSegments, playbackMetrics.currentTime])
 
   const handleSetRate = useCallback((rate: number) => {
     if (!videoUrl || hasError) return
@@ -342,6 +438,43 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
     progressWidthRef.current = event.nativeEvent.layout.width
   }, [])
 
+  const handlePronunciationSuccess = useCallback(() => {
+    setPronunciationModalVisible(false)
+    setRetryCount(0)
+    if (transcriptSegments && currentSegmentIndex < transcriptSegments.length - 1) {
+        setCurrentSegmentIndex(prev => prev + 1)
+    } else {
+        setPracticeMode(false)
+    }
+  }, [transcriptSegments, currentSegmentIndex])
+
+  const handlePronunciationFail = useCallback(() => {
+    setPronunciationModalVisible(false)
+    if (retryCount < maxAttempts - 1) {
+      setRetryCount(prev => prev + 1)
+      if (currentSegment) {
+          handleSeekTo(currentSegment.start)
+          try { player.play() } catch {}
+      }
+    } else {
+      setRetryCount(0)
+      if (transcriptSegments && currentSegmentIndex < transcriptSegments.length - 1) {
+        setCurrentSegmentIndex(prev => prev + 1)
+      } else {
+        setPracticeMode(false)
+      }
+    }
+  }, [retryCount, maxAttempts, transcriptSegments, currentSegmentIndex, currentSegment, player, handleSeekTo])
+
+  const handlePronunciationClose = useCallback(() => {
+      setPronunciationModalVisible(false)
+      if (transcriptSegments && currentSegmentIndex < transcriptSegments.length - 1) {
+        setCurrentSegmentIndex(prev => prev + 1)
+      } else {
+        setPracticeMode(false)
+      }
+  }, [transcriptSegments, currentSegmentIndex])
+
   const handleScrub = useCallback((event: GestureResponderEvent) => {
     if (scrubDisabled) return
     const width = progressWidthRef.current
@@ -352,7 +485,12 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
       player.currentTime = nextTime
     } catch {}
     setPlaybackMetrics((prev) => ({ ...prev, currentTime: nextTime }))
-  }, [durationSeconds, player, scrubDisabled])
+
+    if (practiceMode && transcriptSegments) {
+      const idx = transcriptSegments.findIndex(s => nextTime >= s.start && nextTime < s.end)
+      if (idx !== -1) setCurrentSegmentIndex(idx)
+    }
+  }, [durationSeconds, player, scrubDisabled, practiceMode, transcriptSegments])
 
   const speedPresets = useMemo(() => [0.5, 0.7, 1, 1.3, 1.5, 2], [])
 
@@ -368,6 +506,9 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
             onToggleLoop={() => {}}
             onOpenCacheMenu={() => setCacheMenuVisible(true)}
             showLoopToggle={false}
+            practiceModeEnabled={practiceMode}
+            onTogglePracticeMode={handleTogglePracticeMode}
+            showPracticeToggle={transcriptSegments.length > 0}
           />
         )}
       />
@@ -399,7 +540,7 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
                 style={{ width: "100%", aspectRatio: 16 / 9 }}
                 contentFit="contain"
                 nativeControls={nativeControlsEnabled}
-                allowsFullscreen
+                allowsFullscreen={true}
                 onFullscreenEnter={() => {
                   setIsFullscreen(true)
                   setNativeControlsEnabled(true)
@@ -448,6 +589,21 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
                     {t("lesson.video.error", { defaultValue: "Unable to load video." })}
                   </Text>
                 </View>
+              ) : null}
+              {showFloatingSubtitle && (practiceMode ? currentSegment : activeSegment) ? (
+                  <View style={{
+                      position: "absolute",
+                      bottom: 20,
+                      left: 20,
+                      right: 20,
+                      backgroundColor: "rgba(0,0,0,0.7)",
+                      padding: 12,
+                      borderRadius: 8,
+                  }}>
+                      <Text style={{ color: "#fff", fontSize: 16, textAlign: "center" }}>
+                          {(practiceMode ? currentSegment : activeSegment)?.text}
+                      </Text>
+                  </View>
               ) : null}
             </View>
 
@@ -564,6 +720,19 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
                   variant="secondary"
                   active={isMuted}
                 />
+                {transcriptSegments.length > 0 ? (
+                  <CircleButton
+                    icon={showFloatingSubtitle ? "closed-caption" : "closed-caption-off"}
+                    onPress={() => setShowFloatingSubtitle(!showFloatingSubtitle)}
+                    disabled={controlsDisabled}
+                    accessibilityLabel={showFloatingSubtitle 
+                      ? t("lesson.video.controls.hideCaptions", { defaultValue: "Hide Captions" }) 
+                      : t("lesson.video.controls.showCaptions", { defaultValue: "Show Captions" })
+                    }
+                    variant="secondary"
+                    active={showFloatingSubtitle}
+                  />
+                ) : null}
                 <CircleButton
                   icon={isFullscreen ? "fullscreen-exit" : "fullscreen"}
                   onPress={handleToggleFullscreen}
@@ -627,18 +796,82 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
           </View>
         )}
 
-        {transcript ? (
+        {(transcript || transcriptSegments.length > 0) ? (
           <View style={{ gap: 12 }}>
-            <Text style={{ fontSize: 18, fontWeight: "600", color: colorScheme === "dark" ? "#e2e8f0" : "#0f172a" }}>
-              {t("lesson.video.transcript", { defaultValue: "Transcript" })}
-            </Text>
-            <LexicalContent
-              content={transcript}
-              cachedMedia={cachedMedia}
-              colorScheme={colorScheme}
-              fontSize={16}
-              lineHeight={24}
-            />
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <Text style={{ fontSize: 18, fontWeight: "600", color: colorScheme === "dark" ? "#e2e8f0" : "#0f172a" }}>
+                {t("lesson.video.transcript", { defaultValue: "Transcript" })}
+              </Text>
+              {transcriptSegments.length > 0 ? (
+                <Pressable
+                  onPress={() => setShowTranscript(!showTranscript)}
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: 6,
+                    paddingVertical: 4,
+                    paddingHorizontal: 8,
+                    borderRadius: 8,
+                    backgroundColor: showTranscript ? (colorScheme === "dark" ? "#312e81" : "#c7d2fe") : "transparent",
+                  }}
+                >
+                  <MaterialIcons 
+                    name={showTranscript ? "expand-less" : "expand-more"} 
+                    size={20} 
+                    color={colorScheme === "dark" ? "#818cf8" : "#4f46e5"} 
+                  />
+                  <Text style={{ color: colorScheme === "dark" ? "#818cf8" : "#4f46e5", fontSize: 14, fontWeight: "500" }}>
+                    {showTranscript 
+                      ? t("lesson.audio.hideTranscript", { defaultValue: "Hide Transcript" })
+                      : t("lesson.audio.showTranscript", { defaultValue: "Show Transcript" })
+                    }
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
+
+            {showTranscript && transcriptSegments.length > 0 ? (
+              <View style={{ gap: 8, padding: 12, backgroundColor: colorScheme === "dark" ? "#1e293b" : "#fff", borderRadius: 8 }}>
+                {transcriptSegments.map((segment, idx) => {
+                  const isActive = playbackMetrics.currentTime >= segment.start && playbackMetrics.currentTime < segment.end
+                  return (
+                    <Pressable
+                      key={idx}
+                      onPress={() => {
+                        handleSeekTo(segment.start)
+                        if (practiceMode) {
+                          setCurrentSegmentIndex(idx)
+                        }
+                      }}
+                    >
+                      <Text 
+                        style={{ 
+                          fontSize: 16, 
+                          lineHeight: 26, 
+                          color: isActive ? (colorScheme === "dark" ? "#818cf8" : "#4f46e5") : (colorScheme === "dark" ? "#cbd5e1" : "#374151"),
+                          fontWeight: isActive ? "600" : "400",
+                          backgroundColor: isActive ? (colorScheme === "dark" ? "#312e81" : "#eef2ff") : "transparent",
+                          padding: 6,
+                          borderRadius: 6,
+                        }}
+                      >
+                        {segment.text}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+              </View>
+            ) : (
+              transcript ? (
+                <LexicalContent
+                  content={transcript}
+                  cachedMedia={cachedMedia}
+                  colorScheme={colorScheme}
+                  fontSize={16}
+                  lineHeight={24}
+                />
+              ) : null
+            )}
           </View>
         ) : null}
       </ScrollView>
@@ -649,6 +882,14 @@ export const VideoModuleView: React.FC<VideoModuleViewProps> = ({
         cacheStatus={lessonCacheStatus}
         onRedownload={handleRedownload}
         onClear={handleClearCache}
+      />
+
+      <PronunciationModal
+        visible={pronunciationModalVisible}
+        transcript={currentSegment?.text ?? ""}
+        onSuccess={handlePronunciationSuccess}
+        onFail={handlePronunciationFail}
+        onClose={handlePronunciationClose}
       />
     </SafeAreaView>
     </>

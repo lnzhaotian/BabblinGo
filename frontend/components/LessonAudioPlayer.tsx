@@ -16,6 +16,9 @@ export type LessonAudioPlayerProps = {
   replayTrigger?: number
   disableInternalLoop?: boolean
   suspend?: boolean
+  startTime?: number
+  endTime?: number
+  onTimeUpdate?: (time: number) => void
 }
 
 export function LessonAudioPlayer({
@@ -31,6 +34,9 @@ export function LessonAudioPlayer({
   replayTrigger = 0,
   disableInternalLoop = false,
   suspend = false,
+  startTime,
+  endTime,
+  onTimeUpdate,
 }: LessonAudioPlayerProps) {
   const colorScheme = useColorScheme()
   const [themeMode, setThemeMode] = useState<string | null>(null)
@@ -87,6 +93,9 @@ export function LessonAudioPlayer({
         playSignal={internalReplaySignal + replayTrigger}
         showProgressBar={showProgressBar}
         suspend={suspend}
+        startTime={startTime}
+        endTime={endTime}
+        onTimeUpdate={onTimeUpdate}
       />
     </View>
   )

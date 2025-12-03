@@ -1,4 +1,5 @@
 import type { CollectionConfig, CollectionSlug, PayloadRequest } from 'payload'
+import type { Module } from '../payload-types'
 
 import { createSlugField } from '../fields/slug'
 import {
@@ -7,6 +8,10 @@ import {
   RelationshipValue,
   uniqueRelationshipIds,
 } from './utils/relationshipHelpers'
+
+import { generateTranscript } from '../utilities/transcription'
+import { MediaPlayer } from '../components/MediaPlayer'
+import { TimestampField } from '../components/TimestampField'
 
 const syncModulesOnLessons = async (
   req: PayloadRequest,
@@ -91,7 +96,7 @@ export const Modules: CollectionConfig = {
   },
   hooks: {
     afterChange: [
-      async ({ doc, previousDoc, req }) => {
+      async ({ doc, previousDoc, req }: { doc: Module; previousDoc: Module; req: PayloadRequest }) => {
         if (!doc?.id || req?.context?.skipSyncLessonModules) {
           return doc
         }
@@ -105,6 +110,172 @@ export const Modules: CollectionConfig = {
 
         if (currentLessonId) {
           await syncModulesOnLessons(req, currentLessonId, doc.id, 'add')
+        }
+
+        // Transcription Hook
+        if (!req.context.skipTranscription) {
+          const isVideo = doc.type === 'video'
+          const isAudio = doc.type === 'audio'
+
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          if (isVideo && (doc.video as any)?.requestTranscription) {
+            let url = doc.video?.streamUrl
+            if (doc.video?.videoFile) {
+              try {
+                const videoFileId = extractRelationshipId(doc.video?.videoFile)
+                if (videoFileId) {
+                  const media = await req.payload.findByID({
+                    collection: 'media',
+                    id: videoFileId,
+                  })
+                  url = media.url
+                }
+              } catch (e) {
+                console.error('Failed to fetch video media', e)
+              }
+            }
+
+            if (url) {
+              // Update to processing and reset request flag
+              await req.payload.update({
+                collection: 'modules',
+                id: doc.id,
+                data: { 
+                  video: { 
+                    ...(doc.video || {}), 
+                    transcriptionStatus: 'processing',
+                    requestTranscription: false 
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  } as any
+                },
+                context: { skipTranscription: true },
+              })
+
+              // Trigger async
+              generateTranscript(url)
+                .then((segments) => {
+                  req.payload.update({
+                    collection: 'modules',
+                    id: doc.id,
+                    data: {
+                      video: {
+                        ...(doc.video || {}),
+                        transcriptSegments: segments,
+                        transcriptionStatus: 'completed',
+                        requestTranscription: false, // Ensure it stays false
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      } as any,
+                    },
+                    context: { skipTranscription: true },
+                  })
+                })
+                .catch((err) => {
+                  console.error('Transcription failed', err)
+                  req.payload.update({
+                    collection: 'modules',
+                    id: doc.id,
+                    data: { 
+                      video: { 
+                      ...(doc.video || {}), 
+                      transcriptionStatus: 'failed',
+                      requestTranscription: false 
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any
+                    },
+                    context: { skipTranscription: true },
+                  })
+                })
+            }
+          }
+
+          if (isAudio && doc.audio?.tracks) {
+            const tracks = doc.audio.tracks
+            const tracksToProcess = tracks
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .map((t: any, i: number) => ({ ...t, index: i }))
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              .filter((t: any) => t.requestTranscription)
+
+            if (tracksToProcess.length > 0) {
+              // Mark as processing and reset flags
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const newTracks = [...tracks] as any[]
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              tracksToProcess.forEach((t: any) => {
+                newTracks[t.index].transcriptionStatus = 'processing'
+                newTracks[t.index].requestTranscription = false
+              })
+
+              await req.payload.update({
+                collection: 'modules',
+                id: doc.id,
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                data: { audio: { ...(doc.audio || {}), tracks: newTracks } as any },
+                context: { skipTranscription: true },
+              })
+
+              // Process each track
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              tracksToProcess.forEach(async (track: any) => {
+                try {
+                  const audioFileId = extractRelationshipId(track.audio)
+                  if (audioFileId) {
+                    const media = await req.payload.findByID({
+                      collection: 'media',
+                      id: audioFileId,
+                    })
+                    const url = media.url
+                    if (url) {
+                      const segments = await generateTranscript(url)
+
+                      const latestDoc = await req.payload.findByID({
+                        collection: 'modules',
+                        id: doc.id,
+                      })
+                      const currentTracks = latestDoc.audio?.tracks
+                      // Ensure the track still exists and matches (simple index check for now)
+                      if (currentTracks && currentTracks[track.index]) {
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        const trackToUpdate = currentTracks[track.index] as any
+                        trackToUpdate.transcriptSegments = segments
+                        trackToUpdate.transcriptionStatus = 'completed'
+                        // No need to reset requestTranscription again as it was done in the first update, 
+                        // but good to be safe if user toggled it again (unlikely in this short window)
+
+                        await req.payload.update({
+                          collection: 'modules',
+                          id: doc.id,
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          data: { audio: { ...latestDoc.audio, tracks: currentTracks } as any },
+                          context: { skipTranscription: true },
+                        })
+                      }
+                    }
+                  }
+                } catch (err) {
+                  console.error('Track transcription failed', err)
+                  const latestDoc = await req.payload.findByID({
+                    collection: 'modules',
+                    id: doc.id,
+                  })
+                  const currentTracks = latestDoc.audio?.tracks
+                  if (currentTracks && currentTracks[track.index]) {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const trackToUpdate = currentTracks[track.index] as any
+                    trackToUpdate.transcriptionStatus = 'failed'
+
+                    await req.payload.update({
+                      collection: 'modules',
+                      id: doc.id,
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      data: { audio: { ...latestDoc.audio, tracks: currentTracks } as any },
+                      context: { skipTranscription: true },
+                    })
+                  }
+                }
+              })
+            }
+          }
         }
 
         return doc
@@ -332,6 +503,74 @@ export const Modules: CollectionConfig = {
             description: 'Optional transcript or supporting copy for the video.',
           },
         },
+        {
+          name: 'mediaPlayer',
+          type: 'ui',
+          admin: {
+            components: {
+              Field: MediaPlayer as any,
+            },
+          },
+        },
+        {
+          name: 'transcriptSegments',
+          type: 'array',
+          admin: {
+            description: 'Time-synced transcript segments for Listen & Repeat.',
+          },
+          fields: [
+            {
+              name: 'start',
+              type: 'number',
+              required: true,
+              admin: {
+                components: {
+                  Field: TimestampField as any,
+                },
+              },
+            },
+            {
+              name: 'end',
+              type: 'number',
+              required: true,
+              admin: {
+                components: {
+                  Field: TimestampField as any,
+                },
+              },
+            },
+            {
+              name: 'text',
+              type: 'textarea',
+              required: true,
+            },
+          ],
+        },
+        {
+          name: 'transcriptionStatus',
+          type: 'select',
+          options: [
+            { label: 'Idle', value: 'idle' },
+            { label: 'Pending', value: 'pending' },
+            { label: 'Processing', value: 'processing' },
+            { label: 'Completed', value: 'completed' },
+            { label: 'Failed', value: 'failed' },
+          ],
+          defaultValue: 'idle',
+          admin: {
+            readOnly: true,
+            description: 'Status of the automated transcription process.',
+          },
+        },
+        {
+          name: 'requestTranscription',
+          type: 'checkbox',
+          label: 'Request Transcription / Retry',
+          defaultValue: false,
+          admin: {
+            description: 'Check this box and save to start/retry transcription.',
+          },
+        },
       ],
     },
     {
@@ -416,6 +655,74 @@ export const Modules: CollectionConfig = {
               type: 'richText',
               admin: {
                 description: 'Optional per-track transcript or notes.',
+              },
+            },
+            {
+              name: 'mediaPlayer',
+              type: 'ui',
+              admin: {
+                components: {
+                  Field: MediaPlayer as any,
+                },
+              },
+            },
+            {
+              name: 'transcriptSegments',
+              type: 'array',
+              admin: {
+                description: 'Time-synced transcript segments for Listen & Repeat.',
+              },
+              fields: [
+                {
+                  name: 'start',
+                  type: 'number',
+                  required: true,
+                  admin: {
+                    components: {
+                      Field: TimestampField as any,
+                    },
+                  },
+                },
+                {
+                  name: 'end',
+                  type: 'number',
+                  required: true,
+                  admin: {
+                    components: {
+                      Field: TimestampField as any,
+                    },
+                  },
+                },
+                {
+                  name: 'text',
+                  type: 'textarea',
+                  required: true,
+                },
+              ],
+            },
+            {
+              name: 'transcriptionStatus',
+              type: 'select',
+              options: [
+                { label: 'Idle', value: 'idle' },
+                { label: 'Pending', value: 'pending' },
+                { label: 'Processing', value: 'processing' },
+                { label: 'Completed', value: 'completed' },
+                { label: 'Failed', value: 'failed' },
+              ],
+              defaultValue: 'idle',
+              admin: {
+                readOnly: true,
+                description: 'Status of the automated transcription process.',
+              },
+            },
+            {
+              name: 'requestTranscription',
+              type: 'checkbox',
+              label: 'Request Transcription / Retry',
+              defaultValue: false,
+              admin: {
+                description: 'Check this box and save to start/retry transcription.',
               },
             },
           ],

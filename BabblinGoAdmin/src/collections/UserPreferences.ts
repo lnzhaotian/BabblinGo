@@ -1,4 +1,4 @@
-import type { CollectionConfig, PayloadRequest } from 'payload';
+import type { CollectionConfig } from 'payload';
 
 const UserPreferences: CollectionConfig = {
   slug: 'user-preferences',

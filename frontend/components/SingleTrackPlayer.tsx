@@ -44,9 +44,12 @@ export type SingleTrackPlayerProps = {
   suspend?: boolean
   playSignal?: number
   showProgressBar?: boolean
+  startTime?: number
+  endTime?: number
+  onTimeUpdate?: (time: number) => void
 }
 
-export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate, suspend = false, playSignal, showProgressBar = false }: SingleTrackPlayerProps) {
+export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate, suspend = false, playSignal, showProgressBar = false, startTime, endTime, onTimeUpdate }: SingleTrackPlayerProps) {
   const DEBUG = !!debug
   const player = useAudioPlayer(undefined, { updateInterval: 250, downloadFirst: true })
   const status = useAudioPlayerStatus(player)
@@ -66,6 +69,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const initialRateAppliedRef = useRef(false)
   const lastSpeedRef = useRef<PlaybackSpeed>(speed)
   const ensurePlayingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const ignoreEndTimeUntilSeekedRef = useRef(false)
   const colorScheme = useColorScheme()
   const [themeMode, setThemeMode] = useState<string | null>(null)
 
@@ -118,7 +122,11 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           console.log(`[SingleTrack#${sessionIdRef.current}] Track loaded for rate/play`)
         }
 
-        try { await player.seekTo(0) } catch {}
+        if (typeof startTime === 'number' && startTime >= 0) {
+          try { await player.seekTo(startTime) } catch {}
+        } else {
+          try { await player.seekTo(0) } catch {}
+        }
         if (cancelled || !mountedRef.current) return
 
         if (autoPlay && !suspend) {
@@ -208,12 +216,40 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
     })()
   }, [suspend, player])
 
+  // Seek when startTime changes
+  useEffect(() => {
+    if (player.isLoaded && typeof startTime === 'number' && startTime >= 0) {
+      // Only seek if the difference is significant to avoid jitter
+      // But here we assume startTime change implies a new segment
+      ignoreEndTimeUntilSeekedRef.current = true
+      const seekSafe = async () => { 
+        try { 
+          await player.seekTo(startTime) 
+          ignoreEndTimeUntilSeekedRef.current = false
+          // Resume playback if we are not suspended and autoPlay is enabled
+          // This handles moving to the next segment OR retrying the current one (suspend false -> true -> false)
+          if (autoPlay && !suspend) {
+            await player.play()
+            shouldBePlayingRef.current = true
+            hasStartedRef.current = true
+          }
+        } catch {
+          ignoreEndTimeUntilSeekedRef.current = false
+        } 
+      }
+      seekSafe()
+      // Reset finish flag so we can finish again for the new segment
+      hasCalledFinishRef.current = false
+    }
+  }, [startTime, player, autoPlay, suspend])
+
   // External play trigger
   useEffect(() => {
     (async () => {
       if (playSignal == null || playSignal <= 0 || suspend) return
       try {
-        try { await player.seekTo(0) } catch {}
+        const startPos = (typeof startTime === 'number' && startTime >= 0) ? startTime : 0
+        try { await player.seekTo(startPos) } catch {}
         hasCalledFinishRef.current = false
         await player.play()
         try { await player.setPlaybackRate(lastSpeedRef.current) } catch {}
@@ -254,6 +290,19 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       // Only update UI when outside stabilization or when truly loaded and valid.
       if (!withinStartStabilization && !suppressDueToInvalidEarly) {
         setIsPlaying(status.playing)
+        onTimeUpdate?.(status.currentTime)
+      }
+
+      // Check for endTime
+      if (endTime && status.playing && status.currentTime >= endTime && !ignoreEndTimeUntilSeekedRef.current) {
+         if (!hasCalledFinishRef.current) {
+            hasCalledFinishRef.current = true
+            shouldBePlayingRef.current = false
+            const pauseSafe = async () => { try { await player.pause() } catch {} }
+            pauseSafe()
+            if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (endTime reached)`)
+            onFinish?.()
+         }
       }
     }
 
@@ -387,8 +436,12 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       } else {
         if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] User play`)
         // If at end, seek to start before playing
-        if (status && status.duration > 0 && status.currentTime >= status.duration - 0.5) {
-          await player.seekTo(0)
+        const startPos = (typeof startTime === 'number' && startTime >= 0) ? startTime : 0
+        const isAtEnd = (status && status.duration > 0 && status.currentTime >= status.duration - 0.5) ||
+                        (endTime && status && status.currentTime >= endTime - 0.1)
+
+        if (isAtEnd) {
+          await player.seekTo(startPos)
           hasCalledFinishRef.current = false
         }
         await player.play()

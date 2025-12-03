@@ -54,12 +54,19 @@ export type VideoCaptionDoc = {
   id?: string | null
 }
 
+export type TranscriptSegment = {
+  start: number
+  end: number
+  text: string
+}
+
 export type VideoContent = {
   videoFile?: string | MediaDoc | null
   streamUrl?: string | null
   posterImage?: string | MediaDoc | null
   captions?: VideoCaptionDoc[] | null
   transcript?: LexicalRichText | null
+  transcriptSegments?: TranscriptSegment[] | null
 }
 
 export type RichPostContent = {
@@ -77,6 +84,7 @@ export type AudioTrackDoc = {
   image?: string | MediaDoc | null
   durationSeconds?: number | null
   transcript?: LexicalRichText | null
+  transcriptSegments?: TranscriptSegment[] | null
   id?: string | null
 }
 

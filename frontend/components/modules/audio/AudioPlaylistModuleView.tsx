@@ -16,6 +16,7 @@ import { extractParagraphs } from "@/lib/lesson-helpers"
 import { useThemeMode } from "@/app/theme-context"
 import { useLearningSession } from "@/hooks/useLearningSession"
 import { LexicalContent } from "@/components/LexicalContent"
+import { PronunciationModal } from "@/components/PronunciationModal"
 
 export type AudioPlaylistModuleViewProps = {
   lesson: LessonDoc
@@ -51,7 +52,16 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
     setPlayerSpeed,
     loopEnabled,
     setLoopEnabled,
+    maxAttempts,
   } = useLessonPreferences()
+
+  const [practiceMode, setPracticeMode] = useState(false)
+  const [pronunciationModalVisible, setPronunciationModalVisible] = useState(false)
+  const [currentSegmentIndex, setCurrentSegmentIndex] = useState(0)
+  const [retryCount, setRetryCount] = useState(0)
+  const [replayTrigger, setReplayTrigger] = useState(0)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [seekTime, setSeekTime] = useState<number | undefined>(undefined)
 
   useLearningSession(lesson.id, lesson.title, {
     enabled: false,
@@ -83,6 +93,7 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
       const rawImageUrl = resolveMediaUrl(track?.image ?? null)
       const cachedImage = rawImageUrl && cachedMedia[rawImageUrl] ? cachedMedia[rawImageUrl] : rawImageUrl
       const transcriptParagraphs = extractParagraphs(track?.transcript ?? null)
+      const transcriptSegments = track?.transcriptSegments ?? []
       const durationLabel = formatDuration(track?.durationSeconds ?? null)
       const title = typeof track?.title === "string" && track.title.trim().length > 0
         ? track.title
@@ -96,6 +107,7 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
         imageUrl: cachedImage,
         durationLabel,
         transcriptParagraphs,
+        transcriptSegments,
         isPlayable: Boolean(cachedAudio),
       }
     })
@@ -121,6 +133,21 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
   }, [defaultTrackIndex, playableTrackIndices, activeTrackIndex])
 
   const activeTrack = activeTrackIndex >= 0 ? tracks[activeTrackIndex] : null
+
+  useEffect(() => {
+    setCurrentSegmentIndex(0)
+    setSeekTime(undefined)
+  }, [activeTrackIndex])
+
+  const currentSegment = useMemo(() => {
+    if (!practiceMode || !activeTrack?.transcriptSegments || activeTrack.transcriptSegments.length === 0) {
+      return null
+    }
+    return activeTrack.transcriptSegments[currentSegmentIndex]
+  }, [practiceMode, activeTrack, currentSegmentIndex])
+
+  const startTime = practiceMode && currentSegment ? currentSegment.start : seekTime
+  const endTime = practiceMode && currentSegment ? currentSegment.end : undefined
 
   const selectTrackById = useCallback((trackId: string) => {
     const nextIndex = tracks.findIndex((track) => track.id === trackId && track.audioUrl)
@@ -172,6 +199,64 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
 
   const handlePlayerFinish = useCallback(() => navigatePlayable("next"), [navigatePlayable])
 
+  const handleTimeUpdate = useCallback((time: number) => {
+    setCurrentTime(time)
+    // Reset seekTime once we are close to it to avoid repeated seeking
+    if (seekTime !== undefined && Math.abs(time - seekTime) < 0.5) {
+      setSeekTime(undefined)
+    }
+  }, [seekTime])
+
+  const handleSeek = useCallback((time: number) => {
+    setSeekTime(time)
+    if (practiceMode && activeTrack?.transcriptSegments) {
+      const idx = activeTrack.transcriptSegments.findIndex(s => time >= s.start && time < s.end)
+      if (idx !== -1) setCurrentSegmentIndex(idx)
+    }
+  }, [practiceMode, activeTrack])
+
+  const handleAudioFinish = useCallback(() => {
+    if (practiceMode && activeTrack?.transcriptSegments && activeTrack.transcriptSegments.length > 0) {
+        setPronunciationModalVisible(true)
+        return false
+    }
+    return handlePlayerFinish()
+  }, [practiceMode, activeTrack, handlePlayerFinish])
+
+  const handlePronunciationSuccess = useCallback(() => {
+    setPronunciationModalVisible(false)
+    setRetryCount(0)
+    if (activeTrack?.transcriptSegments && currentSegmentIndex < activeTrack.transcriptSegments.length - 1) {
+        setCurrentSegmentIndex(prev => prev + 1)
+    } else {
+        handlePlayerFinish()
+    }
+  }, [activeTrack, currentSegmentIndex, handlePlayerFinish])
+
+  const handlePronunciationFail = useCallback(() => {
+    setPronunciationModalVisible(false)
+    if (retryCount < maxAttempts - 1) {
+      setRetryCount(prev => prev + 1)
+      setReplayTrigger(prev => prev + 1)
+    } else {
+      setRetryCount(0)
+      if (activeTrack?.transcriptSegments && currentSegmentIndex < activeTrack.transcriptSegments.length - 1) {
+        setCurrentSegmentIndex(prev => prev + 1)
+      } else {
+        handlePlayerFinish()
+      }
+    }
+  }, [retryCount, maxAttempts, activeTrack, currentSegmentIndex, handlePlayerFinish])
+
+  const handlePronunciationClose = useCallback(() => {
+      setPronunciationModalVisible(false)
+      if (activeTrack?.transcriptSegments && currentSegmentIndex < activeTrack.transcriptSegments.length - 1) {
+        setCurrentSegmentIndex(prev => prev + 1)
+      } else {
+        handlePlayerFinish()
+      }
+  }, [activeTrack, currentSegmentIndex, handlePlayerFinish])
+
   const hasPrev = useMemo(() => {
     if (playableTrackIndices.length === 0) return false
     if (effectiveLoopEnabled && playableTrackIndices.length > 1) return true
@@ -185,6 +270,29 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
     const currentIndex = playableTrackIndices.indexOf(activeTrackIndex)
     return currentIndex !== -1 && currentIndex < playableTrackIndices.length - 1
   }, [playableTrackIndices, effectiveLoopEnabled, activeTrackIndex])
+
+  const handleTogglePracticeMode = useCallback(() => {
+    if (!practiceMode) {
+      // Entering practice mode: sync segment to current time
+      if (activeTrack?.transcriptSegments && activeTrack.transcriptSegments.length > 0) {
+        const segmentIndex = activeTrack.transcriptSegments.findIndex(
+          (s) => currentTime >= s.start && currentTime < s.end
+        )
+        if (segmentIndex >= 0) {
+          setCurrentSegmentIndex(segmentIndex)
+        } else {
+           // If past the last segment, select the last one
+           const lastSegment = activeTrack.transcriptSegments[activeTrack.transcriptSegments.length - 1]
+           if (currentTime >= lastSegment.end) {
+             setCurrentSegmentIndex(activeTrack.transcriptSegments.length - 1)
+           } else {
+             setCurrentSegmentIndex(0)
+           }
+        }
+      }
+    }
+    setPracticeMode((prev) => !prev)
+  }, [practiceMode, activeTrack, currentTime])
 
   const queuedTrack = activeTrack && activeTrack.audioUrl
     ? {
@@ -209,6 +317,9 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
             }}
             onOpenCacheMenu={() => setCacheMenuVisible(true)}
             showLoopToggle={hasAudioTracks}
+            practiceModeEnabled={practiceMode}
+            onTogglePracticeMode={handleTogglePracticeMode}
+            showPracticeToggle={hasAudioTracks && activeTrack?.transcriptSegments && activeTrack.transcriptSegments.length > 0}
           />
         )}
       />
@@ -267,6 +378,8 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
               cachedMedia={cachedMedia}
               colorScheme={colorScheme}
               onSelectTrack={selectTrackById}
+              currentTime={currentTime}
+              onSeek={handleSeek}
             />
           ) : (
             <View style={{ padding: 16, borderRadius: 12, backgroundColor: colorScheme === "dark" ? "#1e293b" : "#f1f5f9" }}>
@@ -285,8 +398,14 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
           hasNext={hasNext}
           onSpeedChange={setPlayerSpeed}
           onNavigate={handlePlayerNavigate}
-          onFinish={handlePlayerFinish}
+          onFinish={handleAudioFinish}
           showProgressBar={true}
+          startTime={startTime}
+          endTime={endTime}
+          replayTrigger={replayTrigger}
+          disableInternalLoop={practiceMode}
+          suspend={pronunciationModalVisible}
+          onTimeUpdate={handleTimeUpdate}
         />
 
         <CacheMenuModal
@@ -295,6 +414,14 @@ export const AudioPlaylistModuleView: React.FC<AudioPlaylistModuleViewProps> = (
           cacheStatus={lessonCacheStatus}
           onRedownload={handleRedownload}
           onClear={handleClearCache}
+        />
+
+        <PronunciationModal
+            visible={pronunciationModalVisible}
+            transcript={currentSegment?.text ?? ""}
+            onSuccess={handlePronunciationSuccess}
+            onFail={handlePronunciationFail}
+            onClose={handlePronunciationClose}
         />
       </SafeAreaView>
     </>

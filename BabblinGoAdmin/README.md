@@ -627,6 +627,41 @@ mongorestore --db BabblinGoAdmin ~/backups/mongo-20250101/BabblinGoAdmin
 - Generated TypeScript types are written to `src/payload-types.ts`.
 - Media uploads are stored locally under `media/` during development. 
 
+### Automated Transcription
+
+The system supports automated transcription for Audio and Video modules using either OpenAI (Whisper) or Aliyun (Intelligent Speech Interaction). This allows for "Listen & Repeat" functionality where users can practice pronunciation against time-synced segments.
+
+#### Configuration
+
+1.  **Select Service**: Set `TRANSCRIPTION_SERVICE` in your `.env` file to either `openai` or `aliyun`.
+
+#### Option A: OpenAI (Whisper)
+
+Best for global deployments or where OpenAI is accessible.
+
+1.  Get an API Key from [OpenAI Platform](https://platform.openai.com/).
+2.  Set the environment variable:
+    ```dotenv
+    TRANSCRIPTION_SERVICE=openai
+    OPENAI_API_KEY=sk-your-api-key
+    ```
+
+#### Option B: Aliyun (Intelligent Speech Interaction)
+
+Required for deployments in Mainland China. Uses the "Recording File Recognition" service.
+
+1.  **Activate Service**: Go to the [Aliyun Intelligent Speech Interaction Console](https://nls-portal.console.aliyun.com/).
+2.  **Create Project**: Create a new project to get an **App Key**.
+3.  **Get Credentials**: Ensure you have an AccessKey ID and Secret with permissions for Intelligent Speech Interaction (`AliyunNLSFullAccess` or custom policy).
+4.  Set the environment variables:
+    ```dotenv
+    TRANSCRIPTION_SERVICE=aliyun
+    # Use the same AccessKey as OSS or a different one
+    ALIYUN_ACCESS_KEY_ID=your_access_key_id
+    ALIYUN_ACCESS_KEY_SECRET=your_access_key_secret
+    ALIYUN_APP_KEY=your_app_key_from_nls_console
+    ```
+
 ### Media Storage in Production
 
 **Local Storage (Default)**:

@@ -28,8 +28,8 @@ const deductTokens = async (payload: Payload, userId: string, tokens: number) =>
       data: { tokenBalance: newBalance }
     })
     console.log(`Deducted ${tokens} tokens from user ${userId}. New balance: ${newBalance}`)
-  } catch (e) {
-    console.error('Failed to deduct tokens', e)
+  } catch (_e) {
+    console.error('Failed to deduct tokens', _e)
   }
 }
 
@@ -123,7 +123,7 @@ export const difyChatHandler: PayloadHandler = async (req): Promise<Response> =>
                                         // Deduct tokens asynchronously
                                         deductTokens(req.payload, user.id, tokens)
                                     }
-                                } catch (e) {
+                                } catch (_e) {
                                     // Ignore parse errors for intermediate chunks
                                 }
                             }
