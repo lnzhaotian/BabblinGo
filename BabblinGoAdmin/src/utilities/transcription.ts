@@ -10,7 +10,12 @@ export type TranscriptSegment = {
 type TranscriptionService = 'openai' | 'aliyun'
 
 const getService = (): TranscriptionService => {
-  return (process.env.TRANSCRIPTION_SERVICE as TranscriptionService) || 'openai'
+  const service = process.env.TRANSCRIPTION_SERVICE as TranscriptionService
+  if (!service) {
+    console.warn('TRANSCRIPTION_SERVICE is not set in environment variables. Defaulting to "openai".')
+    return 'openai'
+  }
+  return service
 }
 
 // OpenAI Implementation
