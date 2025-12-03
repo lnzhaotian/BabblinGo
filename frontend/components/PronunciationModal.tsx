@@ -185,13 +185,6 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
       await Voice.stop().catch(() => {})
       await Voice.destroy().catch(() => {})
       
-      // Ensure audio session is ready for recording
-      console.log("[PronunciationModal] Setting audio mode...")
-      await setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      })
-      
       // Play prompt sound
       dingPlayer.seekTo(0)
       dingPlayer.play()
@@ -202,9 +195,17 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
             console.log("[PronunciationModal] Ding timeout, forcing start")
             waitingForDingRef.current = false
             setShowModal(true)
-            Voice.start(language).catch(e => {
-                console.error("[PronunciationModal] Voice start error (timeout fallback):", e)
-                setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
+            
+            setAudioModeAsync({
+              allowsRecording: true,
+              playsInSilentMode: true,
+            }).then(() => {
+              Voice.start(language).catch(e => {
+                  console.error("[PronunciationModal] Voice start error (timeout fallback):", e)
+                  setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
+              })
+            }).catch(e => {
+              console.error("[PronunciationModal] Audio mode error (timeout fallback):", e)
             })
         }
       }, 1000) // 1 second timeout for ding
@@ -232,8 +233,17 @@ export const PronunciationModal: React.FC<PronunciationModalProps> = ({
         return
       }
 
-      Voice.start(language).catch(e => {
-        console.error("[PronunciationModal] Voice start error:", e)
+      // Enable recording mode only after the sound has finished
+      setAudioModeAsync({
+        allowsRecording: true,
+        playsInSilentMode: true,
+      }).then(() => {
+        Voice.start(language).catch(e => {
+          console.error("[PronunciationModal] Voice start error:", e)
+          setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
+        })
+      }).catch(e => {
+        console.error("[PronunciationModal] Failed to set audio mode:", e)
         setError(t("pronunciation.micError", { defaultValue: "Failed to start microphone" }))
       })
     }
