@@ -44,12 +44,14 @@ export type SingleTrackPlayerProps = {
   suspend?: boolean
   playSignal?: number
   showProgressBar?: boolean
+  showSpeedControls?: boolean
+  showNavigationControls?: boolean
   startTime?: number
   endTime?: number
   onTimeUpdate?: (time: number) => void
 }
 
-export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate, suspend = false, playSignal, showProgressBar = false, startTime, endTime, onTimeUpdate }: SingleTrackPlayerProps) {
+export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop, debug = false, hasPrev = false, hasNext = false, onSpeedChange, onFinish, onNavigate, suspend = false, playSignal, showProgressBar = false, showSpeedControls = true, showNavigationControls = true, startTime, endTime, onTimeUpdate }: SingleTrackPlayerProps) {
   const DEBUG = !!debug
   const player = useAudioPlayer(undefined, { updateInterval: 250, downloadFirst: true })
   const status = useAudioPlayerStatus(player)
@@ -72,6 +74,10 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   const ignoreEndTimeUntilSeekedRef = useRef(false)
   const colorScheme = useColorScheme()
   const [themeMode, setThemeMode] = useState<string | null>(null)
+  const [_, setForceUpdate] = useState(0)
+  const triggerUpdate = useCallback(() => {
+    if (mountedRef.current) setForceUpdate(n => n + 1)
+  }, [])
 
   // Configure audio mode (iOS silent switch) so audio plays even if the device
   // is in silent mode. Do this once per mount.
@@ -160,6 +166,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             }, 250)
           } catch (err) {
             console.error(`[SingleTrack#${sessionIdRef.current}] play() failed`, err)
+            shouldBePlayingRef.current = false
+            triggerUpdate()
           }
         }
       } catch (e) {
@@ -211,10 +219,11 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             setIsPlaying(false)
           }
           shouldBePlayingRef.current = false
+          triggerUpdate()
         }
       } catch {}
     })()
-  }, [suspend, player])
+  }, [suspend, player, triggerUpdate])
 
   // Seek when startTime changes
   useEffect(() => {
@@ -273,7 +282,10 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       const startAge = now - (startAtMsRef.current || 0)
       const nearStart = status.currentTime <= 0.15 // broaden from strict 0
       const invalidDuration = !status.duration || !isFinite(status.duration)
-      const withinStartStabilization = shouldBePlayingRef.current && hasStartedRef.current && startAge < 900 && nearStart
+      
+      // Cap stabilization time to duration if available (for short tracks)
+      const stabilizationTime = Math.min(500, (status.duration || 1) * 1000 * 0.5)
+      const withinStartStabilization = shouldBePlayingRef.current && hasStartedRef.current && startAge < stabilizationTime && nearStart
       const suppressDueToInvalidEarly = withinStartStabilization && (invalidDuration || !status.isLoaded)
 
       const shouldLog = DEBUG && status.playing !== isPlaying && !withinStartStabilization && !suppressDueToInvalidEarly
@@ -284,11 +296,16 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
           currentTime: status.currentTime,
           duration: status.duration,
           shouldBePlaying: shouldBePlayingRef.current,
+          withinStartStabilization,
+          startAge,
+          stabilizationTime
         })
       }
 
       // Only update UI when outside stabilization or when truly loaded and valid.
-      if (!withinStartStabilization && !suppressDueToInvalidEarly) {
+      // CRITICAL FIX: Always accept "playing: true" immediately to prevent stuck spinner.
+      // Only block "playing: false" during stabilization to prevent flickering.
+      if (status.playing || (!withinStartStabilization && !suppressDueToInvalidEarly)) {
         setIsPlaying(status.playing)
         onTimeUpdate?.(status.currentTime)
       }
@@ -301,6 +318,8 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             const pauseSafe = async () => { try { await player.pause() } catch {} }
             pauseSafe()
             if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (endTime reached)`)
+            setIsPlaying(false)
+            triggerUpdate()
             onFinish?.()
          }
       }
@@ -310,18 +329,34 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
     if (status?.didJustFinish) {
       if (!hasCalledFinishRef.current) {
         hasCalledFinishRef.current = true
+        shouldBePlayingRef.current = false
         if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (didJustFinish)`)
+        setIsPlaying(false)
+        triggerUpdate()
         onFinish?.()
       }
     }
 
     // Backup: near-end idle
-    if (status && status.duration > 0) {
-      const timeRemaining = status.duration - status.currentTime
-      if (!status.playing && (timeRemaining <= 1.0 || status.currentTime / status.duration >= 0.985)) {
+    // Use cached duration if status.duration is missing/invalid
+    const effectiveDuration = (status && status.duration > 0) ? status.duration : duration
+    
+    if (status && effectiveDuration > 0) {
+      const timeRemaining = effectiveDuration - status.currentTime
+      // If we are not playing, and we are near end OR we are at start but have played before (reset)
+      const isReset = status.currentTime < 0.1 && hasStartedRef.current && (Date.now() - (startAtMsRef.current || 0) > effectiveDuration * 1000)
+      
+      // For short tracks (< 1.5s), 1.0s remaining is too large (could be start of track). Use tighter threshold.
+      const threshold = effectiveDuration < 1.5 ? 0.15 : 1.0
+      const isNearEnd = timeRemaining <= threshold || status.currentTime / effectiveDuration >= 0.985
+
+      if (!status.playing && (isNearEnd || isReset)) {
         if (!hasCalledFinishRef.current) {
           hasCalledFinishRef.current = true
-          if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (near-end idle)`) 
+          shouldBePlayingRef.current = false
+          if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] Finished (near-end idle or reset)`) 
+          setIsPlaying(false)
+          triggerUpdate()
           onFinish?.()
         }
       }
@@ -433,6 +468,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         await player.pause()
         setIsPlaying(false)
         shouldBePlayingRef.current = false
+        triggerUpdate()
       } else {
         if (DEBUG) console.log(`[SingleTrack#${sessionIdRef.current}] User play`)
         // If at end, seek to start before playing
@@ -449,6 +485,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         // Let status-driven effect update UI state when playback confirms
         shouldBePlayingRef.current = true
         hasStartedRef.current = true
+        triggerUpdate()
       }
     } catch (e) {
       console.error(`[SingleTrack#${sessionIdRef.current}] Play/Pause error`, e)
@@ -468,11 +505,38 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
   // - If user initiated play, show loading until playback confirms
   const isLoading = (autoPlay || hasStartedRef.current) && shouldBePlayingRef.current && !isPlaying
 
+  // Watchdog for stuck loading state
+  useEffect(() => {
+    if (isLoading) {
+      const timeout = setTimeout(() => {
+        if (mountedRef.current && isLoading) {
+           console.log(`[SingleTrack#${sessionIdRef.current}] Stuck in loading state, forcing finish/reset`)
+           // If we are stuck loading, it usually means we missed a play event or a finish event
+           // If duration is short, assume finished.
+           if (duration > 0 && duration < 2) {
+               hasCalledFinishRef.current = true
+               shouldBePlayingRef.current = false
+               setIsPlaying(false)
+               onFinish?.()
+               triggerUpdate()
+           } else {
+               // Just stop spinner
+               shouldBePlayingRef.current = false
+               setIsPlaying(false)
+               triggerUpdate()
+           }
+        }
+      }, 3000)
+      return () => clearTimeout(timeout)
+    }
+  }, [isLoading, duration, onFinish, triggerUpdate])
+
   return (
     <View>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
         {/* Navigation controls: enabled if neighbor exists OR loop is on. The parent
             is authoritative about slide boundaries and loop behavior. */}
+        {showNavigationControls && (
         <Pressable
           onPress={() => {
             const canNavigate = hasPrev || loop
@@ -489,6 +553,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         >
           <MaterialIcons name="skip-previous" size={32} color={isDark ? "#d1d5db" : "#4b5563"} />
         </Pressable>
+        )}
         <Pressable
           onPress={handlePlayPause}
           disabled={isLoading}
@@ -505,6 +570,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
             <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={32} color={isDark ? "#fff" : "#fff"} />
           )}
         </Pressable>
+        {showNavigationControls && (
         <Pressable
           onPress={() => {
             const canNavigate = hasNext || loop
@@ -521,6 +587,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
         >
           <MaterialIcons name="skip-next" size={32} color={isDark ? "#d1d5db" : "#4b5563"} />
         </Pressable>
+        )}
       </View>
 
       {/* Progress bar - only shown when showProgressBar is true */}
@@ -552,7 +619,7 @@ export default function SingleTrackPlayer({ track, autoPlay = true, speed, loop,
       <View style={{ marginTop: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4 }}>
         {/* Speed selector – calls onSpeedChange so the parent can store the new value
             and feed it back as a controlled prop (survives remounts). */}
-        {SPEED_OPTIONS.map((s) => (
+        {showSpeedControls && SPEED_OPTIONS.map((s) => (
           <Pressable
             key={s}
             onPress={() => onSpeedChange?.(s)}

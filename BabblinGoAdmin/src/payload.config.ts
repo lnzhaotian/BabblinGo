@@ -22,6 +22,11 @@ import UserPreferences from './collections/UserPreferences'
 import ActivationCodes from './collections/ActivationCodes'
 import ActivationBatches from './collections/ActivationBatches'
 import Agents from './collections/Agents'
+import { QuestionBank } from './collections/QuestionBank'
+import { Questionnaires } from './collections/Questionnaires'
+import { TestBlueprints } from './collections/TestBlueprints'
+import { TestSessions } from './collections/TestSessions'
+import { LevelDescriptions } from './collections/LevelDescriptions'
 import SystemSettings from './globals/SystemSettings'
 import ChatHistory from './globals/ChatHistory'
 import { 
@@ -32,6 +37,7 @@ import {
   deleteConversationHandler,
   generateTitleHandler
 } from './endpoints/dify'
+import { startTestHandler, submitAnswerHandler } from './endpoints/tests'
 import { redeemActivationCodeHandler } from './endpoints/activation'
 import { exportActivationCodesHandler } from './endpoints/export-codes'
 
@@ -45,7 +51,24 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Courses, Lessons, Modules, Agents, Tools, LearningRecords, UserPreferences, Users, Media, ActivationCodes, ActivationBatches],
+  collections: [
+    Courses, 
+    Lessons, 
+    Modules, 
+    Agents, 
+    Tools, 
+    LearningRecords, 
+    UserPreferences, 
+    Users, 
+    Media, 
+    ActivationCodes, 
+    ActivationBatches,
+    QuestionBank,
+    Questionnaires,
+    TestBlueprints,
+    TestSessions,
+    LevelDescriptions,
+  ],
   globals: [ChatHistory, SystemSettings],
   endpoints: [
     {
@@ -57,6 +80,16 @@ export default buildConfig({
       path: '/activation/export',
       method: 'get',
       handler: exportActivationCodesHandler,
+    },
+    {
+      path: '/tests/start',
+      method: 'post',
+      handler: startTestHandler,
+    },
+    {
+      path: '/tests/submit',
+      method: 'post',
+      handler: submitAnswerHandler,
     },
     {
       path: '/dify/chat-messages',

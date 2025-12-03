@@ -8,6 +8,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { scheduleLearningRecordSync } from "../lib/learning-sync";
 import { setAudioModeAsync } from "expo-audio";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -155,12 +156,14 @@ function AppNavigator() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <PreferencesProvider>
-        <SafeAreaProvider>
-          <AppNavigator />
-        </SafeAreaProvider>
-      </PreferencesProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ThemeProvider>
+        <PreferencesProvider>
+          <SafeAreaProvider>
+            <AppNavigator />
+          </SafeAreaProvider>
+        </PreferencesProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }

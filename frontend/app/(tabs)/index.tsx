@@ -10,6 +10,7 @@ import { useThemeMode } from "../theme-context";
 import { useCourseUpdates } from "@/hooks/useCourseUpdates";
 
 const PERSONAL_TUTOR_IMAGE = require("@/assets/images/personal_tutor.png");
+const TESTS_IMAGE = require("@/assets/images/tests.png");
 
 const sortByOrder = <T extends { order?: number | null }>(items: T[] = []): T[] =>
   [...items].sort((a, b) => {
@@ -113,6 +114,17 @@ export default function Index() {
         icon: 'psychology', 
         route: '/(stack)/agents',
         description: t('agents.description')
+      } 
+    });
+
+    items.push({ 
+      type: 'feature', 
+      data: { 
+        id: 'language-testing', 
+        title: t('tests.title', { defaultValue: 'Language Testing' }), 
+        icon: 'assignment', 
+        route: '/test',
+        description: t('tests.description', { defaultValue: 'Evaluate your proficiency' })
       } 
     });
 
@@ -380,6 +392,12 @@ export default function Index() {
               {id === 'babblingears' ? (
                 <Image
                   source={PERSONAL_TUTOR_IMAGE}
+                  style={{ width: "100%", height: "100%" }}
+                  resizeMode="cover"
+                />
+              ) : id === 'language-testing' ? (
+                <Image
+                  source={TESTS_IMAGE}
                   style={{ width: "100%", height: "100%" }}
                   resizeMode="cover"
                 />

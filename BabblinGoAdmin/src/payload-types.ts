@@ -81,6 +81,11 @@ export interface Config {
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
+    questionnaires: Questionnaire;
+    'test-blueprints': TestBlueprint;
+    'test-sessions': TestSession;
+    'question-bank': Question;
+    'level-descriptions': LevelDescription;
   };
   collectionsJoins: {};
   collectionsSelect: {
@@ -1130,6 +1135,40 @@ export interface Auth {
   [k: string]: unknown;
 }
 
+export interface Questionnaire {
+  id: string;
+  updatedAt: string;
+  createdAt: string;
+  [k: string]: unknown;
+}
+
+export interface TestBlueprint {
+  id: string;
+  updatedAt: string;
+  createdAt: string;
+  [k: string]: unknown;
+}
+
+export interface TestSession {
+  id: string;
+  updatedAt: string;
+  createdAt: string;
+  [k: string]: unknown;
+}
+
+export interface Question {
+  id: string;
+  updatedAt: string;
+  createdAt: string;
+  [k: string]: unknown;
+}
+
+export interface LevelDescription {
+  id: string;
+  updatedAt: string;
+  createdAt: string;
+  [k: string]: unknown;
+}
 
 declare module 'payload' {
   export interface GeneratedTypes extends Config {}

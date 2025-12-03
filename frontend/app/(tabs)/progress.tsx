@@ -633,10 +633,11 @@ export default function ProgressScreen() {
       </View>
 
   {/* Manual entry shortcut */}
-  <View style={{ paddingHorizontal: 16, marginTop: 4 }}>
+  <View style={{ paddingHorizontal: 16, marginTop: 4, flexDirection: 'row', gap: 12 }}>
         <Pressable
           onPress={() => router.push("/(stack)/manual-entry")}
           style={({ pressed }) => ({
+            flex: 1,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "center",
@@ -650,6 +651,25 @@ export default function ProgressScreen() {
         >
           <MaterialIcons name="add-circle-outline" size={20} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
           <Text style={{ fontSize: 15, fontWeight: "600", color: colorScheme === 'dark' ? '#c7d2fe' : '#312e81' }}>{t("progress.addManualEntry")}</Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => router.push("/(stack)/test-history")}
+          style={({ pressed }) => ({
+            flex: 1,
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "center",
+            paddingVertical: 12,
+            borderRadius: 12,
+            backgroundColor: pressed ? (colorScheme === 'dark' ? '#312e81' : '#eef2ff') : (colorScheme === 'dark' ? '#23232a' : '#fff'),
+            borderWidth: 1,
+            borderColor: colorScheme === 'dark' ? '#312e81' : '#dbeafe',
+            gap: 8,
+          })}
+        >
+          <MaterialIcons name="history" size={20} color={colorScheme === 'dark' ? '#a5b4fc' : '#4f46e5'} />
+          <Text style={{ fontSize: 15, fontWeight: "600", color: colorScheme === 'dark' ? '#c7d2fe' : '#312e81' }}>{t("tests.history.title")}</Text>
         </Pressable>
       </View>
 
