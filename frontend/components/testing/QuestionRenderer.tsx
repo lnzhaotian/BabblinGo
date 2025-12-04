@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Image } from 'react-native'
+import { View, Text, TouchableOpacity, TextInput, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native'
 import { useTranslation } from 'react-i18next'
 import { useThemeMode } from '@/app/theme-context'
 import { LexicalContent } from '@/components/LexicalContent'
@@ -9,6 +9,8 @@ import { resolveMediaUrl } from '@/lib/payload'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS, SharedValue } from 'react-native-reanimated'
 import SingleTrackPlayer from '@/components/SingleTrackPlayer'
+import { useAudioRecorder, RecordingPresets, setAudioModeAsync, requestRecordingPermissionsAsync } from 'expo-audio'
+import { uploadMedia } from '@/lib/testing-api'
 
 type QuestionRendererProps = {
   question: QuestionDoc
@@ -143,6 +145,56 @@ const Speaking = ({
   disabled: boolean
   isDark: boolean
 }) => {
+    const [isRecording, setIsRecording] = useState(false)
+    const [isUploading, setIsUploading] = useState(false)
+    
+    const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY, (status) => {
+        // status update
+    })
+
+    const handleRecordPress = async () => {
+        if (isRecording) {
+            await audioRecorder.stop()
+            
+            // Small delay to ensure file is finalized
+            await new Promise(resolve => setTimeout(resolve, 1000))
+            
+            setIsRecording(false)
+            
+            if (audioRecorder.uri) {
+                const uri = audioRecorder.uri
+                
+                setIsUploading(true)
+                try {
+                    const result = await uploadMedia(uri)
+                    const mediaUrl = result.doc.url || result.doc.filename
+                    onAnswerChange(mediaUrl)
+                } catch (e) {
+                    console.error("Upload failed", e)
+                    alert("Failed to upload recording. Please try again.")
+                } finally {
+                    setIsUploading(false)
+                }
+            }
+        } else {
+            try {
+                const { granted } = await requestRecordingPermissionsAsync()
+                if (!granted) {
+                    alert("Microphone permission is required.")
+                    return
+                }
+
+                await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true })
+                await audioRecorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY)
+                await audioRecorder.record()
+                setIsRecording(true)
+            } catch (e) {
+                console.error("Failed to start recording", e)
+                alert("Failed to start recording. Please check microphone permissions.")
+            }
+        }
+    }
+
     return (
         <View style={{ padding: 20, alignItems: 'center', gap: 20 }}>
             <Text style={{ color: isDark ? '#fff' : '#000', textAlign: 'center', fontSize: 16 }}>
@@ -150,7 +202,7 @@ const Speaking = ({
             </Text>
             <TouchableOpacity 
                 style={{ 
-                    backgroundColor: disabled ? (isDark ? '#334155' : '#cbd5e1') : '#ef4444', 
+                    backgroundColor: disabled ? (isDark ? '#334155' : '#cbd5e1') : (isRecording ? '#ef4444' : '#3b82f6'), 
                     width: 80, 
                     height: 80, 
                     borderRadius: 40, 
@@ -161,14 +213,19 @@ const Speaking = ({
                     shadowOpacity: 0.3,
                     shadowRadius: 4.65,
                     elevation: 8,
+                    opacity: isUploading ? 0.5 : 1
                 }}
-                onPress={() => onAnswerChange("Recorded Audio Placeholder")}
-                disabled={disabled}
+                onPress={handleRecordPress}
+                disabled={disabled || isUploading}
             >
-                <Ionicons name="mic" size={40} color="#fff" />
+                {isUploading ? (
+                    <ActivityIndicator color="#fff" />
+                ) : (
+                    <Ionicons name={isRecording ? "stop" : "mic"} size={40} color="#fff" />
+                )}
             </TouchableOpacity>
             <Text style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
-                {disabled ? "Recorded" : "Tap to Record"}
+                {disabled ? "Recorded" : (isUploading ? "Uploading..." : (isRecording ? "Tap to Stop" : "Tap to Record"))}
             </Text>
         </View>
     )

@@ -78,3 +78,38 @@ export const fetchLevelDescriptions = async (): Promise<any[]> => {
   const response = await fetchWithAuth('/api/level-descriptions?limit=100')
   return response.docs
 }
+
+export const uploadMedia = async (uri: string): Promise<any> => {
+  const token = await getAuthToken()
+  
+  const finalUri = uri.startsWith('file://') ? uri : `file://${uri}`
+
+  const formData = new FormData()
+  
+  // Payload CMS expects additional data in a '_payload' JSON string field
+  formData.append('_payload', JSON.stringify({
+    alt: 'Speaking Test Recording'
+  }))
+  
+  formData.append('file', {
+    uri: finalUri,
+    name: 'recording.m4a',
+    type: 'audio/m4a'
+  } as any)
+
+  const response = await fetch(`${config.apiUrl}/api/media`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `JWT ${token}`,
+      'Accept': 'application/json',
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`Upload Error: ${response.status} ${errorText}`)
+  }
+
+  return response.json()
+}
