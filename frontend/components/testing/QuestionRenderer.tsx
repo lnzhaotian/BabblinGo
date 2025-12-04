@@ -145,36 +145,32 @@ const Speaking = ({
   disabled: boolean
   isDark: boolean
 }) => {
-    const [isRecording, setIsRecording] = useState(false)
-    const [isUploading, setIsUploading] = useState(false)
+    const { t } = useTranslation()
+    const [status, setStatus] = useState<'idle' | 'recording' | 'review' | 'uploading' | 'completed'>('idle')
+    const [recordedUri, setRecordedUri] = useState<string | null>(null)
     
     const audioRecorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY, (status) => {
         // status update
     })
 
+    // If disabled (submitted), show completed state
+    useEffect(() => {
+        if (disabled) {
+            setStatus('completed')
+        }
+    }, [disabled])
+
     const handleRecordPress = async () => {
-        if (isRecording) {
+        if (status === 'recording') {
             await audioRecorder.stop()
-            
             // Small delay to ensure file is finalized
-            await new Promise(resolve => setTimeout(resolve, 1000))
-            
-            setIsRecording(false)
+            await new Promise(resolve => setTimeout(resolve, 500))
             
             if (audioRecorder.uri) {
-                const uri = audioRecorder.uri
-                
-                setIsUploading(true)
-                try {
-                    const result = await uploadMedia(uri)
-                    const mediaUrl = result.doc.url || result.doc.filename
-                    onAnswerChange(mediaUrl)
-                } catch (e) {
-                    console.error("Upload failed", e)
-                    alert("Failed to upload recording. Please try again.")
-                } finally {
-                    setIsUploading(false)
-                }
+                setRecordedUri(audioRecorder.uri)
+                setStatus('review')
+            } else {
+                setStatus('idle')
             }
         } else {
             try {
@@ -187,7 +183,7 @@ const Speaking = ({
                 await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true })
                 await audioRecorder.prepareToRecordAsync(RecordingPresets.HIGH_QUALITY)
                 await audioRecorder.record()
-                setIsRecording(true)
+                setStatus('recording')
             } catch (e) {
                 console.error("Failed to start recording", e)
                 alert("Failed to start recording. Please check microphone permissions.")
@@ -195,38 +191,113 @@ const Speaking = ({
         }
     }
 
+    const handleRerecord = () => {
+        setRecordedUri(null)
+        setStatus('idle')
+        onAnswerChange('') // Clear answer
+    }
+
+    const handleConfirm = async () => {
+        if (!recordedUri) return
+        
+        setStatus('uploading')
+        try {
+            const result = await uploadMedia(recordedUri)
+            const mediaUrl = result.doc.url || result.doc.filename
+            onAnswerChange(mediaUrl)
+            setStatus('completed')
+        } catch (e) {
+            console.error("Upload failed", e)
+            alert("Failed to upload recording. Please try again.")
+            setStatus('review')
+        }
+    }
+
     return (
         <View style={{ padding: 20, alignItems: 'center', gap: 20 }}>
             <Text style={{ color: isDark ? '#fff' : '#000', textAlign: 'center', fontSize: 16 }}>
-                {question.speakingReference || "Tap the microphone and speak the text above."}
+                {t('tests.question.speakInstruction')}
             </Text>
-            <TouchableOpacity 
-                style={{ 
-                    backgroundColor: disabled ? (isDark ? '#334155' : '#cbd5e1') : (isRecording ? '#ef4444' : '#3b82f6'), 
-                    width: 80, 
-                    height: 80, 
-                    borderRadius: 40, 
-                    justifyContent: 'center', 
-                    alignItems: 'center',
-                    shadowColor: "#000",
-                    shadowOffset: { width: 0, height: 4 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 4.65,
-                    elevation: 8,
-                    opacity: isUploading ? 0.5 : 1
-                }}
-                onPress={handleRecordPress}
-                disabled={disabled || isUploading}
-            >
-                {isUploading ? (
-                    <ActivityIndicator color="#fff" />
-                ) : (
-                    <Ionicons name={isRecording ? "stop" : "mic"} size={40} color="#fff" />
-                )}
-            </TouchableOpacity>
-            <Text style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
-                {disabled ? "Recorded" : (isUploading ? "Uploading..." : (isRecording ? "Tap to Stop" : "Tap to Record"))}
-            </Text>
+            
+            {status === 'review' && recordedUri ? (
+                <View style={{ width: '100%', gap: 16 }}>
+                    <View style={{ backgroundColor: isDark ? '#18181b' : '#f8fafc', borderRadius: 12, padding: 8 }}>
+                        <SingleTrackPlayer
+                            track={{ id: 'review', title: t('tests.question.uploaded'), audioUrl: recordedUri }}
+                            speed={1.0}
+                            loop={false}
+                            autoPlay={false}
+                            showSpeedControls={false}
+                            showNavigationControls={false}
+                        />
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 16 }}>
+                        <TouchableOpacity 
+                            style={{ 
+                                paddingVertical: 12, 
+                                paddingHorizontal: 24, 
+                                borderRadius: 8, 
+                                borderWidth: 1, 
+                                borderColor: isDark ? '#ef4444' : '#dc2626',
+                            }}
+                            onPress={handleRerecord}
+                        >
+                            <Text style={{ color: isDark ? '#ef4444' : '#dc2626', fontWeight: '600' }}>
+                                {t('tests.question.rerecord')}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={{ 
+                                backgroundColor: isDark ? '#22c55e' : '#16a34a',
+                                paddingVertical: 12, 
+                                paddingHorizontal: 24, 
+                                borderRadius: 8, 
+                            }}
+                            onPress={handleConfirm}
+                        >
+                            <Text style={{ color: '#fff', fontWeight: '600' }}>
+                                {t('tests.question.confirmUpload')}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            ) : (
+                <>
+                    <TouchableOpacity 
+                        style={{ 
+                            backgroundColor: status === 'completed' ? (isDark ? '#334155' : '#cbd5e1') : (status === 'recording' ? '#ef4444' : '#3b82f6'), 
+                            width: 80, 
+                            height: 80, 
+                            borderRadius: 40, 
+                            justifyContent: 'center', 
+                            alignItems: 'center',
+                            shadowColor: "#000",
+                            shadowOffset: { width: 0, height: 4 },
+                            shadowOpacity: 0.3,
+                            shadowRadius: 4.65,
+                            elevation: 8,
+                            opacity: status === 'uploading' ? 0.5 : 1
+                        }}
+                        onPress={handleRecordPress}
+                        disabled={status === 'uploading' || status === 'completed'}
+                    >
+                        {status === 'uploading' ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Ionicons name={status === 'recording' ? "stop" : (status === 'completed' ? "checkmark" : "mic")} size={40} color="#fff" />
+                        )}
+                    </TouchableOpacity>
+                    <Text style={{ color: isDark ? '#94a3b8' : '#64748b' }}>
+                        {status === 'completed' 
+                            ? t('tests.question.uploaded') 
+                            : (status === 'uploading' 
+                                ? t('tests.question.uploading') 
+                                : (status === 'recording' 
+                                    ? t('tests.question.tapToStop') 
+                                    : t('tests.question.tapToRecord')))}
+                    </Text>
+                </>
+            )}
         </View>
     )
 }

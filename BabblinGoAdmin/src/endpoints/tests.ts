@@ -615,6 +615,13 @@ export const submitAnswerHandler: PayloadHandler = async (req): Promise<Response
                 } else {
                     // No more questions at this level? Maybe finish or fallback?
                     isFinished = true
+
+                    // If we finished because we ran out of questions, and we had just moved up a level (isCorrect),
+                    // we should revert to the previous level because we couldn't verify the new level.
+                    // This ensures the user gets the level they actually passed.
+                    if (isCorrect && newLevel > 1) {
+                        finalAdaptiveLevel = newLevel - 1
+                    }
                 }
              }
         }

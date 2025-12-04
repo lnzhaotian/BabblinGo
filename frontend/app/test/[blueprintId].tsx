@@ -181,7 +181,9 @@ export default function TestRunnerScreen() {
               {submitting ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>{t('tests.submit')}</Text>
+                <Text style={styles.buttonText}>
+                  {t('tests.next')}
+                </Text>
               )}
             </TouchableOpacity>
           </View>
