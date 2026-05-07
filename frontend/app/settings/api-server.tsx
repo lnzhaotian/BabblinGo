@@ -14,7 +14,7 @@ import {
 
 const PRESET_SERVERS = [
   { id: 'prod', label: 'Production', url: 'https://admin.babblinguide.cn' },
-  { id: 'new', label: 'New Unified API', url: 'https://api.babblinguide.cn' },
+  { id: 'new', label: 'New Unified API', url: 'https://testapi.babblinguide.cn' },
   { id: 'local', label: 'Local Dev', url: 'http://localhost:3000' },
 ] as const;
 
