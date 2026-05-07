@@ -10,7 +10,7 @@ import { ThemedHeader } from '@/components/ThemedHeader'
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 export default function TestListScreen() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const router = useRouter()
   const { colorScheme } = useThemeMode()
   const isDark = colorScheme === 'dark'
@@ -41,6 +41,33 @@ export default function TestListScreen() {
     router.push(`/test/${blueprintId}` as Href)
   }
 
+  const toLocalizedText = (value: unknown): string => {
+    if (typeof value === 'string') {
+      return value
+    }
+
+    if (!value || typeof value !== 'object') {
+      return ''
+    }
+
+    const localized = value as Record<string, unknown>
+    const language = (i18n.language || 'en').toLowerCase()
+    const candidates = [
+      localized[language],
+      localized[language.split('-')[0]],
+      localized['en'],
+      localized['zh'],
+    ]
+
+    for (const item of candidates) {
+      if (typeof item === 'string' && item.trim().length > 0) {
+        return item
+      }
+    }
+
+    return ''
+  }
+
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity
       style={[
@@ -59,14 +86,23 @@ export default function TestListScreen() {
       onPress={() => handleTestPress(item.id)}
     >
       <View style={styles.cardContent}>
+        {(() => {
+          const title = toLocalizedText(item.title)
+          const description = toLocalizedText(item.description)
+
+          return (
+            <>
         <Text style={[styles.title, { color: isDark ? '#f1f5f9' : '#18181b' }]}>
-          {item.title}
+                {title || t('tests.title')}
         </Text>
-        {item.description && (
+              {description ? (
           <Text style={[styles.description, { color: isDark ? '#94a3b8' : '#64748b' }]}>
-            {item.description}
+                  {description}
           </Text>
-        )}
+              ) : null}
+            </>
+          )
+        })()}
         <View style={styles.metaContainer}>
           <View style={[styles.badge, { backgroundColor: isDark ? '#334155' : '#e2e8f0' }]}>
             <Text style={[styles.badgeText, { color: isDark ? '#cbd5e1' : '#475569' }]}>

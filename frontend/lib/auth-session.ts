@@ -126,7 +126,10 @@ export const setAuthSession = async (
   notify(true)
 }
 
-export const clearAuthSession = async (): Promise<void> => {
+export const clearAuthSession = async (reason?: string): Promise<void> => {
+  if (reason) {
+    console.warn(`[auth-session] clearing auth session: ${reason}`)
+  }
   await AsyncStorage.multiRemove([
     AUTH_TOKEN_KEY,
     PROFILE_EMAIL_KEY,

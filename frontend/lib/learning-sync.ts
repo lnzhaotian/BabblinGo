@@ -16,6 +16,12 @@ const ENDPOINT = `${config.apiUrl}/api/learning-records`
 const MANUAL_ENDPOINT = `${ENDPOINT}/manual`
 const ENDPOINT_HEALTH = `${ENDPOINT}?limit=1`
 let inFlight: Promise<void> | null = null
+let loggedEndpointInfo = false
+
+const shorten = (value: string, max = 220) => {
+  if (value.length <= max) return value
+  return `${value.slice(0, max)}...`
+}
 
 const headersFor = (token: string, includeJson = false) => {
   const headers: Record<string, string> = {
@@ -163,25 +169,55 @@ const toPayload = (record: SessionRecord) => {
 
 async function fetchRemoteRecords(token: string): Promise<RemoteFetchResult> {
   try {
+    if (!loggedEndpointInfo) {
+      loggedEndpointInfo = true
+      console.warn('[learning-sync] endpoint config', {
+        endpoint: ENDPOINT,
+        health: ENDPOINT_HEALTH,
+      })
+    }
+
     const head = await fetch(ENDPOINT_HEALTH, {
       method: "HEAD",
       headers: headersFor(token),
     })
 
     if (!head.ok && head.status !== 405 && head.status !== 404) {
-      console.warn("Learning record sync: HEAD probe failed", head.status)
+      console.warn("Learning record sync: HEAD probe failed", {
+        status: head.status,
+        url: ENDPOINT_HEALTH,
+      })
     }
 
     const res = await fetch(`${ENDPOINT}?limit=250&sort=-updatedAt`, {
       headers: headersFor(token),
     })
 
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       const message = await res.text().catch(() => '')
-      console.warn("Learning record sync: unauthorized while fetching remote records", message)
+      console.warn("Learning record sync: unauthorized while fetching remote records", {
+        status: res.status,
+        url: `${ENDPOINT}?limit=250&sort=-updatedAt`,
+        body: shorten(message || ''),
+      })
       return {
         records: [],
         status: 'unauthorized',
+        statusCode: res.status,
+        errorMessage: message || `status ${res.status}`,
+      }
+    }
+
+    if (res.status === 403) {
+      const message = await res.text().catch(() => '')
+      console.warn("Learning record sync: forbidden while fetching remote records", {
+        status: res.status,
+        url: `${ENDPOINT}?limit=250&sort=-updatedAt`,
+        body: shorten(message || ''),
+      })
+      return {
+        records: [],
+        status: 'error',
         statusCode: res.status,
         errorMessage: message || `status ${res.status}`,
       }
@@ -329,11 +365,22 @@ async function pushDirtySessions(token: string, sessions: SessionRecord[]): Prom
         throw new Error("Learning record sync: no response received")
       }
 
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         unauthorized = true
         unauthorizedStatus = response.status
         unauthorizedMessage = await response.text().catch(() => "")
         throw new Error("unauthorized")
+      }
+
+      if (response.status === 403) {
+        const forbiddenMessage = await response.text().catch(() => "")
+        console.warn("Learning record sync: forbidden while pushing record", {
+          status: response.status,
+          url: isManual ? MANUAL_ENDPOINT : ENDPOINT,
+          sessionId: session.id,
+          body: shorten(forbiddenMessage),
+        })
+        throw new Error("forbidden")
       }
 
       if (!response.ok) {
@@ -442,7 +489,9 @@ export async function syncLearningRecords(): Promise<void> {
   const fetchResult = await fetchRemoteRecords(token)
 
   if (fetchResult.status === 'unauthorized') {
-    await clearAuthSession()
+    await clearAuthSession(
+      `learning-sync fetch unauthorized status=${fetchResult.statusCode ?? 'unknown'} url=${ENDPOINT}`,
+    )
     recordLearningSyncFailed({
       durationMs: Date.now() - startedAt,
       localCount,
@@ -458,7 +507,9 @@ export async function syncLearningRecords(): Promise<void> {
   const mergedAfterRemote = mergeLocalAndRemote(localSessions, remoteSessions)
   const pushResult = await pushDirtySessions(token, mergedAfterRemote)
   if (pushResult.unauthorized) {
-    await clearAuthSession()
+    await clearAuthSession(
+      `learning-sync push unauthorized status=${pushResult.statusCode ?? 'unknown'} url=${ENDPOINT}`,
+    )
     recordLearningSyncFailed({
       durationMs: Date.now() - startedAt,
       localCount: mergedAfterRemote.length,
