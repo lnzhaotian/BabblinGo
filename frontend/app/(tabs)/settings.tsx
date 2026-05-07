@@ -115,6 +115,15 @@ export default function Settings() {
       showChevron: true,
     },
     {
+      id: "apiServer",
+      icon: "dns" as keyof typeof MaterialIcons.glyphMap,
+      iconColor: "#0ea5e9",
+      titleKey: "settings.apiServer.title",
+      descriptionKey: "settings.apiServer.description",
+      route: "/settings/api-server",
+      showChevron: true,
+    },
+    {
       id: "records",
       icon: "history" as keyof typeof MaterialIcons.glyphMap,
       iconColor: "#f59e0b",

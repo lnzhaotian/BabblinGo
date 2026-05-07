@@ -9,6 +9,7 @@ import { scheduleLearningRecordSync } from "../lib/learning-sync";
 import { setAudioModeAsync } from "expo-audio";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { initializeApiConfig } from '@/lib/config';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -16,6 +17,17 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 function AppNavigator() {
   const { hydrated } = useThemeMode();
   const [i18nReady, setI18nReady] = React.useState<boolean>(i18n.isInitialized);
+  const [apiConfigReady, setApiConfigReady] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    initializeApiConfig()
+      .catch(() => {
+        // Non-fatal; app continues with built-in default API URL.
+      })
+      .finally(() => {
+        setApiConfigReady(true);
+      });
+  }, []);
 
   React.useEffect(() => {
     if (i18n.isInitialized) {
@@ -30,7 +42,7 @@ function AppNavigator() {
   }, []);
 
   React.useEffect(() => {
-    if (hydrated && i18nReady) {
+    if (hydrated && i18nReady && apiConfigReady) {
       // Small delay to ensure first themed frame is committed before hiding
       setTimeout(() => {
         SplashScreen.hideAsync().catch(() => {});
@@ -40,7 +52,7 @@ function AppNavigator() {
         // Logged within scheduler
       });
     }
-  }, [hydrated, i18nReady]);
+  }, [hydrated, i18nReady, apiConfigReady]);
 
   // Pre-warm audio mode once at app start so first playback isn't penalized.
   React.useEffect(() => {
@@ -127,6 +139,12 @@ function AppNavigator() {
         />
         <Stack.Screen
           name="settings/cache"
+          options={{
+            headerShown: false,
+          }}
+        />
+        <Stack.Screen
+          name="settings/api-server"
           options={{
             headerShown: false,
           }}
